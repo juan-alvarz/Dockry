@@ -27,7 +27,8 @@ final class HexColorTests: XCTestCase {
     func testAProfileWithABadColorLoadsWithoutIt() throws {
         let json = #"{ "name": "Gaming", "color": "purple" }"#
         XCTAssertNil(try JSONDecoder().decode(Profile.self, from: Data(json.utf8)).color)
-        let good = #"{ "name": "Gaming", "color": "#7c3aed" }"#
+        // Two #s: the color's "# would end a #"…"# string.
+        let good = ##"{ "name": "Gaming", "color": "#7c3aed" }"##
         XCTAssertEqual(try JSONDecoder().decode(Profile.self, from: Data(good.utf8)).color, "#7C3AED")
     }
 }
