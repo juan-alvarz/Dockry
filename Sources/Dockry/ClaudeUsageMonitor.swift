@@ -20,9 +20,10 @@ final class ClaudeUsageMonitor: ObservableObject {
     @Published private(set) var state = State.loading
 
     private static let refreshInterval: TimeInterval = 5 * 60
-    /// For CI, which has no Claude account: point the widget at a local test server.
-    private static let endpoint = URL(
-        string: UserDefaults.standard.string(forKey: "claudeUsageEndpoint") ?? "https://api.anthropic.com/api/oauth/usage")!
+    private static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
+    /// For CI, which has no Claude account: a local server with sample answers, used
+    /// without a sign-in.
+    private static let testEndpoint = UserDefaults.standard.string(forKey: "claudeUsageTestEndpoint").flatMap(URL.init(string:))
 
     private var refreshTask: Task<Void, Never>?
 
@@ -43,14 +44,14 @@ final class ClaudeUsageMonitor: ObservableObject {
     private func refresh() async -> TimeInterval {
         // On a background queue, never the main thread: the first read waits until the user
         // answers the Keychain prompt. (A Task.detached here still ran on the main thread.)
-        let token = await withCheckedContinuation { continuation in
+        let token = Self.testEndpoint != nil ? "test" : await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .utility).async { continuation.resume(returning: claudeCodeAccessToken()) }
         }
         guard let token else {
             state = .signedOut
             return Self.refreshInterval
         }
-        var request = URLRequest(url: Self.endpoint)
+        var request = URLRequest(url: Self.testEndpoint ?? Self.endpoint)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
         guard let (data, response) = try? await URLSession.shared.data(for: request),
