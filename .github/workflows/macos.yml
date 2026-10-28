@@ -56,33 +56,37 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref_name, 'dev-')
         run: scripts/publish-screenshots.sh "${{ github.ref_name }}"
 
-      # TEMPORARY: SACSwitchToUser takes a CFDictionary of user attributes. Find which keys
-      # it understands: each call's result, and who owns the screen afterwards.
-      - name: Probe SACSwitchToUser's dictionary
-        continue-on-error: true
-        run: |
+      # Last, because it sends this job's desktop session to the background.
+      - name: Check Fast User Switching
+        run: scripts/check-user-switching.sh
+
+  # TEMPORARY: which keys does SACSwitchToUser's attribute dictionary use? One fresh Mac per
+  # guess, since the first call that starts a switch makes loginwindow ignore the rest.
+  probe-user-switch:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [ds-arrays, ds-strings, short-keys, record-name]
+    steps:
+      - run: |
+          sudo sysadminctl -addUser alex -fullName "Alex Rivera" -password dockry-ci
           cat > /tmp/probe.swift <<'SWIFT'
           import Foundation
           let login = dlopen("/System/Library/PrivateFrameworks/login.framework/Versions/A/login", RTLD_NOW)
           let switchToUser = unsafeBitCast(dlsym(login, "SACSwitchToUser"), to: (@convention(c) (CFDictionary) -> Int32).self)
-          func owner() -> String { (try? FileManager.default.attributesOfItem(atPath: "/dev/console")[.ownerAccountName] as? String) ?? "?" }
-          let uid = CommandLine.arguments[1]
-          let variants: [(String, [String: Any])] = [
-            ("empty", [:]),
-            ("ds arrays", ["dsAttrTypeStandard:RecordName": ["alex"], "dsAttrTypeStandard:UniqueID": [uid]]),
-            ("ds strings", ["dsAttrTypeStandard:RecordName": "alex", "dsAttrTypeStandard:UniqueID": uid]),
-            ("short keys", ["name": "alex", "uid": Int(uid)!]),
-            ("UserName", ["UserName": "alex", "UID": Int(uid)!]),
-          ]
-          for (label, attributes) in variants {
-              let result = switchToUser(attributes as CFDictionary)
-              sleep(4)
-              print("\(label): result \(result), screen owner \(owner())")
+          let (variant, uid) = (CommandLine.arguments[1], CommandLine.arguments[2])
+          let attributes: [String: Any] = switch variant {
+          case "ds-arrays": ["dsAttrTypeStandard:RecordName": ["alex"], "dsAttrTypeStandard:UniqueID": [uid]]
+          case "ds-strings": ["dsAttrTypeStandard:RecordName": "alex", "dsAttrTypeStandard:UniqueID": uid]
+          case "short-keys": ["name": "alex", "uid": Int(uid)!]
+          default: ["dsAttrTypeStandard:RecordName": "alex"]
           }
+          print(variant, "result", switchToUser(attributes as CFDictionary))
           SWIFT
-          swift /tmp/probe.swift "$(id -u alex)"
-          log show --last 2m --predicate 'process == "loginwindow"' 2>/dev/null | grep -i -E "switch|SAC" | tail -40 || true
+          swift /tmp/probe.swift "${{ matrix.variant }}" "$(id -u alex)"
+          sleep 8
+          echo "screen owner: $(stat -f %Su /dev/console)"
+          log show --last 1m --style compact --predicate 'process == "loginwindow"' 2>/dev/null \
+            | grep -v CFPasteboard | grep -iE "switch|fus|alex|user|uid" | head -80 || true
 
-      # Last, because it sends this job's desktop session to the background.
-      - name: Check Fast User Switching
-        run: scripts/check-user-switching.sh
