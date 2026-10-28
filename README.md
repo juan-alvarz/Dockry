@@ -31,8 +31,9 @@ to show the widget with a track.
   other app that's running, then the profile's widgets. Like the system Dock it's exactly as
   long as what's in it; if that would be longer than the screen, it scrolls instead.
   A dot marks running apps, and the hovered app shows its name. Click to open or switch to an
-  app; an app that's launching bounces. Right-click an app to keep it in or remove it from
-  the profile, show it in Finder, or quit it.
+  app; an app that's launching bounces. Drag a pinned app along the dock to give it a new
+  place; the others make room as you drag. Right-click an app to keep it in or remove it
+  from the profile, show it in Finder, or quit it.
 - **Works like the macOS Dock:** bottom, left or right of the screen; any size from 16 to 128
   points (drag a separator line to resize, as in the Dock); magnification; automatic hiding.
   Right-click the dock's background for the same quick menu the Dock has.

@@ -33,6 +33,30 @@ open build/Dockry.app
 sleep 6
 screencapture -x "$out/1-work-profile.png"
 
+# Dragging Safari two places to the right (2 × 54 points) has to save the new order.
+swift scripts/drag-app.swift Safari 108 "$out/11-drag-to-reorder.png"
+sleep 1
+profiles="$HOME/Library/Application Support/Dockry/profiles.json"
+order=$(python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); print(" ".join(next(p["pinnedApps"] for p in d["profiles"] if p["name"] == "Work")))' "$profiles")
+if [[ "$order" != "com.apple.finder com.apple.mail com.apple.iCal com.apple.Safari com.apple.Notes com.apple.Terminal" ]]; then
+  echo "Dragging Safari didn't reorder the dock; Work's pinned apps are: $order" >&2
+  exit 1
+fi
+# ...without also clicking it, which would have brought Safari to the front.
+frontmost=$(osascript -e 'tell application "System Events" to get name of first process whose frontmost is true')
+if [[ "$frontmost" == "Safari" ]]; then
+  echo "Letting go after dragging Safari also opened it" >&2
+  exit 1
+fi
+# A plain click (a "drag" of 0 points) still has to open the app.
+swift scripts/drag-app.swift Calculator 0
+sleep 1
+frontmost=$(osascript -e 'tell application "System Events" to get name of first process whose frontmost is true')
+if [[ "$frontmost" != "Calculator" ]]; then
+  echo "Clicking Calculator in the dock didn't bring it to the front; $frontmost is in front" >&2
+  exit 1
+fi
+
 # ⌃⌥2 is Dockry's hot key for the second profile, Chill. key code 19 is the 2 key.
 osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' \
   || echo "couldn't send the hot key"
