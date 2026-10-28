@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 console_owner() { stat -f %Su /dev/console; }
-before=$(console_owner)
+before=$USER  # not read from /dev/console: an earlier step may already have switched
 swift scripts/switch-user.swift
 sleep 5
 after=$(console_owner)

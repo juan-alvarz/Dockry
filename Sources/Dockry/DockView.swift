@@ -23,8 +23,8 @@ struct DockView: View {
                 // Fade the ends so the overflow reads as "scroll for more", not as cut off.
                 .mask(LinearGradient(
                     stops: [
-                        .init(color: .clear, location: 0), .init(color: .black, location: 0.04),
-                        .init(color: .black, location: 0.96), .init(color: .clear, location: 1),
+                        .init(color: .clear, location: 0), .init(color: .black, location: 0.015),
+                        .init(color: .black, location: 0.985), .init(color: .clear, location: 1),
                     ],
                     startPoint: .leading, endPoint: .trailing))
         }
