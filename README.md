@@ -85,7 +85,8 @@ Switching, or Users & Groups on older versions.
 The weather widget asks for your location once, through macOS Location Services. It only
 needs your town, so it asks for city-level accuracy. The forecast comes from
 [Open-Meteo](https://open-meteo.com), which is free and needs no account or API key.
-Temperatures are in °F if your Mac uses US units, otherwise °C. Dockry refreshes every half
+Temperatures follow the Temperature setting in System Settings › General › Language &
+Region. Dockry refreshes every half
 hour while the widget is on screen. If you don't allow the location, the widget shows a
 crossed-out location arrow. You can turn it on later in System Settings › Privacy & Security
 › Location Services.

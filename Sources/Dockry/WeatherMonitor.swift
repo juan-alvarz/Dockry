@@ -19,6 +19,7 @@ final class WeatherMonitor: ObservableObject {
     @Published private(set) var state = State.loading
 
     private static let refreshInterval: TimeInterval = 30 * 60
+    private static let retryInterval: TimeInterval = 5 * 60
     /// For CI, where nobody can answer the location prompt: "latitude,longitude".
     private static let testLocation = UserDefaults.standard.string(forKey: "weatherTestLocation")
 
@@ -27,22 +28,14 @@ final class WeatherMonitor: ObservableObject {
     private var nextRefresh = Date.distantPast
     private var visibleWidgets = 0
 
-    private init() {}
+    private init() {
+        // Turning location on in System Settings should show the weather right away.
+        location.onAuthorizationChange = { [weak self] in self?.refreshNow() }
+    }
 
     func widgetAppeared() {
         visibleWidgets += 1
-        guard refreshTask == nil else { return }
-        refreshTask = Task {
-            while !Task.isCancelled {
-                let wait = nextRefresh.timeIntervalSinceNow
-                if wait > 0 {
-                    try? await Task.sleep(for: .seconds(wait))
-                } else {
-                    await refresh()
-                    nextRefresh = Date().addingTimeInterval(Self.refreshInterval)
-                }
-            }
-        }
+        startRefreshing()
     }
 
     func widgetDisappeared() {
@@ -52,20 +45,55 @@ final class WeatherMonitor: ObservableObject {
         refreshTask = nil
     }
 
-    private func refresh() async {
+    private func startRefreshing() {
+        guard refreshTask == nil else { return }
+        refreshTask = Task {
+            while !Task.isCancelled {
+                let wait = nextRefresh.timeIntervalSinceNow
+                if wait > 0 {
+                    try? await Task.sleep(for: .seconds(wait))
+                } else {
+                    let interval = await refresh()
+                    // A refresh cut short by the widget going away doesn't count.
+                    if !Task.isCancelled { nextRefresh = Date().addingTimeInterval(interval) }
+                }
+            }
+        }
+    }
+
+    private func refreshNow() {
+        nextRefresh = .distantPast
+        guard visibleWidgets > 0 else { return }
+        refreshTask?.cancel()
+        refreshTask = nil
+        startRefreshing()
+    }
+
+    /// Returns how long to wait before the next refresh. After a failure the last reading
+    /// stays on screen and the next try comes sooner.
+    private func refresh() async -> TimeInterval {
         guard let coordinate = await currentCoordinate() else {
-            state = .noLocation
-            return
+            if case .weather = state {} else { state = .noLocation }
+            return Self.retryInterval
         }
         let url = Weather.requestURL(
-            latitude: coordinate.latitude, longitude: coordinate.longitude,
-            fahrenheit: Locale.current.measurementSystem == .us)
-        guard let (data, _) = try? await URLSession.shared.data(from: url) else {
-            // Offline: keep showing the last reading.
-            if case .loading = state { state = .unavailable }
-            return
+            latitude: coordinate.latitude, longitude: coordinate.longitude, fahrenheit: Self.usesFahrenheit)
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let weather = Weather(responseJSON: data)
+        else {
+            if !Task.isCancelled, case .loading = state { state = .unavailable }
+            return Self.retryInterval
         }
-        state = Weather(responseJSON: data).map(State.weather) ?? .unavailable
+        state = .weather(weather)
+        return Self.refreshInterval
+    }
+
+    /// The Temperature setting in System Settings › General › Language & Region.
+    private static var usesFahrenheit: Bool {
+        if let unit = UserDefaults.standard.string(forKey: "AppleTemperatureUnit") {
+            return unit == "Fahrenheit"
+        }
+        return Locale.current.measurementSystem == .us
     }
 
     private func currentCoordinate() async -> CLLocationCoordinate2D? {
@@ -81,8 +109,11 @@ final class WeatherMonitor: ObservableObject {
 /// Weather only needs the town, so it asks for city-level accuracy.
 @MainActor
 private final class OneShotLocation: NSObject, CLLocationManagerDelegate {
+    var onAuthorizationChange: (() -> Void)?
+
     private let manager = CLLocationManager()
-    private var waiting: CheckedContinuation<CLLocation?, Never>?
+    /// Everyone waiting for the position being looked up; they all get the same answer.
+    private var waiting: [CheckedContinuation<CLLocation?, Never>] = []
 
     override init() {
         super.init()
@@ -91,9 +122,9 @@ private final class OneShotLocation: NSObject, CLLocationManagerDelegate {
     }
 
     func current() async -> CLLocation? {
-        guard waiting == nil else { return nil }
-        return await withCheckedContinuation { continuation in
-            waiting = continuation
+        await withCheckedContinuation { continuation in
+            waiting.append(continuation)
+            guard waiting.count == 1 else { return }  // a lookup is already under way
             switch manager.authorizationStatus {
             case .notDetermined:
                 manager.requestWhenInUseAuthorization()  // continues in the authorization callback
@@ -106,15 +137,19 @@ private final class OneShotLocation: NSObject, CLLocationManagerDelegate {
     }
 
     private func finish(with location: CLLocation?) {
-        waiting?.resume(returning: location)
-        waiting = nil
+        let continuations = waiting
+        waiting = []
+        continuations.forEach { $0.resume(returning: location) }
     }
 
     // Core Location calls these on the main thread, where the manager was created.
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         MainActor.assumeIsolated {
-            guard waiting != nil else { return }
+            guard !waiting.isEmpty else {
+                onAuthorizationChange?()
+                return
+            }
             switch manager.authorizationStatus {
             case .notDetermined: break
             case .denied, .restricted: finish(with: nil)

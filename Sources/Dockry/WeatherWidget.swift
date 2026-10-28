@@ -33,7 +33,7 @@ struct WeatherWidget: View {
                 Image(systemName: "cloud")
                     .font(.system(size: 18))
                     .foregroundStyle(.secondary)
-                    .help("Couldn't get the weather. Dockry tries again in half an hour.")
+                    .help("Couldn't get the weather. Dockry tries again in a few minutes.")
             }
         }
         .lineLimit(1)
