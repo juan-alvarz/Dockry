@@ -23,18 +23,22 @@ final class DockPanel: NSPanel {
         contentView = hostingView
     }
 
+    /// The part of the screen docks go in: visibleFrame leaves out the menu bar and, while
+    /// it's showing, the system Dock, so the two docks never overlap.
+    static func area(on screen: NSScreen, coversSystemDock: Bool) -> NSRect {
+        let visible = screen.visibleFrame
+        return coversSystemDock
+            ? NSRect(x: screen.frame.minX, y: screen.frame.minY, width: screen.frame.width, height: visible.maxY - screen.frame.minY)
+            : visible
+    }
+
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
     /// - Parameter coversSystemDock: Whether the panel may use the system Dock's space (while
     ///   Dockry hides that Dock).
     func place(on screen: NSScreen, position: DockPosition, thickness: CGFloat, coversSystemDock: Bool) {
-        // visibleFrame leaves out the menu bar and, while it's showing, the system Dock, so
-        // the two docks never overlap.
-        let visible = screen.visibleFrame
-        let area = coversSystemDock
-            ? NSRect(x: screen.frame.minX, y: screen.frame.minY, width: screen.frame.width, height: visible.maxY - screen.frame.minY)
-            : visible
+        let area = Self.area(on: screen, coversSystemDock: coversSystemDock)
         let frame = switch position {
         case .bottom: NSRect(x: area.minX, y: area.minY, width: area.width, height: thickness)
         case .left: NSRect(x: area.minX, y: area.minY, width: thickness, height: area.height)
@@ -96,6 +100,8 @@ final class DockController {
         let screens = NSScreen.screens
         let chosen = DockPlacement.screens(screens.map(\.frame), position: dock.position).map { screens[$0] }
 
+        updateWindowSpace(screens: chosen, dock: dock, metrics: metrics)
+
         let chosenIDs = Set(chosen.compactMap(\.displayID))
         for (id, removed) in docks where !chosenIDs.contains(id) {
             removed.panel.orderOut(nil)
@@ -112,6 +118,29 @@ final class DockController {
             entry.pointer.autohides = dock.autohides
             entry.pointer.canResize = !settings.syncsWithMacDock
             entry.panel.orderFrontRegardless()
+        }
+    }
+
+    /// Keeps windows out of the docks' space, except while the dock hides automatically:
+    /// the macOS Dock keeps no space then either.
+    private func updateWindowSpace(screens: [NSScreen], dock: DockSettings, metrics: DockMetrics) {
+        let keeper = WindowSpaceKeeper.shared
+        keeper.isEnabled = settings.keepsWindowsClear && !dock.autohides
+        guard keeper.isEnabled else {
+            keeper.reservations = []
+            return
+        }
+        // The dock itself and its gap from the screen edge; magnified icons may still go over windows.
+        let thickness = metrics.thickness + DockMetrics.margin
+        keeper.reservations = screens.map { screen in
+            let area = DockPanel.area(on: screen, coversSystemDock: coversSystemDock)
+            let allowed = WindowFit.allowedArea(visible: screen.visibleFrame, dockArea: area, position: dock.position, thickness: thickness)
+            let strip = switch dock.position {
+            case .bottom: NSRect(x: screen.frame.minX, y: screen.frame.minY, width: screen.frame.width, height: allowed.minY - screen.frame.minY)
+            case .left: NSRect(x: screen.frame.minX, y: screen.frame.minY, width: allowed.minX - screen.frame.minX, height: screen.frame.height)
+            case .right: NSRect(x: allowed.maxX, y: screen.frame.minY, width: screen.frame.maxX - allowed.maxX, height: screen.frame.height)
+            }
+            return WindowSpaceKeeper.Reservation(position: dock.position, dock: strip, allowed: allowed)
         }
     }
 

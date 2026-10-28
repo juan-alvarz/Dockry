@@ -84,6 +84,7 @@ private struct SettingsView: View {
 
 private struct GeneralSettings: View {
     @ObservedObject var settings: SettingsStore
+    @ObservedObject private var windowSpace = WindowSpaceKeeper.shared
     @State private var opensAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
 
@@ -153,6 +154,21 @@ private struct GeneralSettings: View {
                 Text("At the bottom, Dockry shows a dock on every screen. On the left or right, it’s on the screen at that edge of your display arrangement.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("Windows") {
+                Toggle("Keep windows out of the dock’s space", isOn: $settings.keepsWindowsClear)
+                Text("As with the macOS Dock, windows stop at the dock’s edge: a zoomed window fills the space above it, and a window dragged behind it moves back out. Not while the dock hides automatically, which keeps no space.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if settings.keepsWindowsClear && !windowSpace.isTrusted {
+                    HStack {
+                        Label("Needs Accessibility access to move windows.", systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Spacer()
+                        Button("Allow…") { windowSpace.requestAccess() }
+                    }
+                }
             }
 
             Section("macOS Dock") {

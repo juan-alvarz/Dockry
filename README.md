@@ -39,6 +39,11 @@ to show the widget with a track.
 - **Works like the macOS Dock:** bottom, left or right of the screen; any size from 16 to 128
   points (drag a separator line to resize, as in the Dock); magnification; automatic hiding.
   Right-click the dock's background for the same quick menu the Dock has.
+- **Keeps its space, like the macOS Dock:** windows stop at the dock's edge. A zoomed window
+  fills the space above the dock, and a window dragged behind it moves back out when you let
+  go. While the dock hides automatically it keeps no space, as with the Dock. macOS only
+  lets its own Dock change the space it gives windows, so Dockry moves them through
+  Accessibility instead (it asks for access); turn this off in Settings › General.
 - **Every screen:** at the bottom, each screen gets a dock. On the left or right, only the
   screen at that edge of your display arrangement does: with the built-in display on the left
   and an external one on the right, a left dock is on the built-in display and a right dock
