@@ -18,8 +18,9 @@ Dock while it runs and gives it back when it quits.
 | **Profile switcher (⌃⌥Space)** | **Menu bar** |
 | ![Profile switcher](docs/screenshots/3-profile-switcher.png) | ![Menu bar menu](docs/screenshots/4-menu-bar.png) |
 
-The screenshots are taken by CI on a GitHub-hosted macOS machine on every push to `dev`.
-Feature branches (`dev-*`) publish theirs to the
+The screenshots are taken on a GitHub-hosted macOS machine by the **Build & Screenshots**
+workflow, which only runs when started from the Actions tab. On `dev` it commits them here;
+feature branches (`dev-*`) publish theirs to the
 [`screenshots`](https://github.com/juan-alvarz/Dockry/tree/screenshots) branch, one folder
 per branch, so PRs into `dev` don't carry PNG changes that conflict with each other.
 That machine has no Spotify, so CI sends the notification Spotify posts when a song starts
@@ -113,9 +114,12 @@ open build/Dockry.app
 Don't run `scripts/screenshots.sh` on your own Mac. It's meant for CI: it opens and quits
 apps and changes the Dock's settings.
 
-To publish a release, run the **Release** workflow from the Actions tab on `main` with a
-version such as `0.0.2`. It tags the commit `Dockry-0.0.2` and attaches a universal
-Dockry.app as a disk image and as a zip. Pushing a `Dockry-*` tag does the same.
+GitHub Actions only run when started by hand from the Actions tab, on the branch you pick:
+
+- **Build & Screenshots** builds, runs the tests, takes the screenshots above and checks Fast
+  User Switching.
+- **Release**, given a version such as `0.0.7`, tests and builds a universal Dockry.app, tags
+  the commit `Dockry-0.0.7` and publishes it as a disk image and a zip.
 
 ## Setup
 
@@ -216,5 +220,5 @@ turn off Edit › Substitutions › Smart Quotes first: curly quotes aren't vali
 | `Sources/DockryCore` | Profiles, dock settings, magnification and screen placement, Spotify's Web API, shortcut parsing. Plain Foundation, unit tested. |
 | `Sources/Dockry` | The app: dock window and views, menu bar, hot keys, system Dock and desktop integration. |
 | `App` | Bundle metadata and the app icon, used by `scripts/bundle.sh` (see `App/README.md`). |
-| `.github/workflows/macos.yml` | Builds, tests and takes the screenshots on a macOS runner. |
-| `.github/workflows/release.yml` | Builds a universal Dockry.app and publishes it, as a disk image and a zip, as a GitHub release. |
+| `.github/workflows/screenshots.yml` | Builds, tests and takes the screenshots on a macOS runner, when started by hand. |
+| `.github/workflows/release.yml` | Builds a universal Dockry.app and publishes it, as a disk image and a zip, as a GitHub release, when started by hand. |
