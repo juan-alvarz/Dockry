@@ -1,4 +1,5 @@
 import AppKit
+import DockryCore
 import SwiftUI
 
 extension View {
@@ -53,12 +54,18 @@ enum ScreenshotHook {
     static var popover: String? { UserDefaults.standard.string(forKey: "openPopover") }
     static var spotifySearchQuery: String? { UserDefaults.standard.string(forKey: "spotifySearchQuery") }
     static var settingsTab: String? { UserDefaults.standard.string(forKey: "showSettings") }
+    /// The widget to show in Settings › Widgets.
+    static var settingsWidget: WidgetKind? { UserDefaults.standard.string(forKey: "showWidget").flatMap(WidgetKind.init(rawValue:)) }
     /// Logs when the pointer enters and leaves a dock, to see what the magnification sees.
     static var logsPointer: Bool { UserDefaults.standard.bool(forKey: "logPointer") }
     /// Playback to show without Spotify, as SpotifyPlayback's AppleScript output with commas
     /// for line breaks: position,duration,volume,shuffling,repeating.
     static var spotifyPlayback: String? {
         UserDefaults.standard.string(forKey: "spotifyTestPlayback")?.replacingOccurrences(of: ",", with: "\n")
+    }
+    /// Album art for the song CI's notification announces, which (like Spotify's own) has none.
+    static var spotifyArtwork: URL? {
+        UserDefaults.standard.string(forKey: "spotifyTestArtwork").map { URL(fileURLWithPath: $0) }
     }
     /// A saved Spotify search response to show instead of searching, for CI's screenshots.
     static var spotifySearchResponse: URL? {

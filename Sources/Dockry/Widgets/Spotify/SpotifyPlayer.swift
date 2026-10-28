@@ -117,7 +117,7 @@ final class SpotifyPlayer: ObservableObject {
             return
         }
         let isSameSong = newTrack.title == track?.title && newTrack.artist == track?.artist
-        newTrack.artworkURL = isSameSong ? track?.artworkURL : nil
+        newTrack.artworkURL = isSameSong ? track?.artworkURL : ScreenshotHook.spotifyArtwork
         track = newTrack
         // The notification has no artwork; ask Spotify for it.
         if newTrack.artworkURL == nil && isSpotifyRunning {

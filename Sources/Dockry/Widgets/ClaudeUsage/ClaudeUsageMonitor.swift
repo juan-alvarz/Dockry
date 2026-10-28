@@ -24,6 +24,12 @@ final class ClaudeUsageMonitor: ObservableObject {
 
     @Published private(set) var state = State.loading
 
+    /// Where clicking the widget goes.
+    static let usagePage = URL(string: "https://claude.ai/settings/usage")!
+
+    /// Whether a widget is in the dock, which is when usage is fetched.
+    var isWatching: Bool { visibleWidgets > 0 }
+
     private static let refreshInterval: TimeInterval = 5 * 60
     private static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
     /// For CI, which has no Claude account: a file with a sample answer from the endpoint.
@@ -31,7 +37,7 @@ final class ClaudeUsageMonitor: ObservableObject {
 
     private var refreshTask: Task<Void, Never>?
     private var nextRefresh = Date.distantPast
-    private var visibleWidgets = 0
+    @Published private var visibleWidgets = 0
     /// Set when the user denies the Keychain prompt, so it isn't shown again until restart.
     private var keychainDenied = false
 

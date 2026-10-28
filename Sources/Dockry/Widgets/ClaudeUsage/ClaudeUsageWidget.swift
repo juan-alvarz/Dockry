@@ -6,6 +6,11 @@ import SwiftUI
 /// the usage page on claude.ai. In a dock on the side of the screen it's a ring for the
 /// 5-hour limit.
 struct ClaudeUsageWidget: View {
+    static let widget = DockWidget(
+        info: WidgetKind.claude.info,
+        makeView: { AnyView(ClaudeUsageWidget()) },
+        makeSettings: { AnyView(ClaudeUsageSettings()) })
+
     @ObservedObject private var monitor = ClaudeUsageMonitor.shared
     @Environment(\.dockMetrics) private var metrics
 
@@ -28,7 +33,7 @@ struct ClaudeUsageWidget: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(helpText)
+        .help(monitor.state.explanation)
         // Fetch only while the widget is on screen.
         .onAppear { monitor.widgetAppeared() }
         .onDisappear { monitor.widgetDisappeared() }
@@ -76,9 +81,7 @@ struct ClaudeUsageWidget: View {
     }
 
     private func openUsagePage() {
-        if let url = URL(string: "https://claude.ai/settings/usage") {
-            NSWorkspace.shared.open(url)
-        }
+        NSWorkspace.shared.open(ClaudeUsageMonitor.usagePage)
     }
 
     private func message(_ text: String) -> some View {
@@ -86,31 +89,9 @@ struct ClaudeUsageWidget: View {
             .font(.system(size: 11, weight: .medium))
             .lineLimit(1)
     }
-
-    private var helpText: String {
-        switch monitor.state {
-        case .usage(let usage):
-            return [("5-hour limit", usage.session), ("Weekly limit", usage.week)]
-                .map { name, window in
-                    let resets = window.resetsAt.map { ", resets \($0.formatted(.relative(presentation: .named)))" } ?? ""
-                    return "\(name): \(Int(window.percentUsed.rounded()))% used\(resets)"
-                }
-                .joined(separator: "\n")
-        case .signedOut:
-            return "Sign in to Claude Code, and allow Dockry to read its saved sign-in when macOS asks."
-        case .accessDenied:
-            return "Dockry wasn't allowed to read Claude Code's sign-in. It asks again the next time it starts."
-        case .expired:
-            return "Open Claude Code to refresh its sign-in."
-        case .unavailable:
-            return "Couldn't get your Claude usage. Dockry tries again in a few minutes."
-        case .loading:
-            return "Getting your Claude usage…"
-        }
-    }
 }
 
-private struct UsageBar: View {
+struct UsageBar: View {
     let label: String
     let window: ClaudeUsage.Window
 

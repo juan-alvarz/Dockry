@@ -123,7 +123,7 @@ struct SpotifyPopover: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
-                    Button("Open Settings…") { SettingsWindow.show(tab: .spotify) }
+                    Button("Open Settings…") { SettingsWindow.show(widget: .spotify) }
                     if !query.isEmpty, let url = Self.spotifySearchURL(query) {
                         Button("Search in Spotify") { NSWorkspace.shared.open(url) }
                     }

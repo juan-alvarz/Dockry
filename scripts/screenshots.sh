@@ -36,6 +36,8 @@ cat > "$usage_response" <<'JSON'
  "seven_day": {"utilization": 72, "resets_at": "2030-01-05T00:00:00Z"}}
 JSON
 defaults write "$bundle_id" claudeUsageTestResponse "$usage_response"
+# Spotify's notification has no album art, and CI can't ask Spotify for it; use a sample.
+defaults write "$bundle_id" spotifyTestArtwork "$PWD/scripts/sample-album-art.png"
 
 # Apps for the "running" part of the dock: two pinned in Work, two that aren't.
 for app in Safari Notes Calculator TextEdit; do
@@ -139,6 +141,8 @@ relaunch -showSettings general
 screencapture -x "$out/7-settings-general.png"
 relaunch -showSettings profiles
 screencapture -x "$out/8-settings-profiles.png"
+relaunch -showWidget spotify
+screencapture -x "$out/12-settings-widgets.png"
 
 # The calendar from the date widget (in the active profile, Work).
 relaunch -openPopover calendar

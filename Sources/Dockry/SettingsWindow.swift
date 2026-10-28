@@ -4,7 +4,7 @@ import ServiceManagement
 import SwiftUI
 
 enum SettingsTab: String {
-    case general, profiles, spotify
+    case general, profiles, widgets
 }
 
 /// Dockry's Settings window, opened from the menu bar item, the dock's menu or ⌘,.
@@ -24,6 +24,17 @@ enum SettingsWindow {
         if let tab {
             selection.tab = tab
         }
+        showWindow()
+    }
+
+    /// Opens Settings › Widgets on one widget.
+    static func show(widget: WidgetKind) {
+        selection.tab = .widgets
+        selection.widget = widget
+        showWindow()
+    }
+
+    private static func showWindow() {
         if window == nil, let makeContent {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 720, height: 600),
@@ -43,6 +54,8 @@ enum SettingsWindow {
 @MainActor
 final class SettingsSelection: ObservableObject {
     @Published var tab = SettingsTab.general
+    /// The widget shown in Settings › Widgets.
+    @Published var widget = WidgetCatalog.all[0].kind
 }
 
 private struct SettingsView: View {
@@ -58,9 +71,9 @@ private struct SettingsView: View {
             ProfilesSettings(store: store)
                 .tabItem { Label("Profiles", systemImage: "square.stack") }
                 .tag(SettingsTab.profiles)
-            SpotifySettings()
-                .tabItem { Label("Spotify", systemImage: "music.note") }
-                .tag(SettingsTab.spotify)
+            WidgetsSettings(store: store, selection: selection)
+                .tabItem { Label("Widgets", systemImage: "square.grid.2x2") }
+                .tag(SettingsTab.widgets)
         }
         .padding(.top, 8)
         .frame(minWidth: 680, minHeight: 540)
@@ -347,11 +360,11 @@ private struct ProfileEditor: View {
 
             Section("Widgets") {
                 let enabled = profile.widgets
-                let disabled = WidgetKind.allCases.filter { !enabled.contains($0) }
+                let disabled = WidgetCatalog.all.map(\.kind).filter { !enabled.contains($0) }
                 ForEach(Array(enabled.enumerated()), id: \.element) { index, kind in
                     HStack {
                         Toggle(isOn: Binding(get: { true }, set: { _ in change { $0.widgets.removeAll { $0 == kind } } })) {
-                            Label(kind.title, systemImage: kind.symbol)
+                            WidgetLabel(info: kind.info)
                         }
                         Spacer()
                         rowButtons(
@@ -362,9 +375,10 @@ private struct ProfileEditor: View {
                 }
                 ForEach(disabled, id: \.self) { kind in
                     Toggle(isOn: Binding(get: { false }, set: { _ in change { $0.widgets.append(kind) } })) {
-                        Label(kind.title, systemImage: kind.symbol)
+                        WidgetLabel(info: kind.info)
                     }
                 }
+                Button("About Widgets…") { SettingsWindow.show(tab: .widgets) }
             }
         }
         .formStyle(.grouped)
@@ -435,60 +449,15 @@ private extension Array {
     }
 }
 
-// MARK: - Spotify
-
-private struct SpotifySettings: View {
-    @ObservedObject private var account = SpotifyAccount.shared
+/// A widget's icon and name, with what it does as the tooltip.
+private struct WidgetLabel: View {
+    let info: WidgetInfo
 
     var body: some View {
-        Form {
-            Section {
-                Text("Searching from the Spotify widget uses your Spotify account. Spotify asks every app for its own client ID, so set one up once:")
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("1. Open the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create an app. Any name works.")
-                    Text("2. Under Redirect URIs, add the one below. Under APIs, choose Web API.")
-                    Text("3. Copy the app’s Client ID into the field below and click Sign In.")
-                }
-                .font(.callout)
-                LabeledContent("Redirect URI") {
-                    HStack {
-                        Text(SpotifyWebAPI.redirectURI)
-                            .font(.system(.body, design: .monospaced))
-                            .textSelection(.enabled)
-                        Button("Copy") {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(SpotifyWebAPI.redirectURI, forType: .string)
-                        }
-                    }
-                }
-                TextField("Client ID", text: $account.clientID)
-            }
-
-            Section {
-                HStack {
-                    statusLabel
-                    Spacer()
-                    if account.status == .signedIn {
-                        Button("Sign Out") { account.signOut() }
-                    } else {
-                        Button("Sign In…") { account.signIn() }
-                            .disabled(account.clientID.trimmingCharacters(in: .whitespaces).isEmpty)
-                    }
-                }
-                Text("Songs you pick play in the Spotify app, which stays in the background. Playing doesn’t need Premium.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+        HStack(spacing: 8) {
+            WidgetIcon(info: info, size: 20)
+            Text(info.name)
         }
-        .formStyle(.grouped)
-    }
-
-    @ViewBuilder private var statusLabel: some View {
-        switch account.status {
-        case .signedOut: Label("Not signed in", systemImage: "person.crop.circle.badge.xmark")
-        case .signingIn: Label("Finish signing in in your browser…", systemImage: "safari")
-        case .signedIn: Label("Signed in", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-        case .failed(let message): Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-        }
+        .help(info.summary)
     }
 }

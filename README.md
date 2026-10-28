@@ -17,6 +17,8 @@ Dock while it runs and gives it back when it quits.
 | ![Settings](docs/screenshots/7-settings-general.png) | ![Profile editor](docs/screenshots/8-settings-profiles.png) |
 | **Profile switcher (⌃⌥Space)** | **Menu bar** |
 | ![Profile switcher](docs/screenshots/3-profile-switcher.png) | ![Menu bar menu](docs/screenshots/4-menu-bar.png) |
+| **Widgets** | |
+| ![Widgets settings](docs/screenshots/12-settings-widgets.png) | |
 
 The screenshots are taken by CI on a GitHub-hosted macOS machine on every push to `dev`.
 Feature branches (`dev-*`) publish theirs to the
@@ -52,7 +54,8 @@ to show the widget with a track.
   `/usage` shows in Claude Code; click for the usage page on claude.ai). Clicking the
   Spotify song opens a player: progress you can drag, volume, shuffle and repeat, and search
   that plays songs without bringing Spotify to the front. Widgets scale with the dock, and on
-  a side dock they turn into compact tiles.
+  a side dock they turn into compact tiles. **Settings › Widgets** lists every widget with
+  what it does and what it needs, the profiles it's in, and its own settings.
 - **Fast User Switching:** the users widget shows the Mac's other accounts. Click one to
   switch to it, as you would from the user menu in Control Center. **Switch User** in the
   menu bar menu does the same and also opens the login window.
@@ -162,7 +165,7 @@ the buttons do nothing. You can change this later in System Settings › Privacy
 Automation. Pressing play while Spotify is closed opens it.
 
 **Search** is behind the magnifying glass in the player. It goes through the Spotify Web API, and Spotify gives every app its own client ID,
-so it needs a one-time setup, explained step by step in Settings › Spotify: create a free
+so it needs a one-time setup, explained step by step in Settings › Widgets › Spotify: create a free
 app on the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), add
 `dockry://spotify-callback` as its redirect URI, paste its client ID into Dockry and sign in.
 Dockry signs in with PKCE (no client secret) and keeps the sign-in in your keychain. Songs
@@ -215,6 +218,7 @@ turn off Edit › Substitutions › Smart Quotes first: curly quotes aren't vali
 |---|---|
 | `Sources/DockryCore` | Profiles, dock settings, magnification and screen placement, Spotify's Web API, shortcut parsing. Plain Foundation, unit tested. |
 | `Sources/Dockry` | The app: dock window and views, menu bar, hot keys, system Dock and desktop integration. |
+| `Sources/Dockry/Widgets` | One folder per widget. Each describes itself with a `WidgetInfo` (name, icon, what it does, what it needs; in `DockryCore`) and provides its dock view and, optionally, its settings as a `DockWidget`. |
 | `App` | Bundle metadata and the app icon, used by `scripts/bundle.sh` (see `App/README.md`). |
 | `.github/workflows/macos.yml` | Builds, tests and takes the screenshots on a macOS runner. |
 | `.github/workflows/release.yml` | Builds a universal Dockry.app and publishes it, as a disk image and a zip, as a GitHub release. |
