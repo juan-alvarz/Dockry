@@ -32,6 +32,8 @@ final class ClaudeUsageMonitor: ObservableObject {
     private var refreshTask: Task<Void, Never>?
     private var nextRefresh = Date.distantPast
     private var visibleWidgets = 0
+    /// Set when the user denies the Keychain prompt, so it isn't shown again until restart.
+    private var keychainDenied = false
 
     private init() {}
 
@@ -64,6 +66,7 @@ final class ClaudeUsageMonitor: ObservableObject {
             state = ClaudeUsage(responseJSON: data).map(State.usage) ?? .unavailable
             return Self.refreshInterval
         }
+        guard !keychainDenied else { return Self.refreshInterval }
         // On a background queue, never the main thread: the first read waits until the user
         // answers the Keychain prompt. (A Task.detached here still ran on the main thread.)
         let signIn = await withCheckedContinuation { continuation in
@@ -77,8 +80,9 @@ final class ClaudeUsageMonitor: ObservableObject {
             state = .signedOut
             return Self.refreshInterval
         case .denied:
+            keychainDenied = true
             state = .accessDenied
-            return .infinity
+            return Self.refreshInterval
         }
         var request = URLRequest(url: Self.endpoint)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
