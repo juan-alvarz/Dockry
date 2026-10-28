@@ -45,4 +45,41 @@ final class ClaudeUsageTests: XCTestCase {
         XCTAssertEqual(ClaudeUsage.accessToken(fromCredentials: Data(credentials.utf8)), "sk-ant-oat01-abc")
         XCTAssertNil(ClaudeUsage.accessToken(fromCredentials: Data("{}".utf8)))
     }
+
+    func testAnExpiredSignInNeedsRefreshing() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        func credentials(expiresAt: Double) -> Data {
+            Data(#"{"claudeAiOauth": {"accessToken": "a", "expiresAt": \#(expiresAt)}}"#.utf8)
+        }
+        XCTAssertTrue(ClaudeUsage.needsRefresh(credentials(expiresAt: 999_000_000), now: now))
+        XCTAssertTrue(ClaudeUsage.needsRefresh(credentials(expiresAt: 1_000_030_000), now: now))  // in 30 s
+        XCTAssertFalse(ClaudeUsage.needsRefresh(credentials(expiresAt: 1_003_600_000), now: now))
+        XCTAssertFalse(ClaudeUsage.needsRefresh(Data(#"{"claudeAiOauth": {"accessToken": "a"}}"#.utf8), now: now))
+    }
+
+    func testRefreshAsksForTheSavedScopes() throws {
+        let credentials = #"{"claudeAiOauth": {"refreshToken": "r1", "scopes": ["user:inference", "user:profile"]}}"#
+        let body = try XCTUnwrap(ClaudeUsage.refreshRequestBody(credentials: Data(credentials.utf8)))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+        XCTAssertEqual(object["grant_type"], "refresh_token")
+        XCTAssertEqual(object["refresh_token"], "r1")
+        XCTAssertEqual(object["scope"], "user:inference user:profile")
+        XCTAssertEqual(object["client_id"], ClaudeUsage.clientID)
+        XCTAssertNil(ClaudeUsage.refreshRequestBody(credentials: Data(#"{"claudeAiOauth": {}}"#.utf8)))
+    }
+
+    func testRefreshedCredentialsKeepEverythingElse() throws {
+        let credentials = #"{"claudeAiOauth": {"accessToken": "old", "refreshToken": "r1", "expiresAt": 1, "subscriptionType": "max"}, "other": 1}"#
+        let response = #"{"access_token": "new", "refresh_token": "r2", "expires_in": 3600, "token_type": "Bearer"}"#
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let updated = try XCTUnwrap(ClaudeUsage.credentials(Data(credentials.utf8), refreshedWith: Data(response.utf8), now: now))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: updated) as? [String: Any])
+        let oauth = try XCTUnwrap(object["claudeAiOauth"] as? [String: Any])
+        XCTAssertEqual(oauth["accessToken"] as? String, "new")
+        XCTAssertEqual(oauth["refreshToken"] as? String, "r2")
+        XCTAssertEqual((oauth["expiresAt"] as? NSNumber)?.int64Value, 1_003_600_000)
+        XCTAssertEqual(oauth["subscriptionType"] as? String, "max")
+        XCTAssertEqual(object["other"] as? Int, 1)
+        XCTAssertNil(ClaudeUsage.credentials(Data(credentials.utf8), refreshedWith: Data(#"{"error": "invalid_grant"}"#.utf8), now: now))
+    }
 }

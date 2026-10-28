@@ -52,7 +52,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         quitGracefullyOnSIGTERM()
 
-        if let tab = ScreenshotHook.settingsTab {
+        if let widget = ScreenshotHook.settingsWidget {
+            SettingsWindow.show(widget: widget)
+        } else if let tab = ScreenshotHook.settingsTab {
             SettingsWindow.show(tab: SettingsTab(rawValue: tab))
         }
     }

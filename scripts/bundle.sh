@@ -23,6 +23,9 @@ iconutil --convert icns App/AppIcon.iconset --output "$app/Contents/Resources/Ap
 if [[ -n "$version" ]]; then
   plutil -replace CFBundleShortVersionString -string "$version" "$app/Contents/Info.plist"
 fi
-# Ad-hoc signature, enough to run locally and to be listed under Accessibility.
-codesign --force --sign - "$app"
+# The "Dockry Dev" certificate from scripts/make-signing-cert.sh when it's there, so macOS keeps
+# the Accessibility and Automation grants across builds; otherwise (CI) an ad-hoc signature.
+identity=-
+if security find-identity -v -p codesigning | grep -q '"Dockry Dev"'; then identity="Dockry Dev"; fi
+codesign --force --sign "$identity" "$app"
 echo "Built $app"

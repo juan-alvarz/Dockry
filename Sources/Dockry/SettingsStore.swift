@@ -26,6 +26,11 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(hidesSystemDock, forKey: Key.hidesSystemDock) }
     }
 
+    /// Keep other apps' windows out of the dock's space, like the macOS Dock.
+    @Published var keepsWindowsClear: Bool {
+        didSet { defaults.set(keepsWindowsClear, forKey: Key.keepsWindowsClear) }
+    }
+
     /// What the dock uses right now.
     var dock: DockSettings { syncsWithMacDock ? macDock : own }
 
@@ -36,6 +41,7 @@ final class SettingsStore: ObservableObject {
         static let syncsWithMacDock = "syncsWithMacDock"
         static let showsUnpinnedApps = "showsUnpinnedApps"
         static let hidesSystemDock = "hideSystemDock"
+        static let keepsWindowsClear = "keepsWindowsClear"
         static let position = "position"
         static let iconSize = "iconSize"
         static let magnifies = "magnifies"
@@ -59,6 +65,7 @@ final class SettingsStore: ObservableObject {
         syncsWithMacDock = defaults.bool(forKey: Key.syncsWithMacDock)
         showsUnpinnedApps = defaults.object(forKey: Key.showsUnpinnedApps) as? Bool ?? true
         hidesSystemDock = defaults.bool(forKey: Key.hidesSystemDock)
+        keepsWindowsClear = defaults.object(forKey: Key.keepsWindowsClear) as? Bool ?? true
         macDock = Self.readMacDock()
         updateMacDockWatch()
     }

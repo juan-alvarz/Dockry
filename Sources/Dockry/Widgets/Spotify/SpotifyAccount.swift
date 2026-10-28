@@ -24,9 +24,9 @@ final class SpotifyAccount: ObservableObject {
     var canSearch: Bool { status == .signedIn || ScreenshotHook.spotifySearchResponse != nil }
 
     private static let clientIDKey = "spotifyClientID"
-    // Whether a refresh token is in the keychain, so launching doesn't need to read it.
+    // Whether a refresh token is saved, so launching doesn't need to read it.
     private static let signedInKey = "spotifySignedIn"
-    private static let refreshTokenAccount = "spotify-refresh-token"
+    private static let refreshTokenFile = "spotify-refresh-token"
 
     private var token: SpotifyToken?
     private var pendingSignIn: (verifier: String, state: String)?
@@ -55,7 +55,7 @@ final class SpotifyAccount: ObservableObject {
         token = nil
         status = .signedOut
         UserDefaults.standard.set(false, forKey: Self.signedInKey)
-        Task { await Keychain.delete(Self.refreshTokenAccount) }
+        SecretFile.delete(Self.refreshTokenFile)
     }
 
     /// The dockry:// URL Spotify sends the browser back to after signing in.
@@ -99,7 +99,7 @@ final class SpotifyAccount: ObservableObject {
         if let token, token.expiresAt > Date() {
             return token.accessToken
         }
-        guard let refreshToken = await Keychain.read(Self.refreshTokenAccount) else {
+        guard let refreshToken = SecretFile.read(Self.refreshTokenFile) else {
             status = .signedOut
             UserDefaults.standard.set(false, forKey: Self.signedInKey)
             throw SpotifyError.signedOut
@@ -124,11 +124,11 @@ final class SpotifyAccount: ObservableObject {
         return try SpotifyWebAPI.parseToken(data, now: Date())
     }
 
-    private func store(_ newToken: SpotifyToken) async {
+    private func store(_ newToken: SpotifyToken) {
         token = newToken
         // Spotify may hand out a new refresh token; the old one then stops working.
         if let refreshToken = newToken.refreshToken {
-            await Keychain.save(refreshToken, for: Self.refreshTokenAccount)
+            SecretFile.save(refreshToken, as: Self.refreshTokenFile)
             UserDefaults.standard.set(true, forKey: Self.signedInKey)
         }
     }

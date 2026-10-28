@@ -18,7 +18,12 @@ enum AppCatalog {
         if let cached = cache[bundleID] {
             return cached
         }
-        guard let url = running?.bundleURL ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+        // Apps without a bundle identifier go by their path (see RunningApps.dockID).
+        let installed = bundleID.hasPrefix("/")
+            ? URL(fileURLWithPath: bundleID)
+            : NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+        guard let url = running?.bundleURL ?? running?.executableURL ?? installed,
+              FileManager.default.fileExists(atPath: url.path)
         else { return nil }
         let app = App(
             name: running?.localizedName ?? FileManager.default.displayName(atPath: url.path),
