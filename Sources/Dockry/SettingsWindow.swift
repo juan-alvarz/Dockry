@@ -26,7 +26,7 @@ enum SettingsWindow {
         }
         if window == nil, let makeContent {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 640, height: 560),
+                contentRect: NSRect(x: 0, y: 0, width: 720, height: 600),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered, defer: false)
             window.title = "Dockry Settings"
@@ -63,7 +63,7 @@ private struct SettingsView: View {
                 .tag(SettingsTab.spotify)
         }
         .padding(.top, 8)
-        .frame(minWidth: 600, minHeight: 520)
+        .frame(minWidth: 680, minHeight: 540)
     }
 }
 
@@ -185,6 +185,7 @@ private struct ProfilesSettings: View {
                 Divider()
                 if let profile = store.library.profiles.first(where: { $0.name == selectedName }) {
                     ProfileEditor(store: store, profile: profile) { selectedName = $0 }
+                        .frame(maxWidth: .infinity)
                 } else {
                     Text("Select a profile")
                         .foregroundStyle(.secondary)
@@ -268,7 +269,7 @@ private struct ProfileEditor: View {
                             .labelsHidden()
                     }
                 }
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(30)), count: 12), spacing: 4) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 28), spacing: 4)], spacing: 4) {
                     ForEach(Self.suggestedSymbols, id: \.self) { symbol in
                         Button { change { $0.symbol = symbol } } label: {
                             Image(systemName: symbol)
