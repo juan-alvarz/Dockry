@@ -36,6 +36,22 @@ cat > "$usage_response" <<'JSON'
  "seven_day": {"utilization": 72, "resets_at": "2030-01-05T00:00:00Z"}}
 JSON
 defaults write "$bundle_id" claudeUsageTestResponse "$usage_response"
+# Dockry has no shortcuts until the user sets them; give CI the ones it presses below:
+# ⌃⌥Space for the switcher, ⌃⌥1 and ⌃⌥2 for the default profiles.
+shortcut() { echo "{\"keyCode\": $1, \"modifierFlags\": 786432, \"key\": \"$2\"}"; }
+defaults write "$bundle_id" profileSwitcherShortcut -data "$(shortcut 49 Space | xxd -p | tr -d '\n')"
+mkdir -p "$HOME/Library/Application Support/Dockry"
+cat > "$HOME/Library/Application Support/Dockry/profiles.json" <<JSON
+{"activeProfileName": "Work", "profiles": [
+  {"name": "Work", "symbol": "briefcase.fill", "desktop": 1, "color": "#3563E9", "shortcut": $(shortcut 18 1),
+   "items": ["com.apple.finder", "com.apple.Safari", "com.apple.mail", "com.apple.iCal", "com.apple.Notes",
+             "com.apple.Terminal", "divider", "running-apps", "divider", "widget:clock", "widget:date",
+             "widget:claude", "widget:users"]},
+  {"name": "Chill", "symbol": "cup.and.saucer.fill", "desktop": 2, "color": "#F08A4B", "shortcut": $(shortcut 19 2),
+   "items": ["com.apple.finder", "com.apple.Music", "com.apple.Photos", "com.apple.MobileSMS", "com.apple.TV",
+             "divider", "running-apps", "divider", "widget:spotify", "widget:clock", "widget:users"]}
+]}
+JSON
 # Spotify's notification has no album art, and CI can't ask Spotify for it; use a sample.
 defaults write "$bundle_id" spotifyTestArtwork "$PWD/scripts/sample-album-art.png"
 
@@ -74,7 +90,7 @@ if [[ "$frontmost" != "Calculator" ]]; then
   exit 1
 fi
 
-# ⌃⌥2 is Dockry's hot key for the second profile, Chill. key code 19 is the 2 key.
+# ⌃⌥2 is the hot key set above for the second profile, Chill. key code 19 is the 2 key.
 osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' \
   || echo "couldn't send the hot key"
 sleep 2

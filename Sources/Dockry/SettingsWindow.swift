@@ -156,6 +156,15 @@ private struct GeneralSettings: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Keyboard") {
+                LabeledContent("Profile switcher") {
+                    ShortcutRecorder(shortcut: $settings.profileSwitcherShortcut)
+                }
+                Text("Opens the profile switcher. Hold the modifier keys and press the key again to move to the next profile; let go to switch. Each profile can also have its own shortcut, under Profiles.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Windows") {
                 Toggle("Keep windows out of the dock’s space", isOn: $settings.keepsWindowsClear)
                 Text("As with the macOS Dock, windows stop at the dock’s edge: a zoomed window fills the space above it, and a window dragged behind it moves back out. Not while the dock hides automatically, which keeps no space.")
@@ -307,6 +316,9 @@ private struct ProfileEditor: View {
         Form {
             Section {
                 TextField("Name", text: Binding(get: { profile.name }, set: rename))
+                LabeledContent("Shortcut") {
+                    ShortcutRecorder(shortcut: binding(\.shortcut))
+                }
                 LabeledContent("Symbol") {
                     HStack {
                         Image(systemName: profile.symbol).frame(width: 20)

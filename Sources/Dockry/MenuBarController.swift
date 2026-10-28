@@ -65,12 +65,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private func profileItems() -> [NSMenuItem] {
         let app = self.app
-        return app.store.library.profiles.enumerated().map { index, profile in
-            let item = ActionMenuItem(profile.name, key: index < 9 ? String(index + 1) : "") {
+        return app.store.library.profiles.map { profile in
+            // Shows the profile's global shortcut, if it has one with a plain key.
+            let key = profile.shortcut?.key.flatMap { $0.count == 1 ? $0.lowercased() : nil } ?? ""
+            let item = ActionMenuItem(profile.name, key: key) {
                 app.activateProfile(named: profile.name)
             }
-            // Shows the global ⌃⌥N hot key next to the profile.
-            item.keyEquivalentModifierMask = [.control, .option]
+            item.keyEquivalentModifierMask = NSEvent.ModifierFlags(rawValue: UInt(profile.shortcut?.modifiers ?? 0))
             item.image = NSImage(systemSymbolName: profile.symbol, accessibilityDescription: nil)
             item.state = profile.name == app.store.active.name ? .on : .off
             return item

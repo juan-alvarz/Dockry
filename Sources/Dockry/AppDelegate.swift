@@ -8,7 +8,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let store = ProfileStore()
     let settings = SettingsStore()
     private let runningApps = RunningApps()
-    private let hotKeys = HotKeys()
     private var docks: DockController?
     private var menuBar: MenuBarController?
     private var profileSwitcher: ProfileSwitcherPanel?
@@ -31,16 +30,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let switcher = ProfileSwitcherPanel(store: store) { [weak self] in self?.activateProfile(named: $0) }
         profileSwitcher = switcher
-        hotKeys.register(keyCode: UInt16(kVK_Space), modifiers: controlKey | optionKey) {
-            switcher.showOrAdvance()
-        }
-        // ⌃⌥1 … ⌃⌥9 activate the first nine profiles.
-        for digit in 1...9 {
-            guard let keyCode = KeyShortcut.keyCode(forDigit: digit) else { continue }
-            hotKeys.register(keyCode: keyCode, modifiers: controlKey | optionKey) { [weak self] in
-                self?.activateProfile(at: digit - 1)
+        // The shortcuts the user set: one for the switcher, and one per profile.
+        store.$library.combineLatest(settings.$profileSwitcherShortcut)
+            .sink { [weak self] library, switcherShortcut in
+                var shortcuts: [(KeyShortcut, () -> Void)] = library.profiles.compactMap { profile in
+                    profile.shortcut.map { ($0, { self?.activateProfile(named: profile.name) }) }
+                }
+                if let switcherShortcut {
+                    shortcuts.append((switcherShortcut, { switcher.showOrAdvance(holding: switcherShortcut) }))
+                }
+                HotKeys.shared.set(shortcuts)
             }
-        }
+            .store(in: &subscriptions)
 
         settings.$hidesSystemDock
             .dropFirst()
@@ -115,12 +116,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let desktop = store.active.desktop {
             DesktopSwitcher.switchTo(desktop: desktop)
         }
-    }
-
-    private func activateProfile(at index: Int) {
-        let profiles = store.library.profiles
-        guard profiles.indices.contains(index) else { return }
-        activateProfile(named: profiles[index].name)
     }
 
     /// `killall Dockry` and logout send SIGTERM, which would otherwise end the process
