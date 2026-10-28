@@ -31,6 +31,10 @@ final class ProfileStore: ObservableObject {
         update { $0.unpin(bundleID) }
     }
 
+    func setOpensAppsOnSwitch(_ opensApps: Bool) {
+        update { $0.setOpensAppsOnSwitch(opensApps) }
+    }
+
     /// Picks up changes made to profiles.json by hand.
     func reload() {
         let result = file.load()

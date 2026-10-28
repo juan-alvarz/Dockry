@@ -49,6 +49,10 @@ public struct ProfileLibrary: Codable, Equatable {
         updateActive { $0.pinnedApps.removeAll { $0 == bundleID } }
     }
 
+    public mutating func setOpensAppsOnSwitch(_ opensApps: Bool) {
+        updateActive { $0.opensAppsOnSwitch = opensApps }
+    }
+
     private mutating func updateActive(_ change: (inout Profile) -> Void) {
         guard let index = profiles.firstIndex(where: { $0.name == activeProfileName }) else { return }
         change(&profiles[index])

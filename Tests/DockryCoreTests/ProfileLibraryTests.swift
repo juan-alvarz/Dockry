@@ -45,6 +45,14 @@ final class ProfileLibraryTests: XCTestCase {
         XCTAssertEqual(library.active.pinnedApps, [])
     }
 
+    func testOpeningAppsOnSwitchIsPerProfileAndSaved() throws {
+        var library = ProfileLibrary(profiles: [work, chill])
+        library.activate(named: "Chill")
+        library.setOpensAppsOnSwitch(true)
+        let decoded = try JSONDecoder().decode(ProfileLibrary.self, from: JSONEncoder().encode(library))
+        XCTAssertEqual(decoded.profiles.map(\.opensAppsOnSwitch), [false, true])
+    }
+
     func testDecodingAHandWrittenProfileFillsInDefaults() throws {
         let json = #"{ "profiles": [{ "name": "Gaming", "widgets": ["clock", "weather"], "desktop": 3 }] }"#
         let library = try JSONDecoder().decode(ProfileLibrary.self, from: Data(json.utf8))

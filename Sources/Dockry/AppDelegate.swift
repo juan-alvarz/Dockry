@@ -68,8 +68,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func activateProfile(named name: String) {
         store.activate(named: name)
+        if store.active.opensAppsOnSwitch {
+            openNotRunningApps(store.active.pinnedApps)
+        }
         if let desktop = store.active.desktop {
             DesktopSwitcher.switchTo(desktop: desktop)
+        }
+    }
+
+    /// Opens them without bringing them forward, so the app you're in keeps the keyboard.
+    private func openNotRunningApps(_ bundleIDs: [String]) {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        for bundleID in bundleIDs where runningApps.app(withBundleID: bundleID) == nil {
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+                NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+            }
         }
     }
 

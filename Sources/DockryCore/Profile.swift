@@ -22,19 +22,23 @@ public struct Profile: Codable, Equatable {
     public var widgets: [WidgetKind]
     /// Desktop number (1–9) to switch to on activation; nil stays on the current desktop.
     public var desktop: Int?
+    /// Whether activating the profile opens its pinned apps that aren't running yet.
+    public var opensAppsOnSwitch: Bool
 
     public init(
         name: String,
         symbol: String = Profile.defaultSymbol,
         pinnedApps: [String] = [],
         widgets: [WidgetKind] = [],
-        desktop: Int? = nil
+        desktop: Int? = nil,
+        opensAppsOnSwitch: Bool = false
     ) {
         self.name = name
         self.symbol = symbol
         self.pinnedApps = pinnedApps
         self.widgets = widgets
         self.desktop = desktop
+        self.opensAppsOnSwitch = opensAppsOnSwitch
     }
 
     // Lenient decoding so a hand-written profile only needs a name, and a typo in a widget
@@ -47,7 +51,8 @@ public struct Profile: Codable, Equatable {
             symbol: try container.decodeIfPresent(String.self, forKey: .symbol) ?? Profile.defaultSymbol,
             pinnedApps: try container.decodeIfPresent([String].self, forKey: .pinnedApps) ?? [],
             widgets: widgetNames.compactMap(WidgetKind.init(rawValue:)),
-            desktop: try container.decodeIfPresent(Int.self, forKey: .desktop)
+            desktop: try container.decodeIfPresent(Int.self, forKey: .desktop),
+            opensAppsOnSwitch: try container.decodeIfPresent(Bool.self, forKey: .opensAppsOnSwitch) ?? false
         )
     }
 }

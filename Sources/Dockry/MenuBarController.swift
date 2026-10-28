@@ -41,6 +41,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(switchUserItem())
+        let active = app.store.active
+        let openApps = ActionMenuItem("Open \(active.name)’s Apps When Switching") {
+            app.store.setOpensAppsOnSwitch(!active.opensAppsOnSwitch)
+        }
+        openApps.state = active.opensAppsOnSwitch ? .on : .off
+        menu.addItem(openApps)
         let hideDock = ActionMenuItem("Hide macOS Dock") { app.hidesSystemDock.toggle() }
         hideDock.state = app.hidesSystemDock ? .on : .off
         menu.addItem(hideDock)

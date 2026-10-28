@@ -38,6 +38,9 @@ to show the widget with a track.
   Return to pick, and Esc to cancel.
 - **Other ways to switch:** ⌃⌥1 … ⌃⌥9 jump straight to a profile, and so do the menu bar
   item and the profile button at the left of the dock.
+- **Open a profile's apps when switching:** turn on **Open *Work*'s Apps When Switching** in
+  the menu bar menu, per profile. Switching to that profile then opens its pinned apps that
+  aren't running yet, in the background, so the app you're in keeps the keyboard.
 - **Hide macOS Dock** in the menu bar menu. This turns on the system Dock's auto-hide with a
   very long delay, so it never shows up. Your own Dock settings are saved first and put
   back when you turn the option off or quit Dockry.
@@ -121,6 +124,7 @@ opens the file, and **Reload Profiles** applies your changes. Only `name` is req
 - `pinnedApps` are bundle identifiers. To find one, run `osascript -e 'id of app "Safari"'`.
 - `widgets` can include `clock`, `date`, `spotify` and `users`, shown in the order you list them.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
+- `opensAppsOnSwitch` is `true` to open the profile's pinned apps when switching to it.
 
 If the file can't be read, the menu says so and Dockry uses the default profiles without
 saving over your file. Fix it and choose **Reload Profiles**. If you edit it in TextEdit,

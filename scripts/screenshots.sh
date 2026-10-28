@@ -63,6 +63,26 @@ sleep 1
 screencapture -x "$out/4-menu-bar.png"
 osascript -e 'tell application "System Events" to key code 53' || true  # Esc closes the menu
 
+# Turn on "Open Chill's Apps When Switching" (Chill is ⌃⌥2), leave and come back: Chill's
+# pinned apps, none of them running so far, have to open.
+osascript -e 'tell application "System Events" to key code 19 using {control down, option down}'
+sleep 1
+osascript -e 'tell application "System Events" to tell process "Dockry"
+  click menu bar item 1 of last menu bar
+  click menu item "Open Chill’s Apps When Switching" of menu 1 of menu bar item 1 of last menu bar
+end tell'
+osascript -e 'tell application "System Events" to key code 18 using {control down, option down}'  # ⌃⌥1, Work
+sleep 1
+osascript -e 'tell application "System Events" to key code 19 using {control down, option down}'  # ⌃⌥2, Chill
+sleep 8
+screencapture -x "$out/5-open-apps-on-switch.png"
+for app in Music Photos Messages TV; do
+  if ! pgrep -xq "$app"; then
+    echo "Switching to Chill didn't open $app" >&2
+    exit 1
+  fi
+done
+
 # Quitting has to give the system Dock its original settings back.
 pkill -TERM -x Dockry
 sleep 3
