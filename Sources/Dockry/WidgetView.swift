@@ -1,3 +1,4 @@
+import AppKit
 import DockryCore
 import SwiftUI
 
@@ -12,6 +13,8 @@ struct WidgetView: View {
             TimelineView(.everyMinute) { DateWidget(date: $0.date) }
         case .spotify:
             SpotifyWidget()
+        case .users:
+            UsersWidget()
         }
     }
 }
@@ -98,5 +101,56 @@ private struct SpotifyWidget: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Fast User Switching: the Mac's other accounts; click one to switch to it.
+private struct UsersWidget: View {
+    @ObservedObject private var users = MacUsers.shared
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(users.others) { user in
+                Button { UserSwitching.switchTo(user) } label: {
+                    UserAvatar(user: user)
+                }
+                .buttonStyle(.plain)
+                .help("Switch to \(user.fullName)")
+            }
+            if users.others.isEmpty {
+                Button { UserSwitching.showLoginWindow() } label: {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 14))
+                        .frame(width: 34, height: 34)
+                        .background(.quaternary, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Switch User…")
+            }
+        }
+        .padding(.horizontal, 7)
+        .frame(height: 48)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct UserAvatar: View {
+    let user: MacUser
+
+    var body: some View {
+        Group {
+            if let path = user.picturePath, let picture = NSImage(contentsOfFile: path) {
+                Image(nsImage: picture).resizable().scaledToFill()
+            } else {
+                // Like macOS's own avatars for accounts without a picture.
+                Text(user.initials)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.gray.gradient)
+            }
+        }
+        .frame(width: 34, height: 34)
+        .clipShape(Circle())
     }
 }

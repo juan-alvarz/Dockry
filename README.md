@@ -21,12 +21,18 @@ to show the widget with a track.
 
 - **A floating dock** at the bottom of the screen, on every desktop. It shows the active
   profile's pinned apps, then any other app that's running, then the profile's widgets.
+  Like the system Dock it's exactly as wide as what's in it; if that would be wider than the
+  screen, it scrolls sideways instead.
   A dot marks running apps. Click to open or switch to an app. Right-click to keep it in or
   remove it from the profile, show it in Finder, or quit it.
 - **Profiles** such as *Work* and *Chill*. Each has its own pinned apps, widgets and desktop.
   Activating a profile swaps the dock's contents and jumps to its desktop.
-- **Widgets:** clock, date, and Spotify (what's playing, with previous / play-pause / next).
-- **The profile switcher**, like ⌘Tab for profiles. Hold ⌃⌥ and tap Space to move through
+- **Widgets:** clock, date, Spotify (what's playing, with previous / play-pause / next), and
+  users.
+- **Fast User Switching:** the users widget shows the Mac's other accounts. Click one to
+  switch to it, as you would from the user menu in Control Center. **Switch User** in the
+  menu bar menu does the same and also opens the login window.
+- **The profile switcher** for Dockry's own profiles, like ⌘Tab. Hold ⌃⌥ and tap Space to move through
   the profiles; let go to switch. A quick ⌃⌥Space flips to the next profile. When it stays
   open (keys already released, or opened from the menu), use the arrows or Tab, 1–9 or
   Return to pick, and Esc to cancel.
@@ -61,6 +67,15 @@ menu tells you which one is still missing:
    the shortcut.
 
 Profiles and the dock work without either of these.
+
+### Fast User Switching
+
+macOS has no public API for switching users, and the old `CGSession` tool has been removed.
+Dockry calls the same private login functions that the system's own user menu uses
+(`SACSwitchToUser` in login.framework). CI checks that they still work on every macOS
+version it runs. If a future macOS removes them, Dockry opens the login window instead.
+Fast User Switching must be turned on: System Settings › Control Center › Fast User
+Switching, or Users & Groups on older versions.
 
 ### Spotify
 
@@ -101,7 +116,7 @@ opens the file, and **Reload Profiles** applies your changes. Only `name` is req
 
 - `symbol` is an [SF Symbol](https://developer.apple.com/sf-symbols/) name.
 - `pinnedApps` are bundle identifiers. To find one, run `osascript -e 'id of app "Safari"'`.
-- `widgets` can include `clock`, `date` and `spotify`, shown in the order you list them.
+- `widgets` can include `clock`, `date`, `spotify` and `users`, shown in the order you list them.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
 
 If the file can't be read, the menu says so and Dockry uses the default profiles without

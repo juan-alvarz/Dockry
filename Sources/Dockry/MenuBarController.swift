@@ -40,6 +40,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(switcher)
 
         menu.addItem(.separator())
+        menu.addItem(switchUserItem())
         let hideDock = ActionMenuItem("Hide macOS Dock") { app.hidesSystemDock.toggle() }
         hideDock.state = app.hidesSystemDock ? .on : .off
         menu.addItem(hideDock)
@@ -72,6 +73,22 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             item.state = profile.name == app.store.active.name ? .on : .off
             return item
         }
+    }
+
+    /// Fast User Switching, like the user menu in Control Center.
+    private func switchUserItem() -> NSMenuItem {
+        let submenu = NSMenu()
+        for user in MacUsers.shared.others {
+            submenu.addItem(ActionMenuItem(user.fullName) { UserSwitching.switchTo(user) })
+        }
+        if !submenu.items.isEmpty {
+            submenu.addItem(.separator())
+        }
+        submenu.addItem(ActionMenuItem("Login Window…") { UserSwitching.showLoginWindow() })
+        let item = NSMenuItem(title: "Switch User", action: nil, keyEquivalent: "")
+        item.image = NSImage(systemSymbolName: "person.2", accessibilityDescription: nil)
+        item.submenu = submenu
+        return item
     }
 
     /// Explains what's missing when a profile has a desktop that Dockry can't switch to yet.

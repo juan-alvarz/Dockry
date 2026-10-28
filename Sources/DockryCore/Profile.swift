@@ -4,6 +4,8 @@ public enum WidgetKind: String, Codable {
     case clock
     case date
     case spotify
+    /// The Mac's other user accounts, for Fast User Switching.
+    case users
 }
 
 /// A context like "Work" or "Chill": the apps pinned to the dock, the widgets shown next to
@@ -63,7 +65,7 @@ extension Profile {
                 "com.apple.Notes",
                 "com.apple.Terminal",
             ],
-            widgets: [.clock, .date],
+            widgets: [.clock, .date, .users],
             desktop: 1
         ),
         Profile(
@@ -76,7 +78,7 @@ extension Profile {
                 "com.apple.MobileSMS",
                 "com.apple.TV",
             ],
-            widgets: [.spotify, .clock],
+            widgets: [.spotify, .clock, .users],
             desktop: 2
         ),
     ]

@@ -20,6 +20,13 @@ struct DockView: View {
             items.fixedSize()
             ScrollView(.horizontal, showsIndicators: false) { items }
                 .fixedSize(horizontal: false, vertical: true)
+                // Fade the ends so the overflow reads as "scroll for more", not as cut off.
+                .mask(LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0), .init(color: .black, location: 0.04),
+                        .init(color: .black, location: 0.96), .init(color: .clear, location: 1),
+                    ],
+                    startPoint: .leading, endPoint: .trailing))
         }
         .background(VisualEffectBackground().clipShape(shape))
         .overlay(shape.strokeBorder(.white.opacity(0.2), lineWidth: 0.5))

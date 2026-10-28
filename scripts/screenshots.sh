@@ -16,6 +16,12 @@ dock_settings() {
 }
 original_settings=$(dock_settings)
 
+# Accounts for the Fast User Switching widget (this runner only has its own).
+for user in "alex:Alex Rivera" "sam:Sam Chen"; do
+  sudo sysadminctl -addUser "${user%%:*}" -fullName "${user#*:}" -password "dockry-ci" 2>/dev/null \
+    || echo "couldn't create the account ${user%%:*}"
+done
+
 # Apps for the "running" part of the dock: two pinned in Work, two that aren't.
 for app in Safari Notes Calculator TextEdit; do
   open -a "$app" || echo "couldn't open $app"
