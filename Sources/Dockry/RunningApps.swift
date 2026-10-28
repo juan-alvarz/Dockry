@@ -8,16 +8,20 @@ final class RunningApps: ObservableObject {
     @Published private(set) var apps: [NSRunningApplication] = []
 
     private var subscription: AnyCancellable?
-    /// Apps that aren't regular yet, watched in case they become one.
-    private var policyWatches: [pid_t: NSKeyValueObservation] = [:]
 
     init() {
         // The launch notification alone missed apps: some (Electron apps, apps that start in
         // the menu bar) launch as background apps and only become regular apps later, which
-        // posts nothing. runningApplications is observable and changes on every launch and quit.
-        subscription = NSWorkspace.shared.publisher(for: \.runningApplications)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.refresh() }
+        // posts nothing. runningApplications is observable and changes on every launch and
+        // quit, and an app that turns regular activates when it shows its first window.
+        // (Not KVO on each app's activationPolicy: with short-lived helper processes, like a
+        // screenshot app's, AppKit sent those changes to freed observers and crashed Dockry.)
+        subscription = Publishers.Merge(
+            NSWorkspace.shared.publisher(for: \.runningApplications).map { _ in () },
+            NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification).map { _ in () }
+        )
+        .receive(on: RunLoop.main)
+        .sink { [weak self] in self?.refresh() }
     }
 
     /// The dock's IDs for the running apps, in launch order.
@@ -36,16 +40,10 @@ final class RunningApps: ObservableObject {
     }
 
     private func refresh() {
-        let running = NSWorkspace.shared.runningApplications
-        apps = running.filter { $0.activationPolicy == .regular }
-
-        let waiting = running.filter { $0.activationPolicy != .regular && !$0.isTerminated }
-        let waitingPIDs = Set(waiting.map(\.processIdentifier))
-        policyWatches = policyWatches.filter { waitingPIDs.contains($0.key) }
-        for app in waiting where policyWatches[app.processIdentifier] == nil {
-            policyWatches[app.processIdentifier] = app.observe(\.activationPolicy) { [weak self] _, _ in
-                DispatchQueue.main.async { self?.refresh() }
-            }
+        let regular = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
+        // Activations are frequent; only publish when the set of apps changed.
+        if regular.map(\.processIdentifier) != apps.map(\.processIdentifier) {
+            apps = regular
         }
     }
 }
