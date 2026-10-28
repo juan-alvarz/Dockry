@@ -1,0 +1,47 @@
+name: Release
+
+# Run it from the Actions tab (or push a Dockry-<version> tag) to publish a GitHub release
+# with a zipped Dockry.app for Apple silicon and Intel Macs.
+on:
+  push:
+    tags: ["Dockry-*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, like 0.0.1. Creates the tag Dockry-<version> on the chosen branch."
+        required: true
+
+permissions:
+  contents: write  # to create the tag and the release
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick the version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: echo "VERSION=${INPUT_VERSION:-${GITHUB_REF_NAME#Dockry-}}" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: swift test
+
+      - name: Bundle the app
+        run: scripts/bundle.sh "$VERSION"
+
+      - name: Zip the app
+        # ditto keeps the bundle's signature and permissions intact, unlike zip.
+        run: ditto -c -k --keepParent build/Dockry.app "build/Dockry-$VERSION.zip"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "Dockry-$VERSION" "build/Dockry-$VERSION.zip" \
+            --target "$GITHUB_SHA" \
+            --title "Dockry $VERSION" \
+            --notes "Download **Dockry-$VERSION.zip** below, unzip it and move Dockry.app to Applications. It runs on macOS 14 or later, on Apple silicon and Intel.
+
+          Dockry isn't notarized by Apple, so the first time macOS refuses to open it. See [Installing](https://github.com/$GITHUB_REPOSITORY#installing) for how to allow it and for the permissions it asks for."

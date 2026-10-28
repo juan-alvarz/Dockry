@@ -42,7 +42,40 @@ to show the widget with a track.
   very long delay, so it never shows up. Your own Dock settings are saved first and put
   back when you turn the option off or quit Dockry.
 
-## Building and running
+## Installing
+
+Dockry runs on macOS 14 or later, on Apple silicon and Intel Macs.
+
+1. Download `Dockry-<version>.zip` from the
+   [latest release](https://github.com/juan-alvarz/Dockry/releases/latest) and unzip it.
+2. Move **Dockry.app** to your Applications folder.
+3. Open it. Dockry isn't notarized by Apple, so the first time macOS says it can't be
+   opened. Click **Done**, then go to System Settings › Privacy & Security, scroll down to
+   *"Dockry" was blocked*, click **Open Anyway** and confirm. You only do this once per
+   version. Or, in Terminal:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Dockry.app
+   ```
+
+Dockry has no icon in the Dock; look for its icon in the menu bar. To quit it, choose
+**Quit Dockry** there. To uninstall, quit it and delete the app, plus
+`~/Library/Application Support/Dockry` if you want your profiles gone too.
+
+## Using it
+
+1. **Pick a profile:** press ⌃⌥1 for Work or ⌃⌥2 for Chill, or use the menu bar menu or the
+   profile button at the left of the dock. Hold ⌃⌥ and tap Space to step through them.
+2. **Hide the system Dock** with **Hide macOS Dock** in the menu bar menu, if you want only
+   Dockry's dock on screen.
+3. **Make the profiles yours:** right-click an app in the dock to keep it in or remove it
+   from the current profile. **Edit Profiles…** opens the [profiles file](#profiles-file)
+   for widgets, desktops and symbols.
+4. **Optional setup**, each explained below: desktop switching needs a keyboard shortcut
+   turned on and Accessibility access, user switching needs Fast User Switching turned on,
+   and the Spotify buttons need you to allow Automation when macOS asks.
+
+## Building from source
 
 Requires macOS 14 or later and Xcode 15 or later (or the Swift 5.9+ command line tools).
 
@@ -54,6 +87,12 @@ open build/Dockry.app
 
 Don't run `scripts/screenshots.sh` on your own Mac. It's meant for CI: it opens and quits
 apps and changes the Dock's settings.
+
+To publish a release, run the **Release** workflow from the Actions tab on `main` with a
+version such as `0.0.2`. It tags the commit `Dockry-0.0.2` and attaches a zipped, universal
+Dockry.app. Pushing a `Dockry-*` tag does the same.
+
+## Setup
 
 ### Permissions for desktop switching
 
@@ -134,3 +173,4 @@ turn off Edit › Substitutions › Smart Quotes first: curly quotes aren't vali
 | `Sources/Dockry` | The app: dock window and views, menu bar, hot keys, system Dock and desktop integration. |
 | `App/Info.plist` | Bundle metadata used by `scripts/bundle.sh`. |
 | `.github/workflows/macos.yml` | Builds, tests and takes the screenshots on a macOS runner. |
+| `.github/workflows/release.yml` | Builds a universal Dockry.app and publishes it as a GitHub release. |
