@@ -64,7 +64,7 @@ private struct ClockWidget: View {
             Group {
                 if metrics.axis == .vertical {
                     VStack(spacing: 0) {
-                        Text(date, format: .dateTime.hour(.defaultDigits(amPM: .omitted)).minute())
+                        Text(Self.timeFormatter.string(from: date))
                             .font(.system(size: 14 * u, weight: .semibold, design: .rounded))
                         if Self.usesAMPM {
                             Text(Self.amPMFormatter.string(from: date))
@@ -92,6 +92,13 @@ private struct ClockWidget: View {
 
     /// Whether the user's locale shows a 12-hour clock.
     private static let usesAMPM = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)?.contains("a") == true
+
+    /// The time without AM/PM, which goes on its own line: "5:42", or "17:42" on a 24-hour clock.
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = usesAMPM ? "h:mm" : "HH:mm"
+        return formatter
+    }()
 
     private static let amPMFormatter: DateFormatter = {
         let formatter = DateFormatter()
