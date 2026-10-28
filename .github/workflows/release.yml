@@ -1,0 +1,75 @@
+name: Release
+
+# Run it from the Actions tab (or push a Dockry-<version> tag) to publish a GitHub release
+# with Dockry.app for Apple silicon and Intel Macs, as a disk image and as a zip. Running it
+# for a version that's already released rebuilds that release's tagged commit and replaces
+# its downloads.
+on:
+  push:
+    tags: ["Dockry-*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, like 0.0.1. A new version is tagged Dockry-<version> on the chosen branch."
+        required: true
+
+permissions:
+  contents: write  # to create the tag and the release
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick the version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: echo "VERSION=${INPUT_VERSION:-${GITHUB_REF_NAME#Dockry-}}" >> "$GITHUB_ENV"
+
+      - name: Check out the tagged commit of an existing release
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/Dockry-$VERSION"; then
+            git fetch --depth 1 origin tag "Dockry-$VERSION"
+            git checkout "Dockry-$VERSION"
+          fi
+
+      - name: Test
+        run: swift test
+
+      - name: Bundle the app
+        run: scripts/bundle.sh "$VERSION"
+
+      - name: Zip the app
+        # ditto keeps the bundle's signature and permissions intact, unlike zip.
+        run: ditto -c -k --keepParent build/Dockry.app "build/Dockry-$VERSION.zip"
+
+      - name: Make the disk image
+        # The image shows Dockry next to a link to Applications, to drag it onto.
+        run: |
+          mkdir build/dmg
+          cp -R build/Dockry.app build/dmg/
+          ln -s /Applications build/dmg/Applications
+          # hdiutil sometimes fails with "Resource busy" on hosted runners; a retry clears it.
+          for attempt in 1 2 3; do
+            hdiutil create -volname "Dockry $VERSION" -srcfolder build/dmg -fs HFS+ \
+              -format UDZO -ov "build/Dockry-$VERSION.dmg" && break
+            [[ $attempt == 3 ]] && exit 1
+            sleep 5
+          done
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="Dockry-$VERSION"
+          files=("build/$tag.dmg" "build/$tag.zip")
+          notes="Download **$tag.dmg** below, open it and drag Dockry to Applications. It runs on macOS 14 or later, on Apple silicon and Intel. ($tag.zip has the same app.)
+
+          Dockry isn't notarized by Apple, so the first time macOS refuses to open it. See [Installing](https://github.com/$GITHUB_REPOSITORY#installing) for how to allow it and for the permissions it asks for."
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber
+            gh release edit "$tag" --notes "$notes"
+          else
+            gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --title "Dockry $VERSION" --notes "$notes"
+          fi
