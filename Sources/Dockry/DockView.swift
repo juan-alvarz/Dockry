@@ -20,6 +20,9 @@ struct DockView: View {
     /// The panel's coordinate space, which DockPointer's locations are in.
     static let space = "dockPanel"
 
+    /// The pinned icon being dragged to a new place, and how far it has moved along the dock.
+    @State private var drag: (bundleID: String, distance: CGFloat)?
+
     var body: some View {
         let metrics = DockMetrics(settings.dock)
         let axes: Axis.Set = metrics.axis == .horizontal ? .horizontal : .vertical
@@ -49,16 +52,17 @@ struct DockView: View {
         let profile = store.active
         let sections = DockLayout.sections(pinned: profile.pinnedApps, running: runningApps.bundleIDs)
 
-        let isMagnifying = magnifies && pointer.location != nil
+        // No magnification while dragging an icon: the places it moves between keep their size.
+        let isMagnifying = magnifies && drag == nil && pointer.location != nil
         return DockRowLayout(
-            metrics: metrics, pointer: magnifies ? pointerAlongDock(metrics) : nil,
+            metrics: metrics, pointer: magnifies && drag == nil ? pointerAlongDock(metrics) : nil,
             amount: isMagnifying ? 1 : 0
         ) {
             DockBackground(settings: settings, openSettings: actions.openSettings)
                 .layoutValue(key: DockBackgroundKey.self, value: true)
             ProfileButton(profile: profile, action: actions.showProfileMenu)
             DockSeparator(settings: settings, pointer: pointer, id: "pinned")
-            appIcons(sections.pinned, profile: profile)
+            pinnedIcons(sections.pinned, profile: profile, metrics: metrics)
             if settings.showsUnpinnedApps && !sections.running.isEmpty {
                 DockSeparator(settings: settings, pointer: pointer, id: "running")
                 appIcons(sections.running, profile: profile)
@@ -85,6 +89,75 @@ struct DockView: View {
                     .layoutValue(key: MagnifiesKey.self, value: true)
             }
         }
+    }
+
+    /// The pinned apps, which can be dragged along the dock to a new place like in the macOS
+    /// Dock. While dragging, the others slide over to show where the icon will land.
+    private func pinnedIcons(_ entries: [DockEntry], profile: Profile, metrics: DockMetrics) -> some View {
+        // Only the icons that are shown take part, so the positions match what's on screen.
+        let shown = entries.filter { AppCatalog.app(bundleID: $0.bundleID, running: runningApps.app(withBundleID: $0.bundleID)) != nil }
+        let slot = metrics.iconSize + metrics.spacing
+        let order = drag.map { Self.reordered(shown, moving: $0.bundleID, by: $0.distance, slot: slot) } ?? shown
+
+        return ForEach(order) { entry in
+            let running = runningApps.app(withBundleID: entry.bundleID)
+            if let app = AppCatalog.app(bundleID: entry.bundleID, running: running) {
+                let offset = dragOffset(of: entry, shown: shown, order: order, slot: slot)
+                AppIconView(
+                    entry: entry, app: app, runningApp: running, profileName: profile.name, store: store,
+                    isHovered: drag == nil && pointer.hoveredItem == entry.bundleID)
+                    .background(FrameReader { [pointer] in pointer.itemFrames[entry.bundleID] = $0 })
+                    .onDisappear { [pointer] in pointer.itemFrames[entry.bundleID] = nil }
+                    .offset(metrics.axis == .horizontal ? CGSize(width: offset, height: 0) : CGSize(width: 0, height: offset))
+                    .zIndex(entry.bundleID == drag?.bundleID ? 1 : 0)
+                    // High priority, so letting go after a drag doesn't also click (open) the app.
+                    .highPriorityGesture(
+                        // Global coordinates, so the icon's own movement doesn't change the reading.
+                        DragGesture(minimumDistance: 6, coordinateSpace: .global)
+                            .onChanged { value in
+                                if drag == nil {
+                                    DockInteraction.shared.begin()  // an auto-hiding dock stays up
+                                }
+                                drag = (entry.bundleID, Self.distance(value.translation, along: metrics.axis))
+                            }
+                            .onEnded { value in
+                                // Unless the profile changed mid-drag, which would reorder the wrong one.
+                                if store.active.name == profile.name {
+                                    let distance = Self.distance(value.translation, along: metrics.axis)
+                                    let final = Self.reordered(shown, moving: entry.bundleID, by: distance, slot: slot)
+                                    store.reorderPins(final.map(\.bundleID))
+                                }
+                                withAnimation(.spring(duration: 0.25)) { drag = nil }
+                                DockInteraction.shared.end()
+                            })
+                    .layoutValue(key: MagnifiesKey.self, value: true)
+            }
+        }
+        .animation(.spring(duration: 0.25), value: order.map(\.bundleID))
+    }
+
+    /// `entries` with the one being dragged moved to where `distance` (in points) puts it.
+    private static func reordered(
+        _ entries: [DockEntry], moving bundleID: String, by distance: CGFloat, slot: CGFloat
+    ) -> [DockEntry] {
+        guard let from = entries.firstIndex(where: { $0.bundleID == bundleID }) else { return entries }
+        let to = DockLayout.dropIndex(from: from, slotsMoved: distance / slot, count: entries.count)
+        var result = entries
+        result.insert(result.remove(at: from), at: to)
+        return result
+    }
+
+    /// The dragged icon follows the pointer, measured from the place it would land in.
+    private func dragOffset(of entry: DockEntry, shown: [DockEntry], order: [DockEntry], slot: CGFloat) -> CGFloat {
+        guard let drag, entry.bundleID == drag.bundleID,
+              let from = shown.firstIndex(where: { $0.bundleID == entry.bundleID }),
+              let to = order.firstIndex(where: { $0.bundleID == entry.bundleID })
+        else { return 0 }
+        return drag.distance - CGFloat(to - from) * slot
+    }
+
+    private static func distance(_ translation: CGSize, along axis: Axis) -> CGFloat {
+        axis == .horizontal ? translation.width : translation.height
     }
 
     private func pointerAlongDock(_ metrics: DockMetrics) -> CGFloat? {

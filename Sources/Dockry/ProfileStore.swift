@@ -35,6 +35,10 @@ final class ProfileStore: ObservableObject {
         update { $0.setOpensAppsOnSwitch(opensApps) }
     }
 
+    func reorderPins(_ order: [String]) {
+        update { $0.reorderPins(order) }
+    }
+
     /// Returns the new profile's name.
     @discardableResult
     func addProfile() -> String {
