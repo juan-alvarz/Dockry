@@ -1,26 +1,56 @@
+import AppKit
 import DockryCore
 import SwiftUI
 
-/// A clipboard tile in the dock; clicking it (or ⌃⌥V) shows the copy history above it.
+/// A clipboard tile in the dock; clicking it (or ⌃⌥V) shows the copy history next to it.
 struct ClipboardWidget: View {
     @ObservedObject private var monitor = ClipboardMonitor.shared
+    @Environment(\.dockMetrics) private var metrics
+    @State private var isShown = false
+    @State private var window: NSWindow?
 
     var body: some View {
         Button { monitor.isShowingHistory.toggle() } label: {
             Image(systemName: "list.clipboard")
-                .font(.system(size: 20))
-                .frame(width: 48, height: 48)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .font(.system(size: 20 * metrics.unit))
+                .frame(width: metrics.iconSize, height: metrics.iconSize)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 12 * metrics.unit, style: .continuous))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help("Clipboard History (⌃⌥V)")
-        .popover(isPresented: $monitor.isShowingHistory, arrowEdge: .top) {
-            ClipboardHistoryList(monitor: monitor)
+        .background(WindowReader { window = $0 })
+        .dockPopover(isPresented: $isShown) { ClipboardHistoryList(monitor: monitor) }
+        // With a dock on every screen, the history opens on the screen the pointer is on.
+        .onChange(of: monitor.isShowingHistory) { _, isShowing in
+            isShown = isShowing && isOnPointerScreen
+        }
+        .onChange(of: isShown) { _, isShown in
+            if !isShown {
+                monitor.isShowingHistory = false
+            }
         }
         .onAppear { monitor.widgetAppeared() }
         .onDisappear { monitor.widgetDisappeared() }
     }
+
+    private var isOnPointerScreen: Bool {
+        let docks = NSApp.windows.filter { $0 is DockPanel && $0.isVisible }
+        return docks.count <= 1 || window?.screen?.frame.contains(NSEvent.mouseLocation) == true
+    }
+}
+
+/// Hands over the window a view is in.
+private struct WindowReader: NSViewRepresentable {
+    let found: (NSWindow?) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { found(view.window) }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {}
 }
 
 private struct ClipboardHistoryList: View {
