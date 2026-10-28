@@ -100,6 +100,8 @@ struct DockView: View {
                 AppIconView(
                     entry: entry, app: app, runningApp: running, profileName: profile.name, store: store,
                     isHovered: drag == nil && pointer.hoveredItem == entry.bundleID)
+                    .background(FrameReader { [pointer] in pointer.itemFrames[entry.bundleID] = $0 })
+                    .onDisappear { [pointer] in pointer.itemFrames[entry.bundleID] = nil }
                     .offset(metrics.axis == .horizontal ? CGSize(width: offset, height: 0) : CGSize(width: 0, height: offset))
                     .zIndex(entry.bundleID == drag?.bundleID ? 1 : 0)
                     // High priority, so letting go after a drag doesn't also click (open) the app.
