@@ -75,7 +75,7 @@ relaunch() {
 defaults write "$bundle_id" magnifies -bool true
 defaults write "$bundle_id" magnifiedSize -float 96
 relaunch -logPointer YES
-swift scripts/move-mouse.swift -31 36 || echo "couldn't move the pointer"
+swift scripts/move-mouse.swift -1 36 || echo "couldn't move the pointer"
 sleep 1
 screencapture -x "$out/5-magnification.png"
 log show --last 20s --style compact --predicate 'process == "Dockry"' 2>/dev/null | grep "Dockry pointer" || echo "Dockry logged no pointer changes"
