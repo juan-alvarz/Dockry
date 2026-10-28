@@ -48,6 +48,14 @@ if [[ "$frontmost" == "Safari" ]]; then
   echo "Letting go after dragging Safari also opened it" >&2
   exit 1
 fi
+# A plain click (a "drag" of 0 points) still has to open the app.
+swift scripts/drag-app.swift Calculator 0
+sleep 1
+frontmost=$(osascript -e 'tell application "System Events" to get name of first process whose frontmost is true')
+if [[ "$frontmost" != "Calculator" ]]; then
+  echo "Clicking Calculator in the dock didn't bring it to the front; $frontmost is in front" >&2
+  exit 1
+fi
 
 # ⌃⌥2 is Dockry's hot key for the second profile, Chill. key code 19 is the 2 key.
 osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' \
