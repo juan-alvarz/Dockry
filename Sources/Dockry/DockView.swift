@@ -7,6 +7,8 @@ struct DockView: View {
     @ObservedObject var store: ProfileStore
     @ObservedObject var runningApps: RunningApps
     let showProfileMenu: () -> Void
+    /// Called whenever what the dock shows changes, so the panel can resize to fit.
+    let contentDidChange: () -> Void
 
     private let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
@@ -36,6 +38,13 @@ struct DockView: View {
         .padding(.horizontal, 20)  // keeps the shadow inside the panel
         .padding(.top, 20)
         .padding(.bottom, 6)
+        .onChange(of: contentKey, initial: true) { contentDidChange() }
+    }
+
+    /// Everything that changes the dock's width.
+    private var contentKey: [String] {
+        let profile = store.active
+        return [profile.name] + profile.pinnedApps + runningApps.bundleIDs + profile.widgets.map(\.rawValue)
     }
 
     private func appIcons(_ entries: [DockEntry], profile: Profile) -> some View {

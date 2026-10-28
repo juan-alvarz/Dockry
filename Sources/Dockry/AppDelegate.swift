@@ -26,9 +26,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menuBar = MenuBarController(app: self)
         self.menuBar = menuBar
 
-        let dock = DockView(store: store, runningApps: runningApps) {
-            menuBar.popUpProfileMenu()
-        }
+        let dock = DockView(
+            store: store, runningApps: runningApps,
+            showProfileMenu: { menuBar.popUpProfileMenu() },
+            contentDidChange: { [weak self] in self?.dockPanel?.contentDidChange() })
         let panel = DockPanel(content: dock)
         panel.orderFrontRegardless()
         dockPanel = panel
