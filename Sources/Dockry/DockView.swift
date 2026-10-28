@@ -3,20 +3,37 @@ import DockryCore
 import SwiftUI
 
 /// The dock: profile button, the profile's pinned apps, other running apps, then widgets.
+/// Like the system Dock it's as wide as its items and centered; once it would be wider than
+/// the screen it scrolls sideways instead.
 struct DockView: View {
     @ObservedObject var store: ProfileStore
     @ObservedObject var runningApps: RunningApps
     let showProfileMenu: () -> Void
-    /// Called whenever what the dock shows changes, so the panel can resize to fit.
-    let contentDidChange: () -> Void
+
+    /// Height of the panel that holds the dock: the dock plus room above it for its shadow.
+    static let panelHeight: CGFloat = 96
 
     private let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            items.fixedSize()
+            ScrollView(.horizontal, showsIndicators: false) { items }
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .background(VisualEffectBackground().clipShape(shape))
+        .overlay(shape.strokeBorder(.white.opacity(0.2), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+        .padding(.horizontal, 8)
+        .padding(.bottom, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+    }
+
+    private var items: some View {
         let profile = store.active
         let sections = DockLayout.sections(pinned: profile.pinnedApps, running: runningApps.bundleIDs)
 
-        HStack(spacing: 6) {
+        return HStack(spacing: 6) {
             ProfileButton(profile: profile, action: showProfileMenu)
             DockSeparator()
             appIcons(sections.pinned, profile: profile)
@@ -30,21 +47,8 @@ struct DockView: View {
             }
         }
         .padding(.horizontal, 10)
-        .padding(.top, 8)
+        .padding(.top, 8)  // also room for an icon's hover zoom, which a scrolling dock clips
         .padding(.bottom, 12)  // room for the running-app dots
-        .background(VisualEffectBackground().clipShape(shape))
-        .overlay(shape.strokeBorder(.white.opacity(0.2), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
-        .padding(.horizontal, 20)  // keeps the shadow inside the panel
-        .padding(.top, 20)
-        .padding(.bottom, 6)
-        .onChange(of: contentKey, initial: true) { contentDidChange() }
-    }
-
-    /// Everything that changes the dock's width.
-    private var contentKey: [String] {
-        let profile = store.active
-        return [profile.name] + profile.pinnedApps + runningApps.bundleIDs + profile.widgets.map(\.rawValue)
     }
 
     private func appIcons(_ entries: [DockEntry], profile: Profile) -> some View {

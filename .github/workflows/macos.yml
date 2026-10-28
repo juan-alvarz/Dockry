@@ -22,6 +22,25 @@ jobs:
       - name: Build
         run: swift build
 
+      # TEMPORARY: find out which user-switching functions macOS 15 still has.
+      - name: Probe user switching
+        continue-on-error: true
+        run: |
+          cat > /tmp/probe.swift <<'SWIFT'
+          import Foundation
+          let path = "/System/Library/PrivateFrameworks/login.framework/Versions/A/login"
+          let handle = dlopen(path, RTLD_NOW)
+          print("dlopen login.framework:", handle != nil)
+          for name in ["SACSwitchToUser", "SACSwitchToLoginWindow", "SACLockScreenImmediate", "sac_switchuser",
+                       "SACSwitchUser", "SACStartSessionForUser", "SACFastUserSwitch", "SACLoginWindowSwitchToUser"] {
+              print(name, dlsym(handle, name) != nil)
+          }
+          SWIFT
+          swift /tmp/probe.swift
+          dyld_info -exports /System/Library/PrivateFrameworks/login.framework/Versions/A/login 2>&1 | grep -iE "switch|lock|session" | head -60 || true
+          ls "/System/Library/CoreServices/Menu Extras/" 2>&1 | head -30 || true
+          dscl -plist . -readall /Users RecordName RealName UniqueID Picture IsHidden | head -80
+
       - name: Test
         run: swift test
 
