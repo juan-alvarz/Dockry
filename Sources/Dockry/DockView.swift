@@ -53,22 +53,28 @@ struct DockView: View {
         let sections = DockLayout.sections(pinned: profile.pinnedApps, running: runningApps.bundleIDs)
 
         // No magnification while dragging an icon: the places it moves between keep their size.
-        return DockRowLayout(metrics: metrics, pointer: magnifies && drag == nil ? pointerAlongDock(metrics) : nil) {
+        let isMagnifying = magnifies && drag == nil && pointer.location != nil
+        return DockRowLayout(
+            metrics: metrics, pointer: magnifies && drag == nil ? pointerAlongDock(metrics) : nil,
+            amount: isMagnifying ? 1 : 0
+        ) {
             DockBackground(settings: settings, openSettings: actions.openSettings)
                 .layoutValue(key: DockBackgroundKey.self, value: true)
             ProfileButton(profile: profile, action: actions.showProfileMenu)
-            DockSeparator(settings: settings)
+            DockSeparator(settings: settings, pointer: pointer, id: "pinned")
             pinnedIcons(sections.pinned, profile: profile, metrics: metrics)
             if settings.showsUnpinnedApps && !sections.running.isEmpty {
-                DockSeparator(settings: settings)
+                DockSeparator(settings: settings, pointer: pointer, id: "running")
                 appIcons(sections.running, profile: profile)
             }
             if !profile.widgets.isEmpty {
-                DockSeparator(settings: settings)
+                DockSeparator(settings: settings, pointer: pointer, id: "widgets")
                 ForEach(profile.widgets, id: \.self) { WidgetView(kind: $0) }
             }
         }
         .background(FrameReader { pointer.dockFrame = $0 })
+        // Only entering and leaving animate; while over the dock, icons follow the pointer.
+        .animation(.easeOut(duration: isMagnifying ? 0.14 : 0.22), value: isMagnifying)
     }
 
     private func appIcons(_ entries: [DockEntry], profile: Profile) -> some View {
@@ -155,7 +161,7 @@ struct DockView: View {
     }
 
     private func pointerAlongDock(_ metrics: DockMetrics) -> CGFloat? {
-        guard let location = pointer.location else { return nil }
+        guard let location = pointer.location ?? pointer.lastLocation else { return nil }
         return metrics.axis == .horizontal
             ? location.x - pointer.dockFrame.minX
             : location.y - pointer.dockFrame.minY
@@ -269,7 +275,7 @@ private struct AppIconView: View {
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([app.url]) }
             if let runningApp {
                 Divider()
-                Button("Quit") { runningApp.terminate() }
+                Button("Quit") { AppQuitter.quit(runningApp) }
             }
         }
         .onChange(of: entry.isRunning) { _, isRunning in
@@ -355,17 +361,43 @@ private struct ProfileButton: View {
                 }
             }
             .frame(width: showsName ? 56 * metrics.unit : metrics.iconSize, height: metrics.iconSize)
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: 12 * metrics.unit, style: .continuous))
+            .foregroundStyle(textStyle)
+            .background(fillStyle, in: RoundedRectangle(cornerRadius: 12 * metrics.unit, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help("Switch profile (⌃⌥1–9)")
+    }
+
+    private var fillStyle: AnyShapeStyle {
+        profile.color.flatMap(Color.init(hex:)).map { AnyShapeStyle($0.gradient) } ?? AnyShapeStyle(.quaternary)
+    }
+
+    private var textStyle: AnyShapeStyle {
+        guard let color = profile.color else { return AnyShapeStyle(.primary) }
+        return HexColor.prefersLightText(color) ? AnyShapeStyle(Color.white) : AnyShapeStyle(Color.black.opacity(0.8))
+    }
+}
+
+extension Color {
+    /// From "#RRGGBB", as profiles store colors.
+    init?(hex: String) {
+        guard let (red, green, blue) = HexColor.components(hex) else { return nil }
+        self.init(red: red, green: green, blue: blue)
+    }
+
+    /// As "#RRGGBB", in sRGB.
+    var hexString: String? {
+        guard let color = NSColor(self).usingColorSpace(.sRGB) else { return nil }
+        return HexColor.string(red: color.redComponent, green: color.greenComponent, blue: color.blueComponent)
     }
 }
 
 /// The line between the dock's sections. Like the macOS Dock's, dragging it resizes the dock.
 private struct DockSeparator: View {
     @ObservedObject var settings: SettingsStore
+    let pointer: DockPointer
+    let id: String
     @Environment(\.dockMetrics) private var metrics
     @State private var dragStart: (mouse: CGPoint, size: Double)?
 
@@ -377,11 +409,14 @@ private struct DockSeparator: View {
             .frame(width: isHorizontal ? 1 : length, height: isHorizontal ? length : 1)
             .padding(isHorizontal ? .horizontal : .vertical, 4 * metrics.unit)
             .contentShape(Rectangle())
+            .background(FrameReader { [pointer, id] in pointer.separatorFrames[id] = $0 })
+            .onDisappear { [pointer, id] in pointer.separatorFrames[id] = nil }
             .gesture(DragGesture(minimumDistance: 1)
                 .onChanged { _ in resize() }
                 .onEnded { _ in
                     if dragStart != nil {
                         dragStart = nil
+                        pointer.isResizing = false
                         DockInteraction.shared.end()
                     }
                 })
@@ -395,6 +430,7 @@ private struct DockSeparator: View {
         let mouse = NSEvent.mouseLocation
         if dragStart == nil {
             dragStart = (mouse, settings.own.iconSize)
+            pointer.isResizing = true
             DockInteraction.shared.begin()
         }
         guard let dragStart else { return }

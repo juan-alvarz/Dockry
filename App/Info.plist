@@ -33,9 +33,9 @@
 	<!-- Menu bar app: no icon in the Dock. -->
 	<key>LSUIElement</key>
 	<true/>
-	<!-- Shown when macOS asks to let Dockry control Spotify (album art and playback controls). -->
+	<!-- Shown when macOS asks to let Dockry control another app: Spotify (album art and playback), or an app being quit from the dock. -->
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Dockry shows what Spotify is playing and controls playback from the dock.</string>
+	<string>Dockry shows what Spotify is playing and controls it, and quits the apps you choose Quit for in the dock.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

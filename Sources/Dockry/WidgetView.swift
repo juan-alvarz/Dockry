@@ -52,7 +52,8 @@ private extension View {
     func widgetTile() -> some View { modifier(WidgetTile()) }
 }
 
-/// The time. Clicking it opens the Clock app.
+/// The time. Clicking it opens the Clock app. In a dock on the side of the screen the time
+/// sits above the AM/PM, so it stays readable in a narrow tile.
 private struct ClockWidget: View {
     let date: Date
     @Environment(\.dockMetrics) private var metrics
@@ -60,22 +61,50 @@ private struct ClockWidget: View {
     var body: some View {
         let u = metrics.unit
         Button(action: openClock) {
-            Text(date, format: .dateTime.hour().minute())
-                .font(.system(size: (metrics.axis == .vertical ? 12 : 15) * u, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .padding(.horizontal, (metrics.axis == .vertical ? 3 : 10) * u)
-                .frame(
-                    width: metrics.axis == .vertical ? metrics.iconSize : nil,
-                    height: metrics.iconSize)
-                .frame(minWidth: metrics.axis == .vertical ? nil : 72 * u)
-                .widgetTile()
-                .contentShape(Rectangle())
+            Group {
+                if metrics.axis == .vertical {
+                    VStack(spacing: 0) {
+                        Text(Self.timeFormatter.string(from: date))
+                            .font(.system(size: 14 * u, weight: .semibold, design: .rounded))
+                        if Self.usesAMPM {
+                            Text(Self.amPMFormatter.string(from: date))
+                                .font(.system(size: 9 * u, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(width: metrics.iconSize, height: metrics.iconSize)
+                } else {
+                    Text(date, format: .dateTime.hour().minute())
+                        .font(.system(size: 15 * u, weight: .semibold, design: .rounded))
+                        .padding(.horizontal, 10 * u)
+                        .frame(minWidth: 72 * u, minHeight: metrics.iconSize)
+                }
+            }
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .widgetTile()
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help("Open Clock")
     }
+
+    /// Whether the user's locale shows a 12-hour clock.
+    private static let usesAMPM = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)?.contains("a") == true
+
+    /// The time without AM/PM, which goes on its own line: "5:42", or "17:42" on a 24-hour clock.
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = usesAMPM ? "h:mm" : "HH:mm"
+        return formatter
+    }()
+
+    private static let amPMFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "a"
+        return formatter
+    }()
 
     private func openClock() {
         if let clock = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.clock") {
@@ -126,14 +155,21 @@ private struct SpotifyWidget: View {
         let u = metrics.unit
         Group {
             if metrics.axis == .vertical {
-                Button { showsPlayer.toggle() } label: {
-                    SpotifyArtwork(url: player.track?.artworkURL, size: metrics.iconSize - 8 * u)
-                        .frame(width: metrics.iconSize, height: metrics.iconSize)
-                        .widgetTile()
-                        .contentShape(Rectangle())
+                // A tall tile: the album art (click for the player), then the controls.
+                VStack(spacing: 2 * u) {
+                    Button { showsPlayer.toggle() } label: {
+                        SpotifyArtwork(url: player.track?.artworkURL, size: metrics.iconSize - 10 * u)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(player.track.map { "\($0.title) — \($0.artist)" } ?? "Spotify")
+                    control("backward.fill", height: 22) { player.previous() }
+                    control(player.track?.isPlaying == true ? "pause.fill" : "play.fill", height: 22) { player.playPause() }
+                    control("forward.fill", height: 22) { player.next() }
                 }
-                .buttonStyle(.plain)
-                .help(player.track.map { "\($0.title) — \($0.artist)" } ?? "Spotify")
+                .padding(.vertical, 5 * u)
+                .frame(width: metrics.iconSize)
+                .widgetTile()
             } else {
                 HStack(spacing: 8 * u) {
                     Button { showsPlayer.toggle() } label: {
@@ -168,11 +204,11 @@ private struct SpotifyWidget: View {
         .onAppear { ScreenshotHook.openPopoverIfRequested("spotify") { showsPlayer = true } }
     }
 
-    private func control(_ symbol: String, action: @escaping () -> Void) -> some View {
+    private func control(_ symbol: String, height: CGFloat = 32, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 13 * metrics.unit))
-                .frame(width: 24 * metrics.unit, height: 32 * metrics.unit)
+                .frame(width: 24 * metrics.unit, height: height * metrics.unit)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
