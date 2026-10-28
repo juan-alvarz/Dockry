@@ -46,7 +46,7 @@ final class ProfileLibraryTests: XCTestCase {
     }
 
     func testDecodingAHandWrittenProfileFillsInDefaults() throws {
-        let json = #"{ "profiles": [{ "name": "Gaming", "widgets": ["clock", "weather"], "desktop": 3 }] }"#
+        let json = #"{ "profiles": [{ "name": "Gaming", "widgets": ["clock", "stocks"], "desktop": 3 }] }"#
         let library = try JSONDecoder().decode(ProfileLibrary.self, from: Data(json.utf8))
         XCTAssertEqual(
             library.active,
