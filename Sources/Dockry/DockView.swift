@@ -180,6 +180,7 @@ private struct AppIconView: View {
                 .frame(idealWidth: metrics.iconSize, idealHeight: metrics.iconSize)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(app.name)
         .offset(metrics.position.inward(by: bounceHeight))
         .overlay(alignment: Alignment(metrics.position.outerEdge)) { indicator }
         .overlay(alignment: Alignment(metrics.position.innerEdge)) {
