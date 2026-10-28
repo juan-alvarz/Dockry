@@ -35,6 +35,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         menu.addItem(.sectionHeader(title: "Profiles"))
         profileItems().forEach(menu.addItem)
+        let switcher = ActionMenuItem("Profile Switcher", key: " ") { app.showProfileSwitcher() }
+        switcher.keyEquivalentModifierMask = [.control, .option]
+        menu.addItem(switcher)
 
         menu.addItem(.separator())
         let hideDock = ActionMenuItem("Hide macOS Dock") { app.hidesSystemDock.toggle() }

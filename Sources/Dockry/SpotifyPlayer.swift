@@ -1,0 +1,98 @@
+import AppKit
+import Combine
+import DockryCore
+
+/// Follows what Spotify is playing and controls it. Track changes come from the notification
+/// Spotify broadcasts, which needs no permission; artwork and the controls go through
+/// AppleScript, so macOS asks once to let Dockry control Spotify.
+@MainActor
+final class SpotifyPlayer: ObservableObject {
+    @Published private(set) var track: SpotifyTrack?
+
+    private static let bundleID = "com.spotify.client"
+    private var subscriptions: Set<AnyCancellable> = []
+
+    init() {
+        DistributedNotificationCenter.default()
+            .publisher(for: Notification.Name(SpotifyTrack.playbackChangedNotification))
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                let info = notification.userInfo as? [String: Any] ?? [:]
+                self?.update(SpotifyTrack(playbackInfo: info))
+            }
+            .store(in: &subscriptions)
+
+        NSWorkspace.shared.notificationCenter
+            .publisher(for: NSWorkspace.didTerminateApplicationNotification)
+            .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
+            .filter { $0.bundleIdentifier == Self.bundleID }
+            .sink { [weak self] _ in self?.track = nil }
+            .store(in: &subscriptions)
+
+        // The notification only arrives on the next change, so ask once for what's playing now.
+        if isSpotifyRunning {
+            refresh()
+        }
+    }
+
+    /// Also starts Spotify (and playback) when it isn't running.
+    func playPause() { send("playpause") }
+    func next() { send("next track") }
+    func previous() { send("previous track") }
+
+    private var isSpotifyRunning: Bool {
+        !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).isEmpty
+    }
+
+    private func update(_ newTrack: SpotifyTrack?) {
+        guard var newTrack else {
+            track = nil
+            return
+        }
+        let isSameSong = newTrack.title == track?.title && newTrack.artist == track?.artist
+        newTrack.artworkURL = isSameSong ? track?.artworkURL : nil
+        track = newTrack
+        // The notification has no artwork; ask Spotify for it.
+        if newTrack.artworkURL == nil && isSpotifyRunning {
+            refresh()
+        }
+    }
+
+    private func refresh() {
+        Task {
+            guard let output = await AppleScript.run(SpotifyTrack.appleScript) else { return }
+            track = SpotifyTrack(appleScriptOutput: output)
+        }
+    }
+
+    private func send(_ command: String) {
+        Task { _ = await AppleScript.run("tell application id \"\(Self.bundleID)\" to \(command)") }
+    }
+}
+
+/// Runs AppleScript in an `osascript` process, so a slow or hung app can't freeze the dock
+/// the way NSAppleScript on the main thread would.
+enum AppleScript {
+    /// The script's output, or nil if it failed (e.g. the user didn't allow automation).
+    static func run(_ source: String) async -> String? {
+        await withCheckedContinuation { continuation in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = ["-e", source]
+            let output = Pipe()
+            process.standardOutput = output
+            process.standardError = FileHandle.nullDevice
+            // Reading after exit is fine for these few lines; output beyond the pipe's buffer
+            // (64 KB) would block osascript before it exits.
+            process.terminationHandler = { process in
+                let data = output.fileHandleForReading.readDataToEndOfFile()
+                continuation.resume(returning: process.terminationStatus == 0 ? String(decoding: data, as: UTF8.self) : nil)
+            }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(returning: nil)
+            }
+        }
+    }
+}

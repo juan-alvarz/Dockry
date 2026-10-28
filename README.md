@@ -4,11 +4,15 @@ A dock for macOS that changes with what you're doing. Dockry runs next to the sy
 (the way Raycast runs next to Spotlight) instead of modifying it. It can hide the system
 Dock while it runs and gives it back when it quits.
 
-| Work | Chill | Menu bar |
-|---|---|---|
-| ![Work profile](docs/screenshots/1-work-profile.png) | ![Chill profile](docs/screenshots/2-chill-profile.png) | ![Menu bar menu](docs/screenshots/3-menu-bar.png) |
+| Work | Chill, with the Spotify widget |
+|---|---|
+| ![Work profile](docs/screenshots/1-work-profile.png) | ![Chill profile](docs/screenshots/2-chill-profile.png) |
+| **Profile switcher (⌃⌥Space)** | **Menu bar** |
+| ![Profile switcher](docs/screenshots/3-profile-switcher.png) | ![Menu bar menu](docs/screenshots/4-menu-bar.png) |
 
 The screenshots are taken by CI on a GitHub-hosted macOS machine on every push to `dev`.
+That machine has no Spotify, so CI sends the notification Spotify posts when a song starts
+to show the widget with a track.
 
 ## What it does
 
@@ -16,10 +20,15 @@ The screenshots are taken by CI on a GitHub-hosted macOS machine on every push t
   profile's pinned apps, then any other app that's running, then the profile's widgets.
   A dot marks running apps. Click to open or switch to an app. Right-click to keep it in or
   remove it from the profile, show it in Finder, or quit it.
-- **Profiles** such as *Work* and *Chill*. Each has its own pinned apps, widgets (clock,
-  date) and desktop. Activating a profile swaps the dock's contents and jumps to its desktop.
-- **Switching profiles** with ⌃⌥1 … ⌃⌥9, from the menu bar item, or with the profile button
-  at the left of the dock.
+- **Profiles** such as *Work* and *Chill*. Each has its own pinned apps, widgets and desktop.
+  Activating a profile swaps the dock's contents and jumps to its desktop.
+- **Widgets:** clock, date, and Spotify (what's playing, with previous / play-pause / next).
+- **The profile switcher**, like ⌘Tab for profiles. Hold ⌃⌥ and tap Space to move through
+  the profiles; let go to switch. A quick ⌃⌥Space flips to the next profile. When it stays
+  open (keys already released, or opened from the menu), use the arrows or Tab, 1–9 or
+  Return to pick, and Esc to cancel.
+- **Other ways to switch:** ⌃⌥1 … ⌃⌥9 jump straight to a profile, and so do the menu bar
+  item and the profile button at the left of the dock.
 - **Hide macOS Dock** in the menu bar menu. This turns on the system Dock's auto-hide with a
   very long delay, so it never shows up. Your own Dock settings are saved first and put
   back when you turn the option off or quit Dockry.
@@ -49,6 +58,14 @@ menu tells you which one is still missing:
    the shortcut.
 
 Profiles and the dock work without either of these.
+
+### Spotify
+
+The widget reads what's playing from the notification Spotify broadcasts, which needs no
+permission. Album art and the playback buttons use AppleScript, so the first time macOS asks
+whether Dockry may control Spotify. If you decline, the widget still shows the song but
+the buttons do nothing. You can change this later in System Settings › Privacy & Security ›
+Automation. Pressing play while Spotify is closed opens it.
 
 ### If the system Dock stays hidden
 
@@ -81,6 +98,7 @@ opens the file, and **Reload Profiles** applies your changes. Only `name` is req
 
 - `symbol` is an [SF Symbol](https://developer.apple.com/sf-symbols/) name.
 - `pinnedApps` are bundle identifiers. To find one, run `osascript -e 'id of app "Safari"'`.
+- `widgets` can include `clock`, `date` and `spotify`, shown in the order you list them.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
 
 If the file can't be read, the menu says so and Dockry uses the default profiles without

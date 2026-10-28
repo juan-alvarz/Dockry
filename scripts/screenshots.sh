@@ -31,13 +31,30 @@ screencapture -x "$out/1-work-profile.png"
 osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' \
   || echo "couldn't send the hot key"
 sleep 2
+swift scripts/fake-spotify-track.swift || echo "couldn't post the Spotify notification"
+sleep 2
 screencapture -x "$out/2-chill-profile.png"
+
+# Hold ⌃⌥ and tap Space (key code 49): the switcher opens with the next profile, Work, selected.
+osascript -e 'tell application "System Events"
+  key down control
+  key down option
+  key code 49
+end tell' || echo "couldn't open the profile switcher"
+sleep 1
+screencapture -x "$out/3-profile-switcher.png"
+# Letting go of ⌃⌥ switches to the selected profile; the menu screenshot should show Work.
+osascript -e 'tell application "System Events"
+  key up option
+  key up control
+end tell' || true
+sleep 2
 
 # Open Dockry's menu bar menu.
 osascript -e 'tell application "System Events" to tell process "Dockry" to click menu bar item 1 of last menu bar' \
   || echo "couldn't open the menu bar menu"
 sleep 1
-screencapture -x "$out/3-menu-bar.png"
+screencapture -x "$out/4-menu-bar.png"
 osascript -e 'tell application "System Events" to key code 53' || true  # Esc closes the menu
 
 # Quitting has to give the system Dock its original settings back.

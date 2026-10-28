@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotKeys = HotKeys()
     private var dockPanel: DockPanel?
     private var menuBar: MenuBarController?
+    private var profileSwitcher: ProfileSwitcherPanel?
     private var terminationSignal: DispatchSourceSignal?
 
     private static let hidesSystemDockKey = "hideSystemDock"
@@ -32,6 +33,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.orderFrontRegardless()
         dockPanel = panel
 
+        let switcher = ProfileSwitcherPanel(store: store) { [weak self] in self?.activateProfile(named: $0) }
+        profileSwitcher = switcher
+        hotKeys.register(keyCode: UInt16(kVK_Space), modifiers: controlKey | optionKey) {
+            switcher.showOrAdvance()
+        }
         // ⌃⌥1 … ⌃⌥9 activate the first nine profiles.
         for digit in 1...9 {
             guard let keyCode = KeyShortcut.keyCode(forDigit: digit) else { continue }
@@ -54,6 +60,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func applySystemDockSetting() {
         hidesSystemDock ? SystemDock.hide() : SystemDock.restore()
         dockPanel?.coversSystemDock = hidesSystemDock
+    }
+
+    func showProfileSwitcher() {
+        profileSwitcher?.showOrAdvance()
     }
 
     func activateProfile(named name: String) {

@@ -3,6 +3,7 @@ import Foundation
 public enum WidgetKind: String, Codable {
     case clock
     case date
+    case spotify
 }
 
 /// A context like "Work" or "Chill": the apps pinned to the dock, the widgets shown next to
@@ -75,7 +76,7 @@ extension Profile {
                 "com.apple.MobileSMS",
                 "com.apple.TV",
             ],
-            widgets: [.clock],
+            widgets: [.spotify, .clock],
             desktop: 2
         ),
     ]
