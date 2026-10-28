@@ -41,8 +41,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(switchUserItem())
-        let hideDock = ActionMenuItem("Hide macOS Dock") { app.hidesSystemDock.toggle() }
-        hideDock.state = app.hidesSystemDock ? .on : .off
+        let hideDock = ActionMenuItem("Hide macOS Dock") { app.settings.hidesSystemDock.toggle() }
+        hideDock.state = app.settings.hidesSystemDock ? .on : .off
         menu.addItem(hideDock)
         if let item = desktopSwitchingItem() {
             menu.addItem(item)
@@ -50,12 +50,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
         if app.store.loadError != nil {
-            let warning = NSMenuItem(title: "profiles.json has an error; changes aren’t saved until it’s fixed", action: nil, keyEquivalent: "")
+            let warning = ActionMenuItem("profiles.json has an error; changes aren’t saved until it’s fixed") {
+                SettingsWindow.show(tab: .profiles)
+            }
             warning.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: nil)
             menu.addItem(warning)
         }
-        menu.addItem(ActionMenuItem("Edit Profiles…") { app.store.openFile() })
-        menu.addItem(ActionMenuItem("Reload Profiles") { app.store.reload() })
+        menu.addItem(ActionMenuItem("Edit Profiles…") { SettingsWindow.show(tab: .profiles) })
+        menu.addItem(ActionMenuItem("Settings…", key: ",") { SettingsWindow.show() })
 
         menu.addItem(.separator())
         menu.addItem(ActionMenuItem("Quit Dockry", key: "q") { NSApp.terminate(nil) })
@@ -63,12 +65,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private func profileItems() -> [NSMenuItem] {
         let app = self.app
-        return app.store.library.profiles.enumerated().map { index, profile in
-            let item = ActionMenuItem(profile.name, key: index < 9 ? String(index + 1) : "") {
+        return app.store.library.profiles.map { profile in
+            // Shows the profile's global shortcut, if it has one with a plain key.
+            let key = profile.shortcut?.key.flatMap { $0.count == 1 ? $0.lowercased() : nil } ?? ""
+            let item = ActionMenuItem(profile.name, key: key) {
                 app.activateProfile(named: profile.name)
             }
-            // Shows the global ⌃⌥N hot key next to the profile.
-            item.keyEquivalentModifierMask = [.control, .option]
+            item.keyEquivalentModifierMask = NSEvent.ModifierFlags(rawValue: UInt(profile.shortcut?.modifiers ?? 0))
             item.image = NSImage(systemSymbolName: profile.symbol, accessibilityDescription: nil)
             item.state = profile.name == app.store.active.name ? .on : .off
             return item

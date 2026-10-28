@@ -5,17 +5,18 @@ import SwiftUI
 
 /// A ⌘Tab-style overlay for switching profiles from the keyboard.
 ///
-/// ⌃⌥Space opens it with the next profile selected. While ⌃⌥ are held, Space moves the
-/// selection and letting go switches, so a quick ⌃⌥Space flips between two profiles. If the
-/// keys are already up when it opens (or it was opened from the menu), it stays open:
-/// arrows/Tab move, 1–9 or Return pick, Esc or a click elsewhere cancels.
+/// Its shortcut (which the user sets, say ⌃⌥Space) opens it with the next profile selected.
+/// While the shortcut's modifiers are held, its key moves the selection and letting go
+/// switches, so a quick press flips between two profiles. If the keys are already up when it
+/// opens (or it was opened from the menu), it stays open: arrows/Tab move, 1–9 or Return pick,
+/// Esc or a click elsewhere cancels.
 final class ProfileSwitcherPanel: NSPanel {
     private let store: ProfileStore
     private let selection = SwitcherSelection()
     private let onChoose: (String) -> Void
     private var choosesOnModifierRelease = false
-
-    private static let holdModifiers: NSEvent.ModifierFlags = [.control, .option]
+    /// The modifiers of the shortcut that opened it, which choose the profile when let go.
+    private var holdModifiers: NSEvent.ModifierFlags = []
 
     init(store: ProfileStore, onChoose: @escaping (String) -> Void) {
         self.store = store
@@ -37,8 +38,9 @@ final class ProfileSwitcherPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
 
-    /// What ⌃⌥Space does: opens the switcher, or moves to the next profile if it's open.
-    func showOrAdvance() {
+    /// Opens the switcher, or moves to the next profile if it's open. `shortcut` is the one
+    /// that was pressed, if any.
+    func showOrAdvance(holding shortcut: KeyShortcut? = nil) {
         if isVisible {
             move(by: 1)
             return
@@ -46,7 +48,8 @@ final class ProfileSwitcherPanel: NSPanel {
         let profiles = store.library.profiles
         let activeIndex = profiles.firstIndex { $0.name == store.active.name } ?? 0
         selection.index = (activeIndex + 1) % profiles.count
-        choosesOnModifierRelease = NSEvent.modifierFlags.isSuperset(of: Self.holdModifiers)
+        holdModifiers = NSEvent.ModifierFlags(rawValue: UInt(shortcut?.modifiers ?? 0))
+        choosesOnModifierRelease = !holdModifiers.isEmpty && NSEvent.modifierFlags.isSuperset(of: holdModifiers)
 
         guard let screen = NSScreen.screens.first, let size = contentView?.fittingSize else { return }
         let origin = CGPoint(
@@ -78,7 +81,7 @@ final class ProfileSwitcherPanel: NSPanel {
     }
 
     override func flagsChanged(with event: NSEvent) {
-        if choosesOnModifierRelease && !event.modifierFlags.isSuperset(of: Self.holdModifiers) {
+        if choosesOnModifierRelease && !event.modifierFlags.isSuperset(of: holdModifiers) {
             choose(at: selection.index)
         }
         super.flagsChanged(with: event)
@@ -121,7 +124,7 @@ private struct ProfileSwitcherView: View {
             ForEach(Array(store.library.profiles.enumerated()), id: \.element.name) { index, profile in
                 Button { choose(index) } label: {
                     ProfileTile(
-                        profile: profile, number: index + 1,
+                        profile: profile,
                         isSelected: index == selection.index,
                         isActive: profile.name == store.active.name)
                 }
@@ -136,7 +139,6 @@ private struct ProfileSwitcherView: View {
 
 private struct ProfileTile: View {
     let profile: Profile
-    let number: Int
     let isSelected: Bool
     let isActive: Bool
 
@@ -159,7 +161,7 @@ private struct ProfileTile: View {
                 }
             }
             .frame(height: 20)
-            Text(isActive ? "Active" : number <= 9 ? "⌃⌥\(number)" : " ")
+            Text(isActive ? "Active" : profile.shortcut?.displayString ?? " ")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.secondary)
         }

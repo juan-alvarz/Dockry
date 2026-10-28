@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Dockry's icon, "Dot, magnified": one app mid-magnification between two smaller
+       ones, with its running dot below. Drawn on macOS's icon grid: an 824-point rounded
+       square centered on a 1024-point canvas, with a soft shadow. -->
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2a2e"/>
+      <stop offset="1" stop-color="#050506"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e6e6eb"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+    <clipPath id="body"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#ground)" filter="url(#shadow)"/>
+  <g clip-path="url(#body)"><g transform="translate(100 100) scale(8.24)">
+    <rect x="14" y="44" width="16" height="16" rx="4" fill="#f5f5f7" fill-opacity="0.45"/>
+    <rect x="70" y="44" width="16" height="16" rx="4" fill="#f5f5f7" fill-opacity="0.45"/>
+    <rect x="34" y="28" width="32" height="32" rx="8" fill="url(#tile)"/>
+    <circle cx="50" cy="72" r="2.8" fill="#f5f5f7"/>
+  </g></g>
+  <rect x="102" y="102" width="820" height="820" rx="183" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="4"/>
+</svg>

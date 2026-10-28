@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.github.juan-alvarz.Dockry</string>
 	<key>CFBundleName</key>
@@ -11,17 +13,29 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.0.1</string>
+	<string>0.0.7</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>7</string>
+	<!-- dockry:// is where Spotify's sign-in page sends the browser back to. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.github.juan-alvarz.Dockry</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>dockry</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<!-- Menu bar app: no icon in the Dock. -->
 	<key>LSUIElement</key>
 	<true/>
-	<!-- Shown when macOS asks to let Dockry control Spotify (album art and playback controls). -->
+	<!-- Shown when macOS asks to let Dockry control another app: Spotify (album art and playback), or an app being quit from the dock. -->
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Dockry shows what Spotify is playing and controls playback from the dock.</string>
+	<string>Dockry shows what Spotify is playing and controls it, and quits the apps you choose Quit for in the dock.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

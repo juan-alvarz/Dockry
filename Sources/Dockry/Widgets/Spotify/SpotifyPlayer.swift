@@ -8,9 +8,13 @@ import DockryCore
 @MainActor
 final class SpotifyPlayer: ObservableObject {
     @Published private(set) var track: SpotifyTrack?
+    /// Position, volume and modes; only kept up to date while the player popover is open.
+    @Published private(set) var playback: SpotifyPlayback?
 
     private static let bundleID = "com.spotify.client"
     private var subscriptions: Set<AnyCancellable> = []
+    private var playbackTimer: Timer?
+    private var volumeChange: Task<Void, Never>?
 
     init() {
         DistributedNotificationCenter.default()
@@ -40,6 +44,69 @@ final class SpotifyPlayer: ObservableObject {
     func next() { send("next track") }
     func previous() { send("previous track") }
 
+    /// Plays a song by its Spotify URI, in the Spotify app (which stays in the background).
+    func play(uri: String) {
+        send("play track \"\(uri.replacingOccurrences(of: "\"", with: ""))\"")
+    }
+
+    func seek(to seconds: Double) {
+        playback?.position = seconds
+        send("set player position to \(Int(seconds))")
+    }
+
+    /// Dragging the volume slider calls this many times a second; only the value it rests
+    /// on goes to Spotify, instead of one osascript process per step.
+    func setVolume(_ volume: Int) {
+        playback?.volume = volume
+        volumeChange?.cancel()
+        volumeChange = Task {
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled else { return }
+            send("set sound volume to \(volume)")
+        }
+    }
+
+    func toggleShuffle() {
+        guard let playback else { return }
+        self.playback?.isShuffling.toggle()
+        send("set shuffling to \(!playback.isShuffling)")
+    }
+
+    func toggleRepeat() {
+        guard let playback else { return }
+        self.playback?.isRepeating.toggle()
+        send("set repeating to \(!playback.isRepeating)")
+    }
+
+    /// Asks Spotify for the position every second, for the popover's progress bar.
+    func startFollowingPlayback() {
+        guard playbackTimer == nil else { return }
+        refreshPlayback()
+        playbackTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshPlayback() }
+        }
+    }
+
+    func stopFollowingPlayback() {
+        playbackTimer?.invalidate()
+        playbackTimer = nil
+    }
+
+    private func refreshPlayback() {
+        if let sample = ScreenshotHook.spotifyPlayback {
+            playback = playback ?? SpotifyPlayback(appleScriptOutput: sample)
+            return
+        }
+        guard isSpotifyRunning else {
+            playback = nil
+            return
+        }
+        Task {
+            let output = await AppleScript.run(SpotifyPlayback.appleScript)
+            playback = output.flatMap(SpotifyPlayback.init(appleScriptOutput:))
+        }
+    }
+
     private var isSpotifyRunning: Bool {
         !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).isEmpty
     }
@@ -50,7 +117,7 @@ final class SpotifyPlayer: ObservableObject {
             return
         }
         let isSameSong = newTrack.title == track?.title && newTrack.artist == track?.artist
-        newTrack.artworkURL = isSameSong ? track?.artworkURL : nil
+        newTrack.artworkURL = isSameSong ? track?.artworkURL : ScreenshotHook.spotifyArtwork
         track = newTrack
         // The notification has no artwork; ask Spotify for it.
         if newTrack.artworkURL == nil && isSpotifyRunning {

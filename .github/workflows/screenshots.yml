@@ -1,13 +1,13 @@
-name: macOS
+name: Build & Screenshots
 
+# Only when started by hand (Actions tab › Build & Screenshots › Run workflow, picking the
+# branch), not on every push: macOS runners are slow to get and limited. It builds, runs the
+# tests, takes the screenshots and checks Fast User Switching.
 on:
-  # dev-* are feature branches with PRs into dev; their push runs report on the PRs.
-  push:
-    branches: [main, dev, "dev-*"]
   workflow_dispatch:
 
 concurrency:
-  group: macos-${{ github.ref }}
+  group: screenshots-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -29,6 +29,7 @@ jobs:
         run: scripts/bundle.sh
 
       - name: Capture screenshots
+        id: capture
         run: scripts/screenshots.sh docs/screenshots
 
       - name: Upload screenshots
@@ -40,20 +41,24 @@ jobs:
           if-no-files-found: ignore
 
       - name: Commit screenshots to dev
-        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        if: github.ref == 'refs/heads/dev'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/screenshots
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Update screenshots [skip ci]"
+          git commit -m "Update screenshots"
           git pull --rebase origin dev
           git push origin HEAD:dev
 
       # Feature branches don't commit their PNGs, so their PRs into dev can't conflict over
       # binary files; the PR links to them on the screenshots branch instead.
       - name: Publish screenshots for a feature branch
-        if: github.event_name == 'push' && startsWith(github.ref_name, 'dev-')
+        # Also when capturing failed partway: the screenshots show what went wrong. Not when it
+        # never ran, or dev's committed screenshots would be published as this branch's.
+        if: >-
+          !cancelled() && steps.capture.outcome != 'skipped'
+          && startsWith(github.ref_name, 'dev-')
         run: scripts/publish-screenshots.sh "${{ github.ref_name }}"
 
       # Last, because it sends this job's desktop session to the background.
