@@ -35,6 +35,17 @@ enum SystemDock {
         restartDock()
     }
 
+    /// One of the Dock's settings as the user set it: while Dockry hides the Dock, the
+    /// values it changed are the saved originals, not its own.
+    static func userValue(forKey key: String) -> Any? {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: hiddenFlag) && changedKeys.contains(key) {
+            return defaults.object(forKey: savedValuePrefix + key)
+        }
+        CFPreferencesAppSynchronize(dockDomain)
+        return CFPreferencesCopyAppValue(key as CFString, dockDomain)
+    }
+
     private static func setDockValue(_ value: Any?, forKey key: String) {
         CFPreferencesSetAppValue(key as CFString, value.map { $0 as CFPropertyList }, dockDomain)
         CFPreferencesAppSynchronize(dockDomain)

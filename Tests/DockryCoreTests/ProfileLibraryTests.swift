@@ -60,3 +60,47 @@ final class ProfileLibraryTests: XCTestCase {
         XCTAssertEqual(decoded, library)
     }
 }
+
+final class ProfileLibraryEditingTests: XCTestCase {
+    private var library = ProfileLibrary(profiles: [Profile(name: "Work"), Profile(name: "Chill")])
+
+    func testAddingAProfileGivesItAUniqueName() {
+        XCTAssertEqual(library.addProfile(named: "Gaming"), "Gaming")
+        XCTAssertEqual(library.addProfile(named: "Work"), "Work 2")
+        XCTAssertEqual(library.profiles.map(\.name), ["Work", "Chill", "Gaming", "Work 2"])
+    }
+
+    func testRemovingTheActiveProfileActivatesTheFirst() {
+        library.activate(named: "Chill")
+        library.removeProfile(named: "Chill")
+        XCTAssertEqual(library.active.name, "Work")
+    }
+
+    func testTheLastProfileCantBeRemoved() {
+        library.removeProfile(named: "Chill")
+        library.removeProfile(named: "Work")
+        XCTAssertEqual(library.profiles.map(\.name), ["Work"])
+    }
+
+    func testRenamingTheActiveProfileKeepsItActive() {
+        library.updateProfile(named: "Work") { $0.name = "Office" }
+        XCTAssertEqual(library.active.name, "Office")
+    }
+
+    func testRenamesToTakenOrEmptyNamesAreIgnoredButOtherChangesApply() {
+        library.updateProfile(named: "Work") {
+            $0.name = "Chill"
+            $0.desktop = 3
+        }
+        library.updateProfile(named: "Chill") { $0.name = "  " }
+        XCTAssertEqual(library.profiles.map(\.name), ["Work", "Chill"])
+        XCTAssertEqual(library.profiles[0].desktop, 3)
+    }
+
+    func testMovingAProfileStaysInBounds() {
+        library.moveProfile(named: "Work", by: 5)
+        XCTAssertEqual(library.profiles.map(\.name), ["Chill", "Work"])
+        library.moveProfile(named: "Work", by: -1)
+        XCTAssertEqual(library.profiles.map(\.name), ["Work", "Chill"])
+    }
+}

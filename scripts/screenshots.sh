@@ -63,6 +63,52 @@ sleep 1
 screencapture -x "$out/4-menu-bar.png"
 osascript -e 'tell application "System Events" to key code 53' || true  # Esc closes the menu
 
+# Quits Dockry and opens it again with the given launch arguments (see ScreenshotHook).
+relaunch() {
+  pkill -TERM -x Dockry || true
+  sleep 3
+  open build/Dockry.app --args "$@"
+  sleep 6
+}
+
+# Magnification, with the pointer over the dock (-1 is the middle of the screen).
+defaults write "$bundle_id" magnifies -bool true
+defaults write "$bundle_id" magnifiedSize -float 96
+relaunch
+swift scripts/move-mouse.swift -31 36 || echo "couldn't move the pointer"
+sleep 1
+screencapture -x "$out/5-magnification.png"
+
+# A smaller dock on the left edge, with an icon's name showing.
+defaults write "$bundle_id" magnifies -bool false
+defaults write "$bundle_id" position -string left
+defaults write "$bundle_id" iconSize -float 40
+relaunch
+swift scripts/move-mouse.swift 30 400 || echo "couldn't move the pointer"
+sleep 1
+screencapture -x "$out/6-left-position.png"
+defaults delete "$bundle_id" position
+defaults delete "$bundle_id" iconSize
+swift scripts/move-mouse.swift -1 500 || true  # out of the way
+
+relaunch -showSettings general
+screencapture -x "$out/7-settings-general.png"
+relaunch -showSettings profiles
+screencapture -x "$out/8-settings-profiles.png"
+
+# The calendar from the date widget (in the active profile, Work).
+relaunch -openPopover calendar
+screencapture -x "$out/9-calendar.png"
+
+# The Spotify player, with a sample song, playback and search results: CI has no Spotify.
+relaunch -openPopover spotify -spotifyTestPlayback 83,241,70,true,false \
+  -spotifyTestSearchResponse "$PWD/scripts/sample-spotify-search.json" -spotifySearchQuery "between the bars"
+osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' || true
+sleep 1
+swift scripts/fake-spotify-track.swift || true
+sleep 4
+screencapture -x "$out/10-spotify-player.png"
+
 # Quitting has to give the system Dock its original settings back.
 pkill -TERM -x Dockry
 sleep 3

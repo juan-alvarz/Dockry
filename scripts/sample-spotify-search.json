@@ -1,0 +1,14 @@
+{
+  "tracks": {
+    "items": [
+      {"uri": "spotify:track:sample1", "name": "Between the Bars", "artists": [{"name": "Elliott Smith"}],
+       "album": {"name": "Either/Or", "images": []}},
+      {"uri": "spotify:track:sample2", "name": "Between the Bars", "artists": [{"name": "Madeleine Peyroux"}],
+       "album": {"name": "Half the Perfect World", "images": []}},
+      {"uri": "spotify:track:sample3", "name": "Say Yes", "artists": [{"name": "Elliott Smith"}],
+       "album": {"name": "Either/Or", "images": []}},
+      {"uri": "spotify:track:sample4", "name": "Waltz #2 (XO)", "artists": [{"name": "Elliott Smith"}],
+       "album": {"name": "XO", "images": []}}
+    ]
+  }
+}
