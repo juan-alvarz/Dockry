@@ -75,9 +75,9 @@ extension WidgetKind {
                 details: "Click the song for the player: progress you can drag, volume, shuffle, repeat and search that plays songs without bringing Spotify to the front. On a side dock it’s the album art above the controls.",
                 symbol: "music.note", tint: "#1DB954", category: .media,
                 requirements: [
-                    Requirement("The Spotify app"),
-                    Requirement("Permission to control Spotify; macOS asks the first time"),
-                    Requirement("A Spotify account connected below, to search", isOptional: true),
+                    WidgetInfo.Requirement("The Spotify app"),
+                    WidgetInfo.Requirement("Permission to control Spotify; macOS asks the first time"),
+                    WidgetInfo.Requirement("A Spotify account connected below, to search", isOptional: true),
                 ])
         case .users:
             WidgetInfo(
@@ -85,7 +85,7 @@ extension WidgetKind {
                 summary: "The Mac’s other accounts, for Fast User Switching.",
                 details: "Click someone to switch to their account, as from the user menu in Control Center. With no other accounts, it opens the login window.",
                 symbol: "person.2.fill", tint: "#0A84FF", category: .system,
-                requirements: [Requirement("Fast User Switching, which macOS has on by default")])
+                requirements: [WidgetInfo.Requirement("Fast User Switching, which macOS has on by default")])
         case .claude:
             WidgetInfo(
                 kind: self, name: "Claude Usage",
@@ -93,8 +93,8 @@ extension WidgetKind {
                 details: "The same numbers as /usage in Claude Code, checked every few minutes. Click it for the usage page on claude.ai. On a side dock it’s a ring for the 5-hour limit.",
                 symbol: "sparkle", tint: "#D97757", category: .productivity,
                 requirements: [
-                    Requirement("Claude Code, signed in with a Claude plan"),
-                    Requirement("Permission to read Claude Code’s sign-in; macOS asks the first time"),
+                    WidgetInfo.Requirement("Claude Code, signed in with a Claude plan"),
+                    WidgetInfo.Requirement("Permission to read Claude Code’s sign-in; macOS asks the first time"),
                 ])
         }
     }
