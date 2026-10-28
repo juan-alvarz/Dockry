@@ -18,8 +18,9 @@ Dock while it runs and gives it back when it quits.
 | **Profile switcher (⌃⌥Space)** | **Menu bar** |
 | ![Profile switcher](docs/screenshots/3-profile-switcher.png) | ![Menu bar menu](docs/screenshots/4-menu-bar.png) |
 
-The screenshots are taken by CI on a GitHub-hosted macOS machine on every push to `dev`.
-Feature branches (`dev-*`) publish theirs to the
+The screenshots are taken on a GitHub-hosted macOS machine by the **Build & Screenshots**
+workflow, which only runs when started from the Actions tab. On `dev` it commits them here;
+feature branches (`dev-*`) publish theirs to the
 [`screenshots`](https://github.com/juan-alvarz/Dockry/tree/screenshots) branch, one folder
 per branch, so PRs into `dev` don't carry PNG changes that conflict with each other.
 That machine has no Spotify, so CI sends the notification Spotify posts when a song starts
@@ -48,9 +49,11 @@ to show the widget with a track.
   Activating a profile swaps the dock's contents and jumps to its desktop. **Edit Profiles…**
   opens an editor for all of this, including the color of the profile's button in the dock.
 - **Widgets:** clock (click for the Clock app), date (click for a month calendar), Spotify,
-  and users. Clicking the Spotify song opens a player: progress you can drag, volume,
-  shuffle and repeat, and search that plays songs without bringing Spotify to the front.
-  Widgets scale with the dock, and on a side dock they turn into compact tiles.
+  users, and Claude usage (how much of your plan's 5-hour and weekly limits you've used, as
+  `/usage` shows in Claude Code; click for the usage page on claude.ai). Clicking the
+  Spotify song opens a player: progress you can drag, volume, shuffle and repeat, and search
+  that plays songs without bringing Spotify to the front. Widgets scale with the dock, and on
+  a side dock they turn into compact tiles.
 - **Fast User Switching:** the users widget shows the Mac's other accounts. Click one to
   switch to it, as you would from the user menu in Control Center. **Switch User** in the
   menu bar menu does the same and also opens the login window.
@@ -115,9 +118,12 @@ open build/Dockry.app
 Don't run `scripts/screenshots.sh` on your own Mac. It's meant for CI: it opens and quits
 apps and changes the Dock's settings.
 
-To publish a release, run the **Release** workflow from the Actions tab on `main` with a
-version such as `0.0.2`. It tags the commit `Dockry-0.0.2` and attaches a universal
-Dockry.app as a disk image and as a zip. Pushing a `Dockry-*` tag does the same.
+GitHub Actions only run when started by hand from the Actions tab, on the branch you pick:
+
+- **Build & Screenshots** builds, runs the tests, takes the screenshots above and checks Fast
+  User Switching.
+- **Release**, given a version such as `0.0.7`, tests and builds a universal Dockry.app, tags
+  the commit `Dockry-0.0.7` and publishes it as a disk image and a zip.
 
 ## Setup
 
@@ -145,6 +151,15 @@ future macOS removes the function, Dockry opens the login window instead, which 
 account.
 Fast User Switching must be turned on: System Settings › Control Center › Fast User
 Switching, or Users & Groups on older versions.
+
+### Claude usage
+
+The widget uses the account Claude Code is signed in to. The first time, macOS asks whether
+Dockry may use the "Claude Code-credentials" Keychain item. Choose **Always Allow**.
+Anthropic has no official usage API for Pro/Max plans, so the widget calls the same
+unofficial endpoint as Claude Code's `/usage`. It could change without notice. Dockry
+checks every 5 minutes and waits 30 minutes when rate-limited. Hover over the widget to see
+when each limit resets.
 
 ### Spotify
 
@@ -193,7 +208,8 @@ then **Reload from File**. Only `name` is required:
 
 - `symbol` is an [SF Symbol](https://developer.apple.com/sf-symbols/) name.
 - `pinnedApps` are bundle identifiers. To find one, run `osascript -e 'id of app "Safari"'`.
-- `widgets` can include `clock`, `date`, `spotify` and `users`, shown in the order you list them.
+- `widgets` can include `clock`, `date`, `spotify`, `users` and `claude`, shown in the order
+  you list them.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
 - `opensAppsOnSwitch` is `true` to open the profile's pinned apps when switching to it.
 - `color` is the profile button's color, like `"#3563E9"`. Leave it out for a plain button.
@@ -209,5 +225,5 @@ turn off Edit › Substitutions › Smart Quotes first: curly quotes aren't vali
 | `Sources/DockryCore` | Profiles, dock settings, magnification and screen placement, Spotify's Web API, shortcut parsing. Plain Foundation, unit tested. |
 | `Sources/Dockry` | The app: dock window and views, menu bar, hot keys, system Dock and desktop integration. |
 | `App` | Bundle metadata and the app icon, used by `scripts/bundle.sh` (see `App/README.md`). |
-| `.github/workflows/macos.yml` | Builds, tests and takes the screenshots on a macOS runner. |
-| `.github/workflows/release.yml` | Builds a universal Dockry.app and publishes it, as a disk image and a zip, as a GitHub release. |
+| `.github/workflows/screenshots.yml` | Builds, tests and takes the screenshots on a macOS runner, when started by hand. |
+| `.github/workflows/release.yml` | Builds a universal Dockry.app and publishes it, as a disk image and a zip, as a GitHub release, when started by hand. |

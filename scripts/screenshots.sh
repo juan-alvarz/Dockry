@@ -16,11 +16,26 @@ dock_settings() {
 }
 original_settings=$(dock_settings)
 
+# When Dockry stops responding, show where its main thread is stuck.
+report_hang() {
+  echo "Dockry isn't responding. Its main thread:" >&2
+  sample Dockry 2 -mayDie 2>/dev/null | sed -n '/Call graph/,/Total number in stack/p' | head -60 >&2 || true
+}
+
 # Accounts for the Fast User Switching widget (this runner only has its own).
 for user in "alex:Alex Rivera" "sam:Sam Chen"; do
   sudo sysadminctl -addUser "${user%%:*}" -fullName "${user#*:}" -password "dockry-ci" 2>/dev/null \
     || echo "couldn't create the account ${user%%:*}"
 done
+
+# CI has no Claude account, and nobody to answer the Keychain prompt for Claude Code's
+# sign-in: the widget reads a sample answer from the usage endpoint instead.
+usage_response=$(mktemp)
+cat > "$usage_response" <<'JSON'
+{"five_hour": {"utilization": 34, "resets_at": "2030-01-01T12:00:00Z"},
+ "seven_day": {"utilization": 72, "resets_at": "2030-01-05T00:00:00Z"}}
+JSON
+defaults write "$bundle_id" claudeUsageTestResponse "$usage_response"
 
 # Apps for the "running" part of the dock: two pinned in Work, two that aren't.
 for app in Safari Notes Calculator TextEdit; do
@@ -82,7 +97,7 @@ sleep 2
 
 # Open Dockry's menu bar menu.
 osascript -e 'tell application "System Events" to tell process "Dockry" to click menu bar item 1 of last menu bar' \
-  || echo "couldn't open the menu bar menu"
+  || { echo "couldn't open the menu bar menu"; report_hang; }
 sleep 1
 screencapture -x "$out/4-menu-bar.png"
 osascript -e 'tell application "System Events" to key code 53' || true  # Esc closes the menu
