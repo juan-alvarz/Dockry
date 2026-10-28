@@ -85,9 +85,13 @@ defaults write "$bundle_id" magnifies -bool false
 defaults write "$bundle_id" position -string left
 defaults write "$bundle_id" iconSize -float 40
 relaunch
+# Chill, for the side dock's tall Spotify tile.
+osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' || true
+swift scripts/fake-spotify-track.swift || true
 swift scripts/move-mouse.swift 30 400 || echo "couldn't move the pointer"
-sleep 1
+sleep 2
 screencapture -x "$out/6-left-position.png"
+osascript -e 'tell application "System Events" to key code 18 using {control down, option down}' || true  # ⌃⌥1, back to Work
 defaults delete "$bundle_id" position
 defaults delete "$bundle_id" iconSize
 swift scripts/move-mouse.swift -1 500 || true  # out of the way

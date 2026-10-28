@@ -148,17 +148,20 @@ public struct SpotifyPlayback: Equatable {
     }
 
     /// Prints position and duration in whole seconds (so the output doesn't depend on the
-    /// locale's decimal separator), volume, shuffling and repeating, one per line.
+    /// locale's decimal separator), volume, shuffling and repeating, one per line. The
+    /// arithmetic happens outside the `tell` block: inside it, AppleScript would send those
+    /// commands to Spotify, which doesn't understand them, and the whole script would fail.
     public static let appleScript = """
-        if application id "com.spotify.client" is running then
-            tell application id "com.spotify.client"
-                if player state is not stopped then
-                    set d to (duration of current track) div 1000
-                    return ((round (player position)) as text) & linefeed & (d as text) & linefeed & (sound volume as text) & linefeed & (shuffling as text) & linefeed & (repeating as text)
-                end if
-            end tell
-        end if
-        return ""
+        if application id "com.spotify.client" is not running then return ""
+        tell application id "com.spotify.client"
+            if player state is stopped then return ""
+            set p to player position
+            set d to duration of current track
+            set v to sound volume
+            set s to shuffling
+            set r to repeating
+        end tell
+        return ((p as integer) as text) & linefeed & ((d div 1000) as text) & linefeed & (v as text) & linefeed & (s as text) & linefeed & (r as text)
         """
 
     public init?(appleScriptOutput output: String) {

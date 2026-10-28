@@ -19,6 +19,15 @@ struct DockRowLayout: Layout {
     /// The pointer's position along the dock, in this layout's coordinates; nil when it isn't
     /// over the dock.
     var pointer: CGFloat?
+    /// How far magnification has kicked in, from 0 to 1. Animating it is what makes icons
+    /// swell as the pointer arrives and settle back when it leaves, like the macOS Dock,
+    /// instead of jumping.
+    var amount: CGFloat = 1
+
+    var animatableData: CGFloat {
+        get { amount }
+        set { amount = newValue }
+    }
 
     private var isHorizontal: Bool { metrics.axis == .horizontal }
 
@@ -37,7 +46,7 @@ struct DockRowLayout: Layout {
             zip(items, sizes).map { DockMagnification.Item(length: Double(mainLength($1)), magnifies: $0[MagnifiesKey.self]) },
             spacing: metrics.spacing,
             pointer: pointer.map { Double($0 - metrics.sidePadding) },
-            magnification: metrics.magnification,
+            magnification: 1 + (metrics.magnification - 1) * amount,
             reach: metrics.magnificationReach)
 
         let mainOrigin = (isHorizontal ? bounds.minX : bounds.minY) + metrics.sidePadding
