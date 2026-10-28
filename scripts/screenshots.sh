@@ -22,6 +22,9 @@ for user in "alex:Alex Rivera" "sam:Sam Chen"; do
     || echo "couldn't create the account ${user%%:*}"
 done
 
+# Nobody can answer the location prompt on CI: the weather widget uses New York instead.
+defaults write "$bundle_id" weatherTestLocation "40.71,-74.01"
+
 # Apps for the "running" part of the dock: two pinned in Work, two that aren't.
 for app in Safari Notes Calculator TextEdit; do
   open -a "$app" || echo "couldn't open $app"

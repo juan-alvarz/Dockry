@@ -27,8 +27,8 @@ to show the widget with a track.
   remove it from the profile, show it in Finder, or quit it.
 - **Profiles** such as *Work* and *Chill*. Each has its own pinned apps, widgets and desktop.
   Activating a profile swaps the dock's contents and jumps to its desktop.
-- **Widgets:** clock, date, Spotify (what's playing, with previous / play-pause / next), and
-  users.
+- **Widgets:** clock, date, Spotify (what's playing, with previous / play-pause / next),
+  users, and weather (current conditions with today's high and low).
 - **Fast User Switching:** the users widget shows the Mac's other accounts. Click one to
   switch to it, as you would from the user menu in Control Center. **Switch User** in the
   menu bar menu does the same and also opens the login window.
@@ -80,6 +80,16 @@ account.
 Fast User Switching must be turned on: System Settings › Control Center › Fast User
 Switching, or Users & Groups on older versions.
 
+### Weather
+
+The weather widget asks for your location once, through macOS Location Services. It only
+needs your town, so it asks for city-level accuracy. The forecast comes from
+[Open-Meteo](https://open-meteo.com), which is free and needs no account or API key.
+Temperatures are in °F if your Mac uses US units, otherwise °C. Dockry refreshes every half
+hour while the widget is on screen. If you don't allow the location, the widget shows a
+crossed-out location arrow. You can turn it on later in System Settings › Privacy & Security
+› Location Services.
+
 ### Spotify
 
 The widget reads what's playing from the notification Spotify broadcasts, which needs no
@@ -119,7 +129,8 @@ opens the file, and **Reload Profiles** applies your changes. Only `name` is req
 
 - `symbol` is an [SF Symbol](https://developer.apple.com/sf-symbols/) name.
 - `pinnedApps` are bundle identifiers. To find one, run `osascript -e 'id of app "Safari"'`.
-- `widgets` can include `clock`, `date`, `spotify` and `users`, shown in the order you list them.
+- `widgets` can include `clock`, `date`, `spotify`, `users` and `weather`, shown in the order
+  you list them.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
 
 If the file can't be read, the menu says so and Dockry uses the default profiles without
