@@ -71,9 +71,12 @@ Profiles and the dock work without either of these.
 ### Fast User Switching
 
 macOS has no public API for switching users, and the old `CGSession` tool has been removed.
-Dockry calls the same private login functions that the system's own user menu uses
-(`SACSwitchToUser` in login.framework). CI checks that they still work on every macOS
-version it runs. If a future macOS removes them, Dockry opens the login window instead.
+Dockry calls the private login.framework function behind Fast User Switching
+(`SACSwitchToUser`, given the account's name and UID). CI checks on every run that it still
+takes the current session off the screen. It can't check that it lands on the chosen account
+instead of the general login window, because that account would have to be logged in. If a
+future macOS removes the function, Dockry opens the login window instead, which lists every
+account.
 Fast User Switching must be turned on: System Settings › Control Center › Fast User
 Switching, or Users & Groups on older versions.
 
