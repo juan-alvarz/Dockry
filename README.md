@@ -45,7 +45,7 @@ to show the widget with a track.
   animations and follows changes to them. Also **Hide macOS Dock** and **Open at login**.
 - **Profiles** such as *Work* and *Chill*. Each has its own pinned apps, widgets and desktop.
   Activating a profile swaps the dock's contents and jumps to its desktop. **Edit Profiles…**
-  opens an editor for all of this.
+  opens an editor for all of this, including the color of the profile's button in the dock.
 - **Widgets:** clock (click for the Clock app), date (click for a month calendar), Spotify,
   users, and Claude usage (how much of your plan's 5-hour and weekly limits you've used, as
   `/usage` shows in Claude Code; click for the usage page on claude.ai). Clicking the
@@ -160,7 +160,7 @@ whether Dockry may control Spotify. If you decline, the widget still shows the s
 the buttons do nothing. You can change this later in System Settings › Privacy & Security ›
 Automation. Pressing play while Spotify is closed opens it.
 
-**Search** goes through the Spotify Web API, and Spotify gives every app its own client ID,
+**Search** is behind the magnifying glass in the player. It goes through the Spotify Web API, and Spotify gives every app its own client ID,
 so it needs a one-time setup, explained step by step in Settings › Spotify: create a free
 app on the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), add
 `dockry://spotify-callback` as its redirect URI, paste its client ID into Dockry and sign in.
@@ -202,6 +202,7 @@ then **Reload from File**. Only `name` is required:
 - `widgets` can include `clock`, `date`, `spotify`, `users` and `claude`, shown in the order
   you list them.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
+- `color` is the profile button's color, like `"#3563E9"`. Leave it out for a plain button.
 
 If the file can't be read, the menu says so and Dockry uses the default profiles without
 saving over your file. Fix it and choose **Reload Profiles**. If you edit it in TextEdit,

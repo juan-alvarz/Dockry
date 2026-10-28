@@ -24,19 +24,23 @@ public struct Profile: Codable, Equatable {
     public var widgets: [WidgetKind]
     /// Desktop number (1–9) to switch to on activation; nil stays on the current desktop.
     public var desktop: Int?
+    /// The profile button's color, as "#RRGGBB"; nil for the plain gray button.
+    public var color: String?
 
     public init(
         name: String,
         symbol: String = Profile.defaultSymbol,
         pinnedApps: [String] = [],
         widgets: [WidgetKind] = [],
-        desktop: Int? = nil
+        desktop: Int? = nil,
+        color: String? = nil
     ) {
         self.name = name
         self.symbol = symbol
         self.pinnedApps = pinnedApps
         self.widgets = widgets
         self.desktop = desktop
+        self.color = color
     }
 
     // Lenient decoding so a hand-written profile only needs a name, and a typo in a widget
@@ -49,7 +53,9 @@ public struct Profile: Codable, Equatable {
             symbol: try container.decodeIfPresent(String.self, forKey: .symbol) ?? Profile.defaultSymbol,
             pinnedApps: try container.decodeIfPresent([String].self, forKey: .pinnedApps) ?? [],
             widgets: widgetNames.compactMap(WidgetKind.init(rawValue:)),
-            desktop: try container.decodeIfPresent(Int.self, forKey: .desktop)
+            desktop: try container.decodeIfPresent(Int.self, forKey: .desktop),
+            // Like a bad widget name, a bad color only drops the color.
+            color: (try? container.decodeIfPresent(String.self, forKey: .color)).flatMap { $0 }.flatMap(HexColor.normalized)
         )
     }
 }
@@ -68,7 +74,8 @@ extension Profile {
                 "com.apple.Terminal",
             ],
             widgets: [.clock, .date, .claude, .users],
-            desktop: 1
+            desktop: 1,
+            color: "#3563E9"
         ),
         Profile(
             name: "Chill",
@@ -81,7 +88,8 @@ extension Profile {
                 "com.apple.TV",
             ],
             widgets: [.spotify, .clock, .users],
-            desktop: 2
+            desktop: 2,
+            color: "#F08A4B"
         ),
     ]
 }
