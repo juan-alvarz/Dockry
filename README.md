@@ -11,6 +11,9 @@ Dock while it runs and gives it back when it quits.
 | ![Profile switcher](docs/screenshots/3-profile-switcher.png) | ![Menu bar menu](docs/screenshots/4-menu-bar.png) |
 
 The screenshots are taken by CI on a GitHub-hosted macOS machine on every push to `dev`.
+Feature branches (`dev-*`) publish theirs to the
+[`screenshots`](https://github.com/juan-alvarz/Dockry/tree/screenshots) branch, one folder
+per branch, so PRs into `dev` don't carry PNG changes that conflict with each other.
 That machine has no Spotify, so CI sends the notification Spotify posts when a song starts
 to show the widget with a track.
 

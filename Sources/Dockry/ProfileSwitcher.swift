@@ -28,7 +28,7 @@ final class ProfileSwitcherPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = false  // the SwiftUI content draws its own
+        hasShadow = true  // follows the rounded content, since the rest of the window is clear
         hidesOnDeactivate = false
         contentView = NSHostingView(rootView: ProfileSwitcherView(store: store, selection: selection) { [weak self] in
             self?.choose(at: $0)
@@ -131,8 +131,6 @@ private struct ProfileSwitcherView: View {
         .padding(14)
         .background(VisualEffectBackground().clipShape(shape))
         .overlay(shape.strokeBorder(.white.opacity(0.2), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.3), radius: 20, y: 8)
-        .padding(30)  // keeps the shadow inside the panel
     }
 }
 
