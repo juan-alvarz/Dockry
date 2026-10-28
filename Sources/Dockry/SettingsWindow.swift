@@ -77,6 +77,20 @@ private struct GeneralSettings: View {
     var body: some View {
         Form {
             Section {
+                HStack(spacing: 12) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 52, height: 52)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Dockry").font(.title3.weight(.semibold))
+                        Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Section {
                 Toggle("Sync with Mac Dock settings", isOn: $settings.syncsWithMacDock)
                 Text("Uses the macOS Dock’s size, magnification, position, hiding and animations. Change them in System Settings › Desktop & Dock, and Dockry follows within a couple of seconds.")
                     .font(.caption)
