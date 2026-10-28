@@ -31,8 +31,9 @@ to show the widget with a track.
   other app that's running, then the profile's widgets. Like the system Dock it's exactly as
   long as what's in it; if that would be longer than the screen, it scrolls instead.
   A dot marks running apps, and the hovered app shows its name. Click to open or switch to an
-  app; an app that's launching bounces. Right-click an app to keep it in or remove it from
-  the profile, show it in Finder, or quit it.
+  app; an app that's launching bounces. Drag a pinned app along the dock to give it a new
+  place; the others make room as you drag. Right-click an app to keep it in or remove it
+  from the profile, show it in Finder, or quit it.
 - **Works like the macOS Dock:** bottom, left or right of the screen; any size from 16 to 128
   points (drag a separator line to resize, as in the Dock); magnification; automatic hiding.
   Right-click the dock's background for the same quick menu the Dock has.
@@ -47,10 +48,12 @@ to show the widget with a track.
   Activating a profile swaps the dock's contents and jumps to its desktop. **Edit Profiles…**
   opens an editor for all of this, including the color of the profile's button in the dock.
 - **Widgets:** clock (click for the Clock app), date (click for a month calendar), Spotify,
-  users, and weather (current conditions with today's high and low; click for the Weather
-  app). Clicking the Spotify song opens a player: progress you can drag, volume, shuffle and
-  repeat, and search that plays songs without bringing Spotify to the front. Widgets scale
-  with the dock, and on a side dock they turn into compact tiles.
+  users, Claude usage (how much of your plan's 5-hour and weekly limits you've used, as
+  `/usage` shows in Claude Code; click for the usage page on claude.ai), and weather (current
+  conditions with today's high and low; click for the Weather app). Clicking the Spotify song
+  opens a player: progress you can drag, volume, shuffle and repeat, and search that plays
+  songs without bringing Spotify to the front. Widgets scale with the dock, and on a side
+  dock they turn into compact tiles.
 - **Fast User Switching:** the users widget shows the Mac's other accounts. Click one to
   switch to it, as you would from the user menu in Control Center. **Switch User** in the
   menu bar menu does the same and also opens the login window.
@@ -142,6 +145,15 @@ account.
 Fast User Switching must be turned on: System Settings › Control Center › Fast User
 Switching, or Users & Groups on older versions.
 
+### Claude usage
+
+The widget uses the account Claude Code is signed in to. The first time, macOS asks whether
+Dockry may use the "Claude Code-credentials" Keychain item. Choose **Always Allow**.
+Anthropic has no official usage API for Pro/Max plans, so the widget calls the same
+unofficial endpoint as Claude Code's `/usage`. It could change without notice. Dockry
+checks every 5 minutes and waits 30 minutes when rate-limited. Hover over the widget to see
+when each limit resets.
+
 ### Weather
 
 The weather widget asks for your location once, through macOS Location Services. It only
@@ -200,7 +212,7 @@ then **Reload from File**. Only `name` is required:
 
 - `symbol` is an [SF Symbol](https://developer.apple.com/sf-symbols/) name.
 - `pinnedApps` are bundle identifiers. To find one, run `osascript -e 'id of app "Safari"'`.
-- `widgets` can include `clock`, `date`, `spotify`, `users` and `weather`, shown in the order
+- `widgets` can include `clock`, `date`, `spotify`, `users`, `claude` and `weather`, shown in the order
   you list them.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
 - `color` is the profile button's color, like `"#3563E9"`. Leave it out for a plain button.

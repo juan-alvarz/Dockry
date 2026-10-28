@@ -6,6 +6,8 @@ public enum WidgetKind: String, Codable, CaseIterable {
     case spotify
     /// The Mac's other user accounts, for Fast User Switching.
     case users
+    /// How much of the Claude plan's usage limits are used.
+    case claude
     /// Current conditions and today's high and low where the Mac is.
     case weather
 }
@@ -73,7 +75,7 @@ extension Profile {
                 "com.apple.Notes",
                 "com.apple.Terminal",
             ],
-            widgets: [.clock, .date, .weather, .users],
+            widgets: [.clock, .date, .claude, .weather, .users],
             desktop: 1,
             color: "#3563E9"
         ),
