@@ -29,6 +29,7 @@ jobs:
         run: scripts/bundle.sh
 
       - name: Capture screenshots
+        id: capture
         run: scripts/screenshots.sh docs/screenshots
 
       - name: Upload screenshots
@@ -53,7 +54,11 @@ jobs:
       # Feature branches don't commit their PNGs, so their PRs into dev can't conflict over
       # binary files; the PR links to them on the screenshots branch instead.
       - name: Publish screenshots for a feature branch
-        if: github.event_name == 'push' && startsWith(github.ref_name, 'dev-')
+        # Also when capturing failed partway: the screenshots show what went wrong. Not when it
+        # never ran, or dev's committed screenshots would be published as this branch's.
+        if: >-
+          !cancelled() && steps.capture.outcome != 'skipped'
+          && github.event_name == 'push' && startsWith(github.ref_name, 'dev-')
         run: scripts/publish-screenshots.sh "${{ github.ref_name }}"
 
       # Last, because it sends this job's desktop session to the background.

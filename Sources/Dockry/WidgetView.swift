@@ -15,6 +15,8 @@ struct WidgetView: View {
             SpotifyWidget()
         case .users:
             UsersWidget()
+        case .claude:
+            ClaudeUsageWidget()
         }
     }
 }
@@ -26,6 +28,7 @@ extension WidgetKind {
         case .date: "Calendar"
         case .spotify: "Spotify"
         case .users: "Switch User"
+        case .claude: "Claude Usage"
         }
     }
 
@@ -35,6 +38,7 @@ extension WidgetKind {
         case .date: "calendar"
         case .spotify: "music.note"
         case .users: "person.2"
+        case .claude: "sparkle"
         }
     }
 }
