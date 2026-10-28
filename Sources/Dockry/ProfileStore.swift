@@ -35,6 +35,26 @@ final class ProfileStore: ObservableObject {
         update { $0.setOpensAppsOnSwitch(opensApps) }
     }
 
+    /// Returns the new profile's name.
+    @discardableResult
+    func addProfile() -> String {
+        var name = ""
+        update { name = $0.addProfile(named: "New Profile") }
+        return name
+    }
+
+    func removeProfile(named name: String) {
+        update { $0.removeProfile(named: name) }
+    }
+
+    func updateProfile(named name: String, _ change: (inout Profile) -> Void) {
+        update { $0.updateProfile(named: name, change) }
+    }
+
+    func moveProfile(named name: String, by offset: Int) {
+        update { $0.moveProfile(named: name, by: offset) }
+    }
+
     /// Picks up changes made to profiles.json by hand.
     func reload() {
         let result = file.load()
@@ -42,14 +62,24 @@ final class ProfileStore: ObservableObject {
         loadError = result.error
     }
 
-    /// Opens profiles.json in the user's app for JSON, or shows it in Finder if there's none.
+    /// Opens profiles.json in TextEdit. Not in the default app for JSON files: on a Mac with
+    /// Xcode, that's Xcode.
     func openFile() {
         if !file.exists {
             save(library)
         }
-        if !NSWorkspace.shared.open(file.url) {
+        guard let textEdit = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.TextEdit") else {
             NSWorkspace.shared.activateFileViewerSelecting([file.url])
+            return
         }
+        NSWorkspace.shared.open([file.url], withApplicationAt: textEdit, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    func showFileInFinder() {
+        if !file.exists {
+            save(library)
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([file.url])
     }
 
     private func update(_ change: (inout ProfileLibrary) -> Void) {
