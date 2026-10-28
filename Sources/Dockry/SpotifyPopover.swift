@@ -9,6 +9,9 @@ struct SpotifyPopover: View {
     @ObservedObject private var account = SpotifyAccount.shared
 
     @State private var query = ScreenshotHook.spotifySearchQuery ?? ""
+    /// Search stays tucked away until asked for, so the player is just the player.
+    @State private var showsSearch = ScreenshotHook.spotifySearchQuery != nil
+    @FocusState private var searchFieldFocused: Bool
     @State private var results: [SpotifySearchResult] = []
     @State private var searchError: String?
     @State private var scrubPosition: Double?
@@ -23,26 +26,42 @@ struct SpotifyPopover: View {
             if let playback = player.playback {
                 volume(playback)
             }
-            Divider()
-            search
+            if showsSearch {
+                Divider()
+                search
+            }
         }
         .padding(16)
         .frame(width: 320)
+        .animation(.easeOut(duration: 0.2), value: showsSearch)
         .onAppear { player.startFollowingPlayback() }
         .onDisappear { player.stopFollowingPlayback() }
         .task(id: query) { await runSearch() }
     }
 
     private var nowPlaying: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             SpotifyArtwork(url: player.track?.artworkURL, size: 64)
             VStack(alignment: .leading, spacing: 2) {
                 Text(player.track?.title ?? "Nothing playing")
                     .font(.headline)
-                Text(player.track?.artist ?? "Search for a song below, or press play.")
+                Text(player.track?.artist ?? "Press play, or search for a song.")
                     .foregroundStyle(.secondary)
             }
             .lineLimit(2)
+            Spacer(minLength: 0)
+            Button {
+                showsSearch.toggle()
+                searchFieldFocused = showsSearch
+            } label: {
+                Image(systemName: showsSearch ? "xmark.circle.fill" : "magnifyingglass")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(showsSearch ? "Hide search" : "Search Spotify")
         }
     }
 
@@ -97,6 +116,7 @@ struct SpotifyPopover: View {
     @ViewBuilder private var search: some View {
         TextField("Search Spotify", text: $query)
             .textFieldStyle(.roundedBorder)
+            .focused($searchFieldFocused)
         if !account.canSearch {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Connect your Spotify account in Dockry’s settings to search here.")
@@ -110,28 +130,27 @@ struct SpotifyPopover: View {
                 }
                 .controlSize(.small)
             }
+        } else if let searchError {
+            Text(searchError).font(.caption).foregroundStyle(.secondary)
+        } else if results.isEmpty {
+            if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+                Text("Searching…").font(.caption).foregroundStyle(.secondary)
+            }
         } else {
-            // A fixed height, so the popover doesn't change size (and jump) as results arrive.
-            Group {
-                if let searchError {
-                    Text(searchError)
-                } else if results.isEmpty {
-                    Text(query.isEmpty ? "Type a song, artist or album." : "Searching…")
-                } else {
-                    ScrollView {
-                        VStack(spacing: 2) {
-                            ForEach(results) { result in
-                                SearchResultRow(result: result) { player.play(uri: result.uri) }
-                            }
-                        }
+            // As tall as the results, up to a limit; then it scrolls. (A scroll view on its
+            // own has no height of its own to give the popover, so set one.)
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(results) { result in
+                        SearchResultRow(result: result) { player.play(uri: result.uri) }
                     }
                 }
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, minHeight: 200, maxHeight: 200, alignment: .top)
+            .frame(height: min(CGFloat(results.count) * SearchResultRow.height, Self.maxResultsHeight))
         }
     }
+
+    private static let maxResultsHeight: CGFloat = 240
 
     private func runSearch() async {
         let query = query.trimmingCharacters(in: .whitespaces)
@@ -182,6 +201,9 @@ struct SpotifyPopover: View {
 }
 
 private struct SearchResultRow: View {
+    /// Row height plus the spacing between rows.
+    static let height: CGFloat = 50
+
     let result: SpotifySearchResult
     let play: () -> Void
     @State private var isHovered = false
@@ -204,6 +226,7 @@ private struct SearchResultRow: View {
                     .opacity(isHovered ? 1 : 0)
             }
             .padding(6)
+            .frame(height: Self.height - 2)
             .background(isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear), in: RoundedRectangle(cornerRadius: 6))
             .contentShape(Rectangle())
         }
