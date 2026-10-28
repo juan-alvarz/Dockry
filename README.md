@@ -50,14 +50,11 @@ to show the widget with a track.
   Activating a profile swaps the dock's contents and jumps to its desktop. **Edit Profiles…**
   opens an editor for all of this, including the color of the profile's button in the dock.
 - **Widgets:** clock (click for the Clock app), date (click for a month calendar), Spotify,
-  users, and clipboard. Clicking the Spotify song opens a player: progress you can drag,
-  volume, shuffle and repeat, and search that plays songs without bringing Spotify to the
-  front. Widgets scale with the dock, and on a side dock they turn into compact tiles.
-- **Clipboard history:** the clipboard tile (or ⌃⌥V) lists the last 20 pieces of text you
-  copied. Click one to copy it again, then paste as usual. The history stays in memory and
-  is gone when Dockry quits. It's only recorded while the clipboard widget is on screen.
-  Anything that password managers mark as private on the clipboard is never recorded, and
-  neither are copies over 100 KB.
+  users, Claude usage (how much of your plan's 5-hour and weekly limits you've used, as
+  `/usage` shows in Claude Code; click for the usage page on claude.ai), and clipboard.
+  Clicking the Spotify song opens a player: progress you can drag, volume, shuffle and
+  repeat, and search that plays songs without bringing Spotify to the front. Widgets scale
+  with the dock, and on a side dock they turn into compact tiles.
 - **Fast User Switching:** the users widget shows the Mac's other accounts. Click one to
   switch to it, as you would from the user menu in Control Center. **Switch User** in the
   menu bar menu does the same and also opens the login window.
@@ -149,6 +146,15 @@ account.
 Fast User Switching must be turned on: System Settings › Control Center › Fast User
 Switching, or Users & Groups on older versions.
 
+### Claude usage
+
+The widget uses the account Claude Code is signed in to. The first time, macOS asks whether
+Dockry may use the "Claude Code-credentials" Keychain item. Choose **Always Allow**.
+Anthropic has no official usage API for Pro/Max plans, so the widget calls the same
+unofficial endpoint as Claude Code's `/usage`. It could change without notice. Dockry
+checks every 5 minutes and waits 30 minutes when rate-limited. Hover over the widget to see
+when each limit resets.
+
 ### Spotify
 
 The widget reads what's playing from the notification Spotify broadcasts, which needs no
@@ -196,8 +202,8 @@ then **Reload from File**. Only `name` is required:
 
 - `symbol` is an [SF Symbol](https://developer.apple.com/sf-symbols/) name.
 - `pinnedApps` are bundle identifiers. To find one, run `osascript -e 'id of app "Safari"'`.
-- `widgets` can include `clock`, `date`, `spotify`, `users` and `clipboard`, shown in the
-  order you list them.
+- `widgets` can include `clock`, `date`, `spotify`, `users`, `claude` and `clipboard`, shown in the order
+  you list them.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
 - `color` is the profile button's color, like `"#3563E9"`. Leave it out for a plain button.
 
