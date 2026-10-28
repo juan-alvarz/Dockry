@@ -32,6 +32,8 @@ public struct WidgetInfo: Equatable {
     public var symbol: String
     /// Its icon's color, as "#RRGGBB".
     public var tint: String
+    /// The app it belongs to, whose icon stands in for the symbol when that app is installed.
+    public var appBundleID: String?
     public var category: Category
     public var requirements: [Requirement]
     /// Who made it; "Dockry" for the built-in ones.
@@ -39,7 +41,8 @@ public struct WidgetInfo: Equatable {
 
     public init(
         kind: WidgetKind, name: String, summary: String, details: String, symbol: String,
-        tint: String, category: Category, requirements: [Requirement] = [], author: String = "Dockry"
+        tint: String, appBundleID: String? = nil, category: Category, requirements: [Requirement] = [],
+        author: String = "Dockry"
     ) {
         self.kind = kind
         self.name = name
@@ -47,6 +50,7 @@ public struct WidgetInfo: Equatable {
         self.details = details
         self.symbol = symbol
         self.tint = tint
+        self.appBundleID = appBundleID
         self.category = category
         self.requirements = requirements
         self.author = author
@@ -73,7 +77,7 @@ extension WidgetKind {
                 kind: self, name: "Spotify",
                 summary: "What’s playing in Spotify, with play/pause, previous and next.",
                 details: "Click the song for the player: progress you can drag, volume, shuffle, repeat and search that plays songs without bringing Spotify to the front. On a side dock it’s the album art above the controls.",
-                symbol: "music.note", tint: "#1DB954", category: .media,
+                symbol: "music.note", tint: "#1DB954", appBundleID: "com.spotify.client", category: .media,
                 requirements: [
                     WidgetInfo.Requirement("The Spotify app"),
                     WidgetInfo.Requirement("Permission to control Spotify; macOS asks the first time"),
@@ -90,8 +94,8 @@ extension WidgetKind {
             WidgetInfo(
                 kind: self, name: "Claude Usage",
                 summary: "How much of your Claude plan’s 5-hour and weekly limits you’ve used.",
-                details: "The same numbers as /usage in Claude Code, checked every few minutes. Click it for the usage page on claude.ai. On a side dock it’s a ring for the 5-hour limit.",
-                symbol: "sparkle", tint: "#D97757", category: .productivity,
+                details: "The same numbers as /usage in Claude Code, checked every few minutes. Click it for the details: how much of each limit is used and when it resets. On a side dock it’s Claude’s icon with the 5-hour percentage on a badge.",
+                symbol: "sparkle", tint: "#D97757", appBundleID: "com.anthropic.claudefordesktop", category: .productivity,
                 requirements: [
                     WidgetInfo.Requirement("Claude Code, signed in with a Claude plan"),
                     WidgetInfo.Requirement("Permission to read Claude Code’s sign-in; macOS asks the first time"),

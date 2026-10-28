@@ -49,13 +49,23 @@ extension View {
     func widgetTile() -> some View { modifier(WidgetTile()) }
 }
 
-/// A widget's icon: its symbol on a tile of its color, like an app icon. For Settings and
-/// the profile editor.
+/// A widget's icon: its app's icon when that app is installed, else its symbol on a tile of
+/// its color, like an app icon. For Settings and the profile editor.
 struct WidgetIcon: View {
     let info: WidgetInfo
     var size: CGFloat = 22
 
     var body: some View {
+        if let id = info.appBundleID, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                .resizable()
+                .frame(width: size, height: size)
+        } else {
+            symbolTile
+        }
+    }
+
+    private var symbolTile: some View {
         Image(systemName: info.symbol)
             .font(.system(size: size * 0.5, weight: .semibold))
             .foregroundStyle(.white)

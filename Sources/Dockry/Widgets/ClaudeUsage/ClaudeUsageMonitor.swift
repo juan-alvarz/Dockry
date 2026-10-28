@@ -23,8 +23,10 @@ final class ClaudeUsageMonitor: ObservableObject {
     }
 
     @Published private(set) var state = State.loading
+    /// When the numbers last came in.
+    @Published private(set) var updatedAt: Date?
 
-    /// Where clicking the widget goes.
+    /// claude.ai's own usage page, linked from the widget's popover.
     static let usagePage = URL(string: "https://claude.ai/settings/usage")!
 
     /// Whether a widget is in the dock, which is when usage is fetched.
@@ -37,6 +39,7 @@ final class ClaudeUsageMonitor: ObservableObject {
 
     private var refreshTask: Task<Void, Never>?
     private var nextRefresh = Date.distantPast
+    private var lastAttempt = Date.distantPast
     @Published private var visibleWidgets = 0
     /// Set when the user denies the Keychain prompt, so it isn't shown again until restart.
     private var keychainDenied = false
@@ -45,7 +48,10 @@ final class ClaudeUsageMonitor: ObservableObject {
 
     func widgetAppeared() {
         visibleWidgets += 1
-        guard refreshTask == nil else { return }
+        if refreshTask == nil { startRefreshing() }
+    }
+
+    private func startRefreshing() {
         refreshTask = Task {
             while !Task.isCancelled {
                 let wait = nextRefresh.timeIntervalSinceNow
@@ -58,6 +64,16 @@ final class ClaudeUsageMonitor: ObservableObject {
         }
     }
 
+    /// Fetches now instead of at the next refresh, unless the last fetch was under a minute ago
+    /// (the endpoint rate-limits hard).
+    func refreshSoon() {
+        guard refreshTask != nil, Date().timeIntervalSince(lastAttempt) > 60 else { return }
+        nextRefresh = .distantPast
+        // Wake the loop, which sleeps until the next refresh.
+        refreshTask?.cancel()
+        startRefreshing()
+    }
+
     func widgetDisappeared() {
         visibleWidgets -= 1
         guard visibleWidgets == 0 else { return }
@@ -67,9 +83,11 @@ final class ClaudeUsageMonitor: ObservableObject {
 
     /// Returns how long to wait before the next refresh.
     private func refresh() async -> TimeInterval {
+        lastAttempt = Date()
         if let testResponse = Self.testResponse {
             let data = FileManager.default.contents(atPath: testResponse) ?? Data()
             state = ClaudeUsage(responseJSON: data).map(State.usage) ?? .unavailable
+            updatedAt = Date()
             return Self.refreshInterval
         }
         guard !keychainDenied else { return Self.refreshInterval }
@@ -78,16 +96,27 @@ final class ClaudeUsageMonitor: ObservableObject {
         let signIn = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .utility).async { continuation.resume(returning: readClaudeCodeSignIn()) }
         }
-        let token: String
+        var credentials: Data
         switch signIn {
-        case .token(let value):
-            token = value
+        case .credentials(let data, let account):
+            credentials = data
+            if ClaudeUsage.needsRefresh(data, now: Date()) {
+                guard let refreshed = await refreshClaudeCodeSignIn(data, account: account) else {
+                    state = .expired
+                    return Self.refreshInterval
+                }
+                credentials = refreshed
+            }
         case .missing:
             state = .signedOut
             return Self.refreshInterval
         case .denied:
             keychainDenied = true
             state = .accessDenied
+            return Self.refreshInterval
+        }
+        guard let token = ClaudeUsage.accessToken(fromCredentials: credentials) else {
+            state = .signedOut
             return Self.refreshInterval
         }
         var request = URLRequest(url: Self.endpoint)
@@ -103,6 +132,7 @@ final class ClaudeUsageMonitor: ObservableObject {
         switch status {
         case 200:
             state = ClaudeUsage(responseJSON: data).map(State.usage) ?? .unavailable
+            updatedAt = Date()
         case 401:
             state = .expired
         default:
@@ -115,29 +145,73 @@ final class ClaudeUsageMonitor: ObservableObject {
     }
 }
 
+/// Refreshes Claude Code's expired sign-in the way Claude Code does, and saves the new tokens
+/// back into its keychain item: refresh tokens are single-use, so Claude Code needs the new
+/// one too. Nil if that can't be done; Claude Code's sign-in is then left as it was.
+private func refreshClaudeCodeSignIn(_ credentials: Data, account: String) async -> Data? {
+    guard let body = ClaudeUsage.refreshRequestBody(credentials: credentials) else { return nil }
+    // First make sure the item can be written, so a refresh never uses up the refresh token
+    // without Claude Code getting the new one.
+    guard await onBackground({ writeClaudeCodeSignIn(credentials, account: account) }) else { return nil }
+    var request = URLRequest(url: ClaudeUsage.tokenURL)
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = body
+    guard let (data, response) = try? await URLSession.shared.data(for: request),
+          (response as? HTTPURLResponse)?.statusCode == 200,
+          let refreshed = ClaudeUsage.credentials(credentials, refreshedWith: data, now: Date())
+    else { return nil }
+    if !(await onBackground({ writeClaudeCodeSignIn(refreshed, account: account) })) {
+        NSLog("Dockry: refreshed Claude Code's sign-in but couldn't save it; Claude Code will ask to sign in again")
+    }
+    return refreshed
+}
+
+private func onBackground<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
+    await withCheckedContinuation { continuation in
+        DispatchQueue.global(qos: .utility).async { continuation.resume(returning: work()) }
+    }
+}
+
 private enum ClaudeCodeSignIn {
-    case token(String)
+    case credentials(Data, account: String)
     case missing
     case denied
 }
+
+private let claudeCodeService = "Claude Code-credentials"
 
 /// Claude Code's saved sign-in. The first read makes macOS ask whether Dockry may use the
 /// "Claude Code-credentials" Keychain item, and blocks until the user answers.
 private func readClaudeCodeSignIn() -> ClaudeCodeSignIn {
     let query: [String: Any] = [
         kSecClass as String: kSecClassGenericPassword,
-        kSecAttrService as String: "Claude Code-credentials",
+        kSecAttrService as String: claudeCodeService,
         kSecReturnData as String: true,
+        kSecReturnAttributes as String: true,
         kSecMatchLimit as String: kSecMatchLimitOne,
     ]
     var result: CFTypeRef?
     switch SecItemCopyMatching(query as CFDictionary, &result) {
     case errSecSuccess:
-        let token = (result as? Data).flatMap(ClaudeUsage.accessToken(fromCredentials:))
-        return token.map(ClaudeCodeSignIn.token) ?? .missing
+        guard let item = result as? [String: Any], let data = item[kSecValueData as String] as? Data else { return .missing }
+        return .credentials(data, account: item[kSecAttrAccount as String] as? String ?? "")
     case errSecUserCanceled, errSecAuthFailed, errSecInteractionNotAllowed:
         return .denied
     default:
         return .missing
     }
+}
+
+private func writeClaudeCodeSignIn(_ credentials: Data, account: String) -> Bool {
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: claudeCodeService,
+        kSecAttrAccount as String: account,
+    ]
+    let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: credentials] as CFDictionary)
+    if status != errSecSuccess {
+        NSLog("Dockry: couldn't update Claude Code's sign-in: \(status)")
+    }
+    return status == errSecSuccess
 }
