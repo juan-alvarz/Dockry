@@ -29,15 +29,13 @@ for user in "alex:Alex Rivera" "sam:Sam Chen"; do
 done
 
 # CI has no Claude account, and nobody to answer the Keychain prompt for Claude Code's
-# sign-in: point the widget at a local server with a sample answer from the usage endpoint.
-usage_dir=$(mktemp -d)
-cat > "$usage_dir/usage" <<'JSON'
+# sign-in: the widget reads a sample answer from the usage endpoint instead.
+usage_response=$(mktemp)
+cat > "$usage_response" <<'JSON'
 {"five_hour": {"utilization": 34, "resets_at": "2030-01-01T12:00:00Z"},
  "seven_day": {"utilization": 72, "resets_at": "2030-01-05T00:00:00Z"}}
 JSON
-python3 -m http.server 8765 --bind 127.0.0.1 --directory "$usage_dir" >/dev/null 2>&1 &
-usage_server=$!
-defaults write "$bundle_id" claudeUsageTestEndpoint "http://127.0.0.1:8765/usage"
+defaults write "$bundle_id" claudeUsageTestResponse "$usage_response"
 
 # Apps for the "running" part of the dock: two pinned in Work, two that aren't.
 for app in Safari Notes Calculator TextEdit; do
@@ -79,8 +77,6 @@ osascript -e 'tell application "System Events" to tell process "Dockry" to click
 sleep 1
 screencapture -x "$out/4-menu-bar.png"
 osascript -e 'tell application "System Events" to key code 53' || true  # Esc closes the menu
-
-kill "$usage_server" 2>/dev/null || true
 
 # Quitting has to give the system Dock its original settings back.
 pkill -TERM -x Dockry
