@@ -1,6 +1,6 @@
 import Foundation
 
-public enum WidgetKind: String, Codable {
+public enum WidgetKind: String, Codable, CaseIterable {
     case clock
     case date
     case spotify
