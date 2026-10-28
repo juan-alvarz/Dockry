@@ -42,7 +42,7 @@ done
 osascript -e 'tell application "System Events" to key code 9 using {control down, option down}' \
   || echo "couldn't open the clipboard history"
 sleep 1
-screencapture -x "$out/5-clipboard.png"
+screencapture -x "$out/11-clipboard.png"
 # Clicking an entry with a real mouse click has to copy it, on the first click.
 swift scripts/click-text.swift "git checkout -b dev-clipboard origin/dev"
 sleep 1

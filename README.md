@@ -16,7 +16,7 @@ Dock while it runs and gives it back when it quits.
 | **Profile switcher (⌃⌥Space)** | **Menu bar** |
 | ![Profile switcher](docs/screenshots/3-profile-switcher.png) | ![Menu bar menu](docs/screenshots/4-menu-bar.png) |
 | **Clipboard history (⌃⌥V)** | |
-| ![Clipboard history](docs/screenshots/5-clipboard.png) | |
+| ![Clipboard history](docs/screenshots/11-clipboard.png) | |
 
 The screenshots are taken by CI on a GitHub-hosted macOS machine on every push to `dev`.
 Feature branches (`dev-*`) publish theirs to the
