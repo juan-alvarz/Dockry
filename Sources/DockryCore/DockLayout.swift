@@ -7,6 +7,12 @@ public struct DockEntry: Equatable, Identifiable {
 }
 
 public enum DockLayout {
+    /// Where an icon being dragged sideways would land: `slotsMoved` is how far it has moved,
+    /// in icon widths, from position `index` among `count` icons.
+    public static func dropIndex(from index: Int, slotsMoved: Double, count: Int) -> Int {
+        min(max(index + Int(slotsMoved.rounded()), 0), count - 1)
+    }
+
     /// The dock's two app sections: the profile's pinned apps in the order the profile lists
     /// them, then the apps that are running but not pinned, in launch order. Each app appears once.
     public static func sections(
