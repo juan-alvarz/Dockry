@@ -399,7 +399,6 @@ private struct DockSeparator: View {
     let pointer: DockPointer
     let id: String
     @Environment(\.dockMetrics) private var metrics
-    @State private var dragStart: (mouse: CGPoint, size: Double)?
 
     var body: some View {
         let isHorizontal = metrics.axis == .horizontal
@@ -412,34 +411,9 @@ private struct DockSeparator: View {
             .background(FrameReader { [pointer, id] in pointer.separatorFrames[id] = $0 })
             .onDisappear { [pointer, id] in pointer.separatorFrames[id] = nil }
             .gesture(DragGesture(minimumDistance: 1)
-                .onChanged { _ in resize() }
-                .onEnded { _ in
-                    if dragStart != nil {
-                        dragStart = nil
-                        pointer.isResizing = false
-                        DockInteraction.shared.end()
-                    }
-                })
+                .onChanged { _ in pointer.resize(settings) }
+                .onEnded { _ in pointer.endResize() })
             .help(Text(settings.syncsWithMacDock ? "Dockry follows the macOS Dock’s size" : "Drag to resize the dock"))
-    }
-
-    /// Follows the pointer in screen coordinates: the window itself resizes during the drag,
-    /// which would throw off the gesture's own coordinates.
-    private func resize() {
-        guard !settings.syncsWithMacDock else { return }
-        let mouse = NSEvent.mouseLocation
-        if dragStart == nil {
-            dragStart = (mouse, settings.own.iconSize)
-            pointer.isResizing = true
-            DockInteraction.shared.begin()
-        }
-        guard let dragStart else { return }
-        let delta = switch metrics.position {
-        case .bottom: mouse.y - dragStart.mouse.y
-        case .left: mouse.x - dragStart.mouse.x
-        case .right: dragStart.mouse.x - mouse.x
-        }
-        settings.own.iconSize = (dragStart.size + Double(delta)).rounded().clamped(to: DockSettings.sizeRange)
     }
 }
 
