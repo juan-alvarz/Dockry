@@ -110,19 +110,26 @@ struct SpotifyPopover: View {
                 }
                 .controlSize(.small)
             }
-        } else if let searchError {
-            Text(searchError)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        } else if !results.isEmpty {
-            ScrollView {
-                VStack(spacing: 2) {
-                    ForEach(results) { result in
-                        SearchResultRow(result: result) { player.play(uri: result.uri) }
+        } else {
+            // A fixed height, so the popover doesn't change size (and jump) as results arrive.
+            Group {
+                if let searchError {
+                    Text(searchError)
+                } else if results.isEmpty {
+                    Text(query.isEmpty ? "Type a song, artist or album." : "Searching…")
+                } else {
+                    ScrollView {
+                        VStack(spacing: 2) {
+                            ForEach(results) { result in
+                                SearchResultRow(result: result) { player.play(uri: result.uri) }
+                            }
+                        }
                     }
                 }
             }
-            .frame(maxHeight: 240)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, minHeight: 200, maxHeight: 200, alignment: .top)
         }
     }
 

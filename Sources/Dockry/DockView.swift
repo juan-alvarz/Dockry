@@ -37,7 +37,6 @@ struct DockView: View {
                     endPoint: metrics.axis == .horizontal ? .trailing : .bottom))
         }
         .environment(\.dockMetrics, metrics)
-        .onPreferenceChange(DockItemFramesKey.self) { pointer.itemFrames = $0 }
         .padding(axes == .horizontal ? .horizontal : .vertical, 8)
         .padding(Edge.Set(metrics.position.outerEdge), DockMetrics.margin)
         .offset(pointer.isRevealed ? .zero : hiddenOffset(metrics))
@@ -65,10 +64,7 @@ struct DockView: View {
                 ForEach(profile.widgets, id: \.self) { WidgetView(kind: $0) }
             }
         }
-        .background(GeometryReader { geometry in
-            Color.clear.preference(key: DockFrameKey.self, value: geometry.frame(in: .named(Self.space)))
-        })
-        .onPreferenceChange(DockFrameKey.self) { pointer.dockFrame = $0 }
+        .background(FrameReader { pointer.dockFrame = $0 })
     }
 
     private func appIcons(_ entries: [DockEntry], profile: Profile) -> some View {
@@ -78,6 +74,8 @@ struct DockView: View {
                 AppIconView(
                     entry: entry, app: app, runningApp: running, profileName: profile.name, store: store,
                     isHovered: pointer.hoveredItem == entry.bundleID)
+                    .background(FrameReader { [pointer] in pointer.itemFrames[entry.bundleID] = $0 })
+                    .onDisappear { [pointer] in pointer.itemFrames[entry.bundleID] = nil }
                     .layoutValue(key: MagnifiesKey.self, value: true)
             }
         }
@@ -101,17 +99,18 @@ struct DockView: View {
     }
 }
 
-private struct DockFrameKey: PreferenceKey {
-    static let defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
-}
+/// Reports a view's frame in the dock window's coordinates whenever it changes, for
+/// DockPointer. (Not a preference: those don't reliably come out of ViewThatFits.)
+private struct FrameReader: View {
+    let changed: (CGRect) -> Void
 
-private struct DockItemFramesKey: PreferenceKey {
-    static let defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue()) { $1 }
+    var body: some View {
+        GeometryReader { geometry in
+            let frame = geometry.frame(in: .named(DockView.space))
+            Color.clear
+                .onAppear { changed(frame) }
+                .onChange(of: frame) { _, frame in changed(frame) }
+        }
     }
 }
 
@@ -188,10 +187,6 @@ private struct AppIconView: View {
                 NameLabel(name: app.name, position: metrics.position)
             }
         }
-        .background(GeometryReader { geometry in
-            Color.clear.preference(
-                key: DockItemFramesKey.self, value: [entry.bundleID: geometry.frame(in: .named(DockView.space))])
-        })
         .contextMenu {
             if entry.isPinned {
                 Button("Remove from \(profileName)") { store.unpin(entry.bundleID) }
