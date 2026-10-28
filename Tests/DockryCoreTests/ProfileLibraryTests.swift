@@ -45,10 +45,10 @@ final class ProfileLibraryTests: XCTestCase {
         XCTAssertEqual(library.active.pinnedApps, [])
     }
 
-    func testReorderPinsKeepsAppsTheDockDidntShowAtTheEnd() {
+    func testReorderPinsKeepsAppsTheDockDidntShowInPlace() {
         var library = ProfileLibrary(profiles: [Profile(name: "Work", pinnedApps: ["a", "b", "hidden", "c"]), chill])
         library.reorderPins(["c", "a", "b", "not-pinned"])
-        XCTAssertEqual(library.active.pinnedApps, ["c", "a", "b", "hidden"])
+        XCTAssertEqual(library.active.pinnedApps, ["c", "a", "hidden", "b"])
         XCTAssertEqual(library.profiles[1].pinnedApps, [])
     }
 

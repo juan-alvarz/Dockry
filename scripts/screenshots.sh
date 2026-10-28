@@ -42,6 +42,12 @@ if [[ "$order" != "com.apple.finder com.apple.mail com.apple.iCal com.apple.Safa
   echo "Dragging Safari didn't reorder the dock; Work's pinned apps are: $order" >&2
   exit 1
 fi
+# ...without also clicking it, which would have brought Safari to the front.
+frontmost=$(osascript -e 'tell application "System Events" to get name of first process whose frontmost is true')
+if [[ "$frontmost" == "Safari" ]]; then
+  echo "Letting go after dragging Safari also opened it" >&2
+  exit 1
+fi
 
 # ⌃⌥2 is Dockry's hot key for the second profile, Chill. key code 19 is the 2 key.
 osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' \
