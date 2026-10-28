@@ -1,13 +1,13 @@
 import Foundation
 
-public enum WidgetKind: String, Codable, CaseIterable {
+public enum WidgetKind: String, Codable {
     case clock
     case date
 }
 
 /// A context like "Work" or "Chill": the apps pinned to the dock, the widgets shown next to
 /// them, and the macOS desktop (Space) to jump to when the profile is activated.
-public struct Profile: Codable, Equatable, Identifiable {
+public struct Profile: Codable, Equatable {
     public static let defaultSymbol = "square.grid.2x2.fill"
 
     /// Profiles are identified by name, which keeps the JSON file easy to edit by hand.
@@ -19,8 +19,6 @@ public struct Profile: Codable, Equatable, Identifiable {
     public var widgets: [WidgetKind]
     /// Desktop number (1–9) to switch to on activation; nil stays on the current desktop.
     public var desktop: Int?
-
-    public var id: String { name }
 
     public init(
         name: String,

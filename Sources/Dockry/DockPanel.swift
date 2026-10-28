@@ -9,7 +9,7 @@ final class DockPanel: NSPanel {
 
     init<Content: View>(content: Content) {
         super.init(
-            contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 100), styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false)
         level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.dockWindow)))
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
@@ -28,7 +28,7 @@ final class DockPanel: NSPanel {
                     self?.reposition()
                 }
             }
-        let hostingView = NSHostingView(rootView: sizedContent)
+        let hostingView = FirstClickHostingView(rootView: sizedContent)
         hostingView.sizingOptions = []  // the panel sizes itself from the preference above
         contentView = hostingView
 
@@ -48,6 +48,12 @@ final class DockPanel: NSPanel {
         let origin = CGPoint(x: (area.midX - contentSize.width / 2).rounded(), y: area.minY)
         setFrame(NSRect(origin: origin, size: contentSize), display: true)
     }
+}
+
+/// Dockry is never the active app, so without this the first click on an icon would only
+/// focus the panel instead of opening the app.
+private final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
 private struct ContentSizeKey: PreferenceKey {
