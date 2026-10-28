@@ -15,7 +15,7 @@ Dock while it runs and gives it back when it quits.
 | ![Spotify player](docs/screenshots/10-spotify-player.png) | ![Calendar](docs/screenshots/9-calendar.png) |
 | **Settings** | **Profile editor** |
 | ![Settings](docs/screenshots/7-settings-general.png) | ![Profile editor](docs/screenshots/8-settings-profiles.png) |
-| **Profile switcher (⌃⌥Space)** | **Menu bar** |
+| **Profile switcher** | **Menu bar** |
 | ![Profile switcher](docs/screenshots/3-profile-switcher.png) | ![Menu bar menu](docs/screenshots/4-menu-bar.png) |
 | **Widgets** | |
 | ![Widgets settings](docs/screenshots/12-settings-widgets.png) | |
@@ -69,12 +69,15 @@ to show the widget with a track.
 - **Fast User Switching:** the users widget shows the Mac's other accounts. Click one to
   switch to it, as you would from the user menu in Control Center. **Switch User** in the
   menu bar menu does the same and also opens the login window.
-- **The profile switcher** for Dockry's own profiles, like ⌘Tab. Hold ⌃⌥ and tap Space to move through
-  the profiles; let go to switch. A quick ⌃⌥Space flips to the next profile. When it stays
+- **The profile switcher** for Dockry's own profiles, like ⌘Tab. Give it a shortcut in
+  **Settings › General › Keyboard**, say ⌃⌥Space: hold ⌃⌥ and tap Space to move through the
+  profiles, and let go to switch. A quick press flips to the next profile. When it stays
   open (keys already released, or opened from the menu), use the arrows or Tab, 1–9 or
   Return to pick, and Esc to cancel.
-- **Other ways to switch:** ⌃⌥1 … ⌃⌥9 jump straight to a profile, and so do the menu bar
-  item and the profile button at the start of the dock.
+- **Other ways to switch:** the menu bar item, the profile button at the start of the dock,
+  and a shortcut of your own for each profile (**Settings › Profiles › Shortcut**). Dockry
+  sets no shortcuts itself, so it doesn't clash with other apps'; if another app already
+  has the one you pick, Settings says so.
 - **Hide macOS Dock** turns on the system Dock's auto-hide with a very long delay, so it never
   shows up. Your own Dock settings are saved first and put back when you turn the option off
   or quit Dockry.
@@ -101,8 +104,8 @@ Dockry has no icon in the Dock; look for its icon in the menu bar. To quit it, c
 
 ## Using it
 
-1. **Pick a profile:** press ⌃⌥1 for Work or ⌃⌥2 for Chill, or use the menu bar menu or the
-   profile button at the left of the dock. Hold ⌃⌥ and tap Space to step through them.
+1. **Pick a profile** from the menu bar menu or the profile button at the left of the dock.
+   To switch from the keyboard, set shortcuts in Settings (see below).
 2. **Hide the system Dock** with **Hide macOS Dock** in the menu bar menu, if you want only
    Dockry's dock on screen.
 3. **Make it yours:** drag apps, widgets and dividers into the order you like, and

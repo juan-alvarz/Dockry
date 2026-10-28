@@ -383,7 +383,7 @@ private struct ProfileButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Switch profile (⌃⌥1–9)")
+        .help("Switch profile")
     }
 
     private var fillStyle: AnyShapeStyle {

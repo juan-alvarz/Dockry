@@ -29,13 +29,19 @@ public struct Profile: Equatable {
     public var desktop: Int?
     /// The profile button's color, as "#RRGGBB"; nil for the plain gray button.
     public var color: String?
+    /// A global keyboard shortcut that activates the profile; none unless the user sets one.
+    public var shortcut: KeyShortcut?
 
-    public init(name: String, symbol: String = Profile.defaultSymbol, items: [DockItem], desktop: Int? = nil, color: String? = nil) {
+    public init(
+        name: String, symbol: String = Profile.defaultSymbol, items: [DockItem], desktop: Int? = nil,
+        color: String? = nil, shortcut: KeyShortcut? = nil
+    ) {
         self.name = name
         self.symbol = symbol
         self.items = Self.normalized(items)
         self.desktop = desktop
         self.color = color
+        self.shortcut = shortcut
     }
 
     /// The pinned apps, then the open apps, then the widgets, with a divider between each.
@@ -122,7 +128,7 @@ public struct Profile: Equatable {
 // have `pinnedApps` and `widgets` instead.
 extension Profile: Codable {
     private enum CodingKeys: String, CodingKey {
-        case name, symbol, items, pinnedApps, widgets, desktop, color
+        case name, symbol, items, pinnedApps, widgets, desktop, color, shortcut
     }
 
     public init(from decoder: Decoder) throws {
@@ -142,6 +148,8 @@ extension Profile: Codable {
                 widgets: widgetNames.compactMap(WidgetKind.init(rawValue:)),
                 desktop: desktop, color: color)
         }
+        // Like a bad color, a bad shortcut only drops the shortcut.
+        shortcut = (try? container.decodeIfPresent(KeyShortcut.self, forKey: .shortcut)).flatMap { $0 }
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -151,6 +159,7 @@ extension Profile: Codable {
         try container.encode(items, forKey: .items)
         try container.encodeIfPresent(desktop, forKey: .desktop)
         try container.encodeIfPresent(color, forKey: .color)
+        try container.encodeIfPresent(shortcut, forKey: .shortcut)
     }
 }
 
