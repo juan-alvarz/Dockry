@@ -53,6 +53,8 @@ enum ScreenshotHook {
     static var popover: String? { UserDefaults.standard.string(forKey: "openPopover") }
     static var spotifySearchQuery: String? { UserDefaults.standard.string(forKey: "spotifySearchQuery") }
     static var settingsTab: String? { UserDefaults.standard.string(forKey: "showSettings") }
+    /// Logs when the pointer enters and leaves a dock, to see what the magnification sees.
+    static var logsPointer: Bool { UserDefaults.standard.bool(forKey: "logPointer") }
     /// Playback to show without Spotify, as SpotifyPlayback's AppleScript output with commas
     /// for line breaks: position,duration,volume,shuffling,repeating.
     static var spotifyPlayback: String? {
