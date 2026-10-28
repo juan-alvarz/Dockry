@@ -36,6 +36,9 @@ security unlock-keychain -p ci ci.keychain
 security list-keychains -d user -s ci.keychain $(security list-keychains -d user | tr -d '"')
 security add-generic-password -A -s "Claude Code-credentials" -a "$USER" \
   -w '{"claudeAiOauth": {"accessToken": "ci-token"}}' ci.keychain || echo "couldn't add the Claude sign-in"
+# Also let unsigned apps like this CI build past the Keychain prompt, which nobody can click.
+security set-generic-password-partition-list -S "unsigned:,apple-tool:,apple:" -k ci \
+  -s "Claude Code-credentials" ci.keychain >/dev/null || echo "couldn't open the sign-in to Dockry"
 usage_dir=$(mktemp -d)
 cat > "$usage_dir/usage" <<'JSON'
 {"five_hour": {"utilization": 34, "resets_at": "2030-01-01T12:00:00Z"},
