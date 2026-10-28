@@ -78,10 +78,9 @@ final class DockPointer: ObservableObject {
             .sink { [weak self] _ in self?.update() }
             .store(in: &subscriptions)
         DockInteraction.shared.$activeCount
-            .sink { [weak self] _ in
-                // After the change: the published value arrives before it's stored.
-                DispatchQueue.main.async { self?.update() }
-            }
+            // After the change: the published value arrives before it's stored.
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.update() }
             .store(in: &subscriptions)
     }
 

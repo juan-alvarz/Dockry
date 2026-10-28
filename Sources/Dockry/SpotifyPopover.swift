@@ -50,13 +50,13 @@ struct SpotifyPopover: View {
         VStack(spacing: 2) {
             Slider(
                 value: Binding(get: { scrubPosition ?? playback.position }, set: { scrubPosition = $0 }),
-                in: 0...max(playback.duration, 1)
-            ) { isEditing in
-                if !isEditing, let scrubPosition {
-                    player.seek(to: scrubPosition)
-                    self.scrubPosition = nil
-                }
-            }
+                in: 0...max(playback.duration, 1),
+                onEditingChanged: { isEditing in
+                    if !isEditing, let scrubPosition {
+                        player.seek(to: scrubPosition)
+                        self.scrubPosition = nil
+                    }
+                })
             .controlSize(.small)
             HStack {
                 Text(Self.time(scrubPosition ?? playback.position))

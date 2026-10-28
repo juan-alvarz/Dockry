@@ -311,7 +311,7 @@ private struct DockSeparator: View {
                         DockInteraction.shared.end()
                     }
                 })
-            .help(settings.syncsWithMacDock ? "Dockry follows the macOS Dock’s size" : "Drag to resize the dock")
+            .help(Text(settings.syncsWithMacDock ? "Dockry follows the macOS Dock’s size" : "Drag to resize the dock"))
     }
 
     /// Follows the pointer in screen coordinates: the window itself resizes during the drag,
