@@ -46,9 +46,9 @@ to show the widget with a track.
 
 Dockry runs on macOS 14 or later, on Apple silicon and Intel Macs.
 
-1. Download `Dockry-<version>.zip` from the
-   [latest release](https://github.com/juan-alvarz/Dockry/releases/latest) and unzip it.
-2. Move **Dockry.app** to your Applications folder.
+1. Download `Dockry-<version>.dmg` from the
+   [latest release](https://github.com/juan-alvarz/Dockry/releases/latest) and open it.
+2. Drag **Dockry** onto the Applications folder next to it, then eject the disk image.
 3. Open it. Dockry isn't notarized by Apple, so the first time macOS says it can't be
    opened. Click **Done**, then go to System Settings › Privacy & Security, scroll down to
    *"Dockry" was blocked*, click **Open Anyway** and confirm. You only do this once per
@@ -89,8 +89,8 @@ Don't run `scripts/screenshots.sh` on your own Mac. It's meant for CI: it opens 
 apps and changes the Dock's settings.
 
 To publish a release, run the **Release** workflow from the Actions tab on `main` with a
-version such as `0.0.2`. It tags the commit `Dockry-0.0.2` and attaches a zipped, universal
-Dockry.app. Pushing a `Dockry-*` tag does the same.
+version such as `0.0.2`. It tags the commit `Dockry-0.0.2` and attaches a universal
+Dockry.app as a disk image and as a zip. Pushing a `Dockry-*` tag does the same.
 
 ## Setup
 
@@ -173,4 +173,4 @@ turn off Edit › Substitutions › Smart Quotes first: curly quotes aren't vali
 | `Sources/Dockry` | The app: dock window and views, menu bar, hot keys, system Dock and desktop integration. |
 | `App/Info.plist` | Bundle metadata used by `scripts/bundle.sh`. |
 | `.github/workflows/macos.yml` | Builds, tests and takes the screenshots on a macOS runner. |
-| `.github/workflows/release.yml` | Builds a universal Dockry.app and publishes it as a GitHub release. |
+| `.github/workflows/release.yml` | Builds a universal Dockry.app and publishes it, as a disk image and a zip, as a GitHub release. |
