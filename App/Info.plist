@@ -11,9 +11,21 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>0.0.1</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<!-- dockry:// is where Spotify's sign-in page sends the browser back to. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.github.juan-alvarz.Dockry</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>dockry</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<!-- Menu bar app: no icon in the Dock. -->
