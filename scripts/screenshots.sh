@@ -65,15 +65,19 @@ osascript -e 'tell application "System Events" to key code 53' || true  # Esc cl
 
 # Turn on "Open Chill's Apps When Switching" (Chill is ⌃⌥2), leave and come back: Chill's
 # pinned apps, none of them running so far, have to open.
-osascript -e 'tell application "System Events" to key code 19 using {control down, option down}'
-sleep 1
+osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' \
+  || echo "couldn't switch to Chill"
+sleep 2
 osascript -e 'tell application "System Events" to tell process "Dockry"
   click menu bar item 1 of last menu bar
+  delay 1
   click menu item "Open Chill’s Apps When Switching" of menu 1 of menu bar item 1 of last menu bar
-end tell'
-osascript -e 'tell application "System Events" to key code 18 using {control down, option down}'  # ⌃⌥1, Work
-sleep 1
-osascript -e 'tell application "System Events" to key code 19 using {control down, option down}'  # ⌃⌥2, Chill
+end tell' || echo "couldn't turn on opening Chill's apps"
+osascript -e 'tell application "System Events" to key code 18 using {control down, option down}' \
+  || echo "couldn't switch to Work"  # ⌃⌥1
+sleep 2
+osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' \
+  || echo "couldn't switch back to Chill"  # ⌃⌥2
 sleep 8
 screencapture -x "$out/5-open-apps-on-switch.png"
 for app in Music Photos Messages TV; do

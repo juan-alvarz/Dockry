@@ -67,22 +67,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func activateProfile(named name: String) {
+        let previous = store.active.name
         store.activate(named: name)
-        if store.active.opensAppsOnSwitch {
-            openNotRunningApps(store.active.pinnedApps)
-        }
+        let switched = store.active.name == name && name != previous
         if let desktop = store.active.desktop {
             DesktopSwitcher.switchTo(desktop: desktop)
         }
+        if switched && store.active.opensAppsOnSwitch {
+            // After the desktop switch has started, so their windows open on the new desktop.
+            let apps = store.active.pinnedApps
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { Self.openIfNotRunning(apps) }
+        }
     }
 
-    /// Opens them without bringing them forward, so the app you're in keeps the keyboard.
-    private func openNotRunningApps(_ bundleIDs: [String]) {
+    /// Opens the apps without bringing them forward, so the app you're in keeps the keyboard.
+    private static func openIfNotRunning(_ bundleIDs: [String]) {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
-        for bundleID in bundleIDs where runningApps.app(withBundleID: bundleID) == nil {
-            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
-                NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+        for bundleID in bundleIDs where NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty {
+            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+                NSLog("Dockry: can't open \(bundleID); it isn't installed")
+                continue
+            }
+            NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, error in
+                if let error { NSLog("Dockry: couldn't open \(bundleID): \(error)") }
             }
         }
     }

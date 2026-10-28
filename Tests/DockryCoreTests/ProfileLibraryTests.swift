@@ -53,6 +53,12 @@ final class ProfileLibraryTests: XCTestCase {
         XCTAssertEqual(decoded.profiles.map(\.opensAppsOnSwitch), [false, true])
     }
 
+    func testAnUnreadableOpensAppsOnSwitchIsIgnored() throws {
+        let json = #"{ "profiles": [{ "name": "Work", "opensAppsOnSwitch": "yes" }] }"#
+        let library = try JSONDecoder().decode(ProfileLibrary.self, from: Data(json.utf8))
+        XCTAssertFalse(library.active.opensAppsOnSwitch)
+    }
+
     func testDecodingAHandWrittenProfileFillsInDefaults() throws {
         let json = #"{ "profiles": [{ "name": "Gaming", "widgets": ["clock", "weather"], "desktop": 3 }] }"#
         let library = try JSONDecoder().decode(ProfileLibrary.self, from: Data(json.utf8))

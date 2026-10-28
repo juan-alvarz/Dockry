@@ -52,7 +52,7 @@ public struct Profile: Codable, Equatable {
             pinnedApps: try container.decodeIfPresent([String].self, forKey: .pinnedApps) ?? [],
             widgets: widgetNames.compactMap(WidgetKind.init(rawValue:)),
             desktop: try container.decodeIfPresent(Int.self, forKey: .desktop),
-            opensAppsOnSwitch: try container.decodeIfPresent(Bool.self, forKey: .opensAppsOnSwitch) ?? false
+            opensAppsOnSwitch: (try? container.decodeIfPresent(Bool.self, forKey: .opensAppsOnSwitch)) ?? false
         )
     }
 }
