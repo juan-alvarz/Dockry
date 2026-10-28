@@ -3,8 +3,10 @@ import Combine
 import DockryCore
 
 /// Reports every pointer move, wherever it happens. Dockry is never the active app, so
-/// SwiftUI's hover tracking can't be relied on in the dock; mouse-moved events from the
-/// global monitor can, and need no permission.
+/// SwiftUI's hover tracking can't be relied on in the dock. Mouse-moved events from a global
+/// monitor need no permission but don't always arrive (not while another app tracks the
+/// mouse, for one), so the location is also polled: a few times a second while the pointer
+/// is elsewhere, every frame while it's over a dock.
 @MainActor
 final class PointerMonitor {
     static let shared = PointerMonitor()
@@ -13,21 +15,50 @@ final class PointerMonitor {
     let moves = PassthroughSubject<CGPoint, Never>()
 
     private var monitors: [Any] = []
+    private var timer: Timer?
+    private var lastLocation = CGPoint(x: -1, y: -1)
+    private var fastRequests = 0
 
     private init() {
         let events: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .rightMouseDragged]
         if let global = NSEvent.addGlobalMonitorForEvents(matching: events, handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.moves.send(NSEvent.mouseLocation) }
+            MainActor.assumeIsolated { self?.check() }
         }) {
             monitors.append(global)
         }
         // The global monitor misses events that go to Dockry's own windows.
         if let local = NSEvent.addLocalMonitorForEvents(matching: events, handler: { [weak self] event in
-            MainActor.assumeIsolated { self?.moves.send(NSEvent.mouseLocation) }
+            MainActor.assumeIsolated { self?.check() }
             return event
         }) {
             monitors.append(local)
         }
+        startTimer()
+    }
+
+    /// While someone needs smooth updates (the pointer is over a dock), poll every frame.
+    func setFast(_ isFast: Bool) {
+        let wasFast = fastRequests > 0
+        fastRequests = max(fastRequests + (isFast ? 1 : -1), 0)
+        if (fastRequests > 0) != wasFast {
+            startTimer()
+        }
+    }
+
+    private func startTimer() {
+        timer?.invalidate()
+        let interval = fastRequests > 0 ? 1.0 / 60 : 0.12
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.check() }
+        }
+        timer?.tolerance = interval / 4
+    }
+
+    private func check() {
+        let location = NSEvent.mouseLocation
+        guard location != lastLocation else { return }
+        lastLocation = location
+        moves.send(location)
     }
 }
 
@@ -78,10 +109,9 @@ final class DockPointer: ObservableObject {
             .sink { [weak self] _ in self?.update() }
             .store(in: &subscriptions)
         DockInteraction.shared.$activeCount
-            .sink { [weak self] _ in
-                // After the change: the published value arrives before it's stored.
-                DispatchQueue.main.async { self?.update() }
-            }
+            // After the change: the published value arrives before it's stored.
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.update() }
             .store(in: &subscriptions)
     }
 
@@ -93,6 +123,12 @@ final class DockPointer: ObservableObject {
 
         let isOverDock = isRevealed && activeZone.contains(point)
         let newLocation = isOverDock ? point : nil
+        if (newLocation == nil) != (location == nil) {
+            PointerMonitor.shared.setFast(newLocation != nil)
+            if ScreenshotHook.logsPointer {
+                NSLog("Dockry pointer: \(isOverDock ? "over" : "left") the dock at \(point); dock frame \(dockFrame), \(itemFrames.count) icon frames")
+            }
+        }
         if newLocation != location {
             location = newLocation
         }
@@ -146,7 +182,10 @@ final class DockPointer: ObservableObject {
                 guard !Task.isCancelled, let self else { return }
                 hideTask = nil
                 isRevealed = false
-                location = nil
+                if location != nil {
+                    location = nil
+                    PointerMonitor.shared.setFast(false)
+                }
                 hoveredItem = nil
             }
         }
