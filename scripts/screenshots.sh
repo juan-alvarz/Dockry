@@ -43,8 +43,13 @@ osascript -e 'tell application "System Events" to key code 9 using {control down
   || echo "couldn't open the clipboard history"
 sleep 1
 screencapture -x "$out/5-clipboard.png"
-osascript -e 'tell application "System Events" to key code 9 using {control down, option down}' || true
+# Clicking an entry with a real mouse click has to copy it, on the first click.
+swift scripts/click-text.swift "git checkout -b dev-clipboard origin/dev"
 sleep 1
+if [[ "$(pbpaste)" != "git checkout -b dev-clipboard origin/dev" ]]; then
+  echo "Clicking a clipboard history entry didn't copy it; the clipboard has: $(pbpaste)" >&2
+  exit 1
+fi
 
 # ⌃⌥2 is Dockry's hot key for the second profile, Chill. key code 19 is the 2 key.
 osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' \

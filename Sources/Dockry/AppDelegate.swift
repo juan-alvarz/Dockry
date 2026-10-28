@@ -38,8 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKeys.register(keyCode: UInt16(kVK_Space), modifiers: controlKey | optionKey) {
             switcher.showOrAdvance()
         }
-        // Shows the clipboard history when the active profile has the clipboard widget.
-        hotKeys.register(keyCode: UInt16(kVK_ANSI_V), modifiers: controlKey | optionKey) {
+        // The history opens above the clipboard widget, so only when the profile shows one.
+        hotKeys.register(keyCode: UInt16(kVK_ANSI_V), modifiers: controlKey | optionKey) { [weak self] in
+            guard self?.store.active.widgets.contains(.clipboard) == true else { return }
             ClipboardMonitor.shared.isShowingHistory.toggle()
         }
         // ⌃⌥1 … ⌃⌥9 activate the first nine profiles.

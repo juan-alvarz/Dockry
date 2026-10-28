@@ -9,6 +9,8 @@ Dock while it runs and gives it back when it quits.
 | ![Work profile](docs/screenshots/1-work-profile.png) | ![Chill profile](docs/screenshots/2-chill-profile.png) |
 | **Profile switcher (⌃⌥Space)** | **Menu bar** |
 | ![Profile switcher](docs/screenshots/3-profile-switcher.png) | ![Menu bar menu](docs/screenshots/4-menu-bar.png) |
+| **Clipboard history (⌃⌥V)** | |
+| ![Clipboard history](docs/screenshots/5-clipboard.png) | |
 
 The screenshots are taken by CI on a GitHub-hosted macOS machine on every push to `dev`.
 Feature branches (`dev-*`) publish theirs to the
@@ -31,8 +33,9 @@ to show the widget with a track.
   users, and clipboard.
 - **Clipboard history:** the clipboard tile (or ⌃⌥V) lists the last 20 pieces of text you
   copied. Click one to copy it again, then paste as usual. The history stays in memory and
-  is gone when Dockry quits. Anything that password managers mark as private on the
-  clipboard is never recorded.
+  is gone when Dockry quits. It's only recorded while the clipboard widget is on screen.
+  Anything that password managers mark as private on the clipboard is never recorded, and
+  neither are copies over 100 KB.
 - **Fast User Switching:** the users widget shows the Mac's other accounts. Click one to
   switch to it, as you would from the user menu in Control Center. **Switch User** in the
   menu bar menu does the same and also opens the login window.

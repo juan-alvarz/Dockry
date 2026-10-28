@@ -30,6 +30,13 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertEqual(history.items, [])
     }
 
+    func testIgnoresVeryLargeText() {
+        var history = ClipboardHistory()
+        history.add(String(repeating: "x", count: ClipboardHistory.maxBytes + 1))
+        history.add(String(repeating: "x", count: ClipboardHistory.maxBytes))
+        XCTAssertEqual(history.items.map(\.count), [ClipboardHistory.maxBytes])
+    }
+
     func testPreviewIsOneLine() {
         XCTAssertEqual(ClipboardHistory.preview(of: "  let x = 1\n\n    print(x)  "), "let x = 1 print(x)")
     }

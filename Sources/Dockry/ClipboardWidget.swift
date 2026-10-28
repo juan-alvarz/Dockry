@@ -18,6 +18,8 @@ struct ClipboardWidget: View {
         .popover(isPresented: $monitor.isShowingHistory, arrowEdge: .top) {
             ClipboardHistoryList(monitor: monitor)
         }
+        .onAppear { monitor.widgetAppeared() }
+        .onDisappear { monitor.widgetDisappeared() }
     }
 }
 
