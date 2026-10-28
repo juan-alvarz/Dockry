@@ -29,15 +29,19 @@ to show the widget with a track.
 
 ## What it does
 
-- **A floating dock**, on every desktop. It shows the active profile's pinned apps, then any
-  other app that's running, then the profile's widgets. Like the system Dock it's exactly as
+- **A floating dock**, on every desktop. It shows the active profile's pinned apps, any
+  other app that's running, and the profile's widgets, in whatever order you arrange them.
+  Like the system Dock it's exactly as
   long as what's in it; if that would be longer than the screen, it scrolls instead.
   A dot marks running apps, and the hovered app shows its name. Click to open or switch to an
-  app; an app that's launching bounces. Drag a pinned app along the dock to give it a new
-  place; the others make room as you drag. Right-click an app to keep it in or remove it
-  from the profile, show it in Finder, or quit it.
+  app; an app that's launching bounces. Drag an app, a widget or a divider along the dock
+  to give it a new place; the others make room as you drag. Dragging an open app that isn't
+  in the profile keeps it there. Only the profile button stays first. Right-click an app to
+  keep it in or remove it from the profile, show it in Finder, or quit it. Every right-click
+  menu in the dock also has **Add Divider** and **Add Widget**, which add them right after
+  what you clicked.
 - **Works like the macOS Dock:** bottom, left or right of the screen; any size from 16 to 128
-  points (drag a separator line to resize, as in the Dock); magnification; automatic hiding.
+  points (drag a divider up or down to resize, as in the Dock); magnification; automatic hiding.
   Right-click the dock's background for the same quick menu the Dock has.
 - **Keeps its space, like the macOS Dock:** windows stop at the dock's edge. A zoomed window
   fills the space above the dock, and a window dragged behind it moves back out when you let
@@ -56,7 +60,7 @@ to show the widget with a track.
   opens an editor for all of this, including the color of the profile's button in the dock.
 - **Widgets:** clock (click for the Clock app), date (click for a month calendar), Spotify,
   users, and Claude usage (how much of your plan's 5-hour and weekly limits you've used, as
-  `/usage` shows in Claude Code; click for the usage page on claude.ai). Clicking the
+  `/usage` shows in Claude Code; click for each limit and when it resets). Clicking the
   Spotify song opens a player: progress you can drag, volume, shuffle and repeat, and search
   that plays songs without bringing Spotify to the front. Widgets scale with the dock, and on
   a side dock they turn into compact tiles. **Settings › Widgets** lists every widget with
@@ -100,8 +104,8 @@ Dockry has no icon in the Dock; look for its icon in the menu bar. To quit it, c
    profile button at the left of the dock. Hold ⌃⌥ and tap Space to step through them.
 2. **Hide the system Dock** with **Hide macOS Dock** in the menu bar menu, if you want only
    Dockry's dock on screen.
-3. **Make it yours:** right-click an app in the dock to keep it in or remove it from the
-   current profile. **Settings…** has the dock's size, position, magnification and hiding,
+3. **Make it yours:** drag apps, widgets and dividers into the order you like, and
+   right-click the dock to add widgets and dividers or to keep an app in the current profile. **Settings…** has the dock's size, position, magnification and hiding,
    and **Edit Profiles…** the apps, widgets, desktop and symbol of each profile.
 4. **Optional setup**, each explained below: desktop switching needs a keyboard shortcut
    turned on and Accessibility access, user switching needs Fast User Switching turned on,
@@ -114,9 +118,20 @@ Requires macOS 14 or later and Xcode 15 or later (or the Swift 5.9+ command line
 
 ```bash
 swift test              # unit tests for the platform-independent logic
-scripts/bundle.sh       # builds build/Dockry.app
-open build/Dockry.app
+scripts/install.sh      # builds Dockry, installs it to /Applications and opens it
 ```
+
+`install.sh` takes `--profile-only` to install to `~/Applications` instead, just for your
+account, with no admin rights needed. The first run also creates a free local code-signing
+certificate ("Dockry Dev") in your login keychain, and macOS asks for your login password once
+to trust it. That certificate is what lets macOS remember the Accessibility and Automation
+permissions each time you rebuild. To update later:
+
+```bash
+git pull && scripts/install.sh
+```
+
+`scripts/bundle.sh` only builds `build/Dockry.app`, without installing it.
 
 Don't run `scripts/screenshots.sh` on your own Mac. It's meant for CI: it opens and quits
 apps and changes the Dock's settings.
@@ -158,8 +173,13 @@ The widget uses the account Claude Code is signed in to. The first time, macOS a
 Dockry may use the "Claude Code-credentials" Keychain item. Choose **Always Allow**.
 Anthropic has no official usage API for Pro/Max plans, so the widget calls the same
 unofficial endpoint as Claude Code's `/usage`. It could change without notice. Dockry
-checks every 5 minutes and waits 30 minutes when rate-limited. Hover over the widget to see
+checks every 5 minutes and waits 30 minutes when rate-limited. Click the widget to see
 when each limit resets.
+
+Claude Code's sign-in expires after a few hours, and only its command-line tool renews it.
+When it has expired, Dockry renews it the way Claude Code does and saves the new sign-in
+back into the same Keychain item, so Claude Code keeps working with it. If Dockry can't save
+to that item, it doesn't renew, and the widget asks you to open Claude Code instead.
 
 ### Spotify
 
@@ -173,7 +193,7 @@ Automation. Pressing play while Spotify is closed opens it.
 so it needs a one-time setup, explained step by step in Settings › Widgets › Spotify: create a free
 app on the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), add
 `dockry://spotify-callback` as its redirect URI, paste its client ID into Dockry and sign in.
-Dockry signs in with PKCE (no client secret) and keeps the sign-in in your keychain. Songs
+Dockry signs in with PKCE (no client secret) and keeps the sign-in in `~/Library/Application Support/Dockry/spotify-refresh-token`, readable only by you. Songs
 you pick play in the Spotify app through AppleScript, which doesn't need Premium.
 
 ### If the system Dock stays hidden
@@ -199,17 +219,20 @@ then **Reload from File**. Only `name` is required:
       "name": "Work",
       "symbol": "briefcase.fill",
       "desktop": 1,
-      "pinnedApps": ["com.apple.Safari", "com.apple.mail"],
-      "widgets": ["clock", "date"]
+      "items": ["com.apple.Safari", "com.apple.mail", "divider", "running-apps", "divider",
+                "widget:clock", "widget:date"]
     }
   ]
 }
 ```
 
 - `symbol` is an [SF Symbol](https://developer.apple.com/sf-symbols/) name.
-- `pinnedApps` are bundle identifiers. To find one, run `osascript -e 'id of app "Safari"'`.
-- `widgets` can include `clock`, `date`, `spotify`, `users` and `claude`, shown in the order
-  you list them.
+- `items` is the dock after the profile button, in order. An app is its bundle identifier;
+  to find one, run `osascript -e 'id of app "Safari"'`. A widget is `widget:` and one of
+  `clock`, `date`, `spotify`, `users` and `claude`. `divider` is a divider line, and
+  `running-apps` is where open apps that aren't in the profile go (added after the last app
+  if you leave it out). Files from older versions, with `pinnedApps` and `widgets` instead,
+  still work.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
 - `color` is the profile button's color, like `"#3563E9"`. Leave it out for a plain button.
 

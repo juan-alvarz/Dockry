@@ -45,11 +45,40 @@ final class ProfileLibraryTests: XCTestCase {
         XCTAssertEqual(library.active.pinnedApps, [])
     }
 
-    func testReorderPinsKeepsAppsTheDockDidntShowInPlace() {
-        var library = ProfileLibrary(profiles: [Profile(name: "Work", pinnedApps: ["a", "b", "hidden", "c"]), chill])
-        library.reorderPins(["c", "a", "b", "not-pinned"])
-        XCTAssertEqual(library.active.pinnedApps, ["c", "a", "hidden", "b"])
-        XCTAssertEqual(library.profiles[1].pinnedApps, [])
+    func testChangingPinnedAppsKeepsWidgetsAndDividersInPlace() {
+        var profile = Profile(name: "Work", items: [.app("a"), .widget(.clock), .app("b"), .divider, .runningApps])
+        profile.pinnedApps = ["b", "a", "c"]
+        XCTAssertEqual(profile.items, [.app("b"), .widget(.clock), .app("a"), .app("c"), .divider, .runningApps])
+        profile.pinnedApps.removeAll { $0 == "b" }
+        XCTAssertEqual(profile.items, [.widget(.clock), .app("a"), .app("c"), .divider, .runningApps])
+        profile.widgets.append(.date)
+        XCTAssertEqual(profile.items, [.widget(.clock), .widget(.date), .app("a"), .app("c"), .divider, .runningApps])
+    }
+
+    func testItemsStayUniqueAndKeepThePlaceForOpenApps() {
+        var profile = Profile(name: "Work", items: [.app("a"), .app("a"), .widget(.clock), .widget(.clock), .divider, .divider])
+        XCTAssertEqual(profile.items, [.app("a"), .runningApps, .widget(.clock), .divider, .divider])
+        profile.insert(.app("a"), at: 3)
+        XCTAssertEqual(profile.items, [.runningApps, .widget(.clock), .app("a"), .divider, .divider])
+        profile.removeItem(at: 0)
+        XCTAssertEqual(profile.items.first, .runningApps)
+        profile.insert(.divider, at: 0)
+        XCTAssertEqual(profile.items.first, .divider)
+    }
+
+    func testProfilesFromBeforeItemsGetTheOldLayout() throws {
+        let json = #"{ "name": "Work", "pinnedApps": ["a"], "widgets": ["clock"] }"#
+        let profile = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
+        XCTAssertEqual(profile.items, [.app("a"), .divider, .runningApps, .divider, .widget(.clock)])
+        let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)) as? [String: Any])
+        XCTAssertEqual(saved["items"] as? [String], ["a", "divider", "running-apps", "divider", "widget:clock"])
+        XCTAssertNil(saved["pinnedApps"])
+    }
+
+    func testUnknownWidgetsInItemsAreDropped() throws {
+        let json = #"{ "name": "Work", "items": ["a", "widget:weather", "widget:date"] }"#
+        let profile = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
+        XCTAssertEqual(profile.items, [.app("a"), .runningApps, .widget(.date)])
     }
 
     func testDecodingAHandWrittenProfileFillsInDefaults() throws {

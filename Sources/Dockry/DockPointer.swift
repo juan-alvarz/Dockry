@@ -106,6 +106,8 @@ final class DockPointer: ObservableObject {
     var itemFrames: [String: CGRect] = [:]
     /// The separators' frames, which show the resize cursor like the macOS Dock's divider.
     var separatorFrames: [String: CGRect] = [:]
+    /// Widgets' frames, for the dock to know their lengths when one is dragged past them.
+    var widgetFrames: [String: CGRect] = [:]
     /// False while the size follows the macOS Dock.
     var canResize = true
     /// While a separator is being dragged: where the drag started and the dock's size then.

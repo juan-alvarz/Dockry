@@ -31,8 +31,9 @@ final class ProfileStore: ObservableObject {
         update { $0.unpin(bundleID) }
     }
 
-    func reorderPins(_ order: [String]) {
-        update { $0.reorderPins(order) }
+    /// Changes the active profile, such as the order of its dock.
+    func updateActive(_ change: (inout Profile) -> Void) {
+        update { $0.updateActive(change) }
     }
 
     /// Returns the new profile's name.

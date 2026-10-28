@@ -2,32 +2,67 @@ import XCTest
 @testable import DockryCore
 
 final class DockLayoutTests: XCTestCase {
+    private func ids(_ elements: [DockElement]) -> [String] { elements.map(\.id) }
+
     func testPinnedAppsKeepProfileOrderAndShowWhetherTheyRun() {
-        let sections = DockLayout.sections(pinned: ["mail", "safari"], running: ["safari"])
-        XCTAssertEqual(sections.pinned, [
-            DockEntry(bundleID: "mail", isPinned: true, isRunning: false),
-            DockEntry(bundleID: "safari", isPinned: true, isRunning: true),
+        let elements = DockLayout.elements(items: [.app("mail"), .app("safari"), .runningApps], running: ["safari"])
+        XCTAssertEqual(elements.map(\.content), [
+            .app(DockEntry(bundleID: "mail", isPinned: true, isRunning: false)),
+            .app(DockEntry(bundleID: "safari", isPinned: true, isRunning: true)),
         ])
-        XCTAssertEqual(sections.running, [])
     }
 
-    func testRunningAppsThatArentPinnedFollowInLaunchOrder() {
-        let sections = DockLayout.sections(pinned: ["safari"], running: ["notes", "safari", "calculator"])
-        XCTAssertEqual(sections.running.map(\.bundleID), ["notes", "calculator"])
-        XCTAssertTrue(sections.running.allSatisfy { $0.isRunning && !$0.isPinned })
+    func testRunningAppsThatArentPinnedGoInTheirPlaceInLaunchOrder() {
+        let items: [DockItem] = [.app("safari"), .divider, .widget(.clock), .divider, .runningApps]
+        let elements = DockLayout.elements(items: items, running: ["notes", "safari", "calculator", "notes"])
+        XCTAssertEqual(ids(elements), ["safari", "divider:1", "widget:clock", "divider:3", "notes", "calculator"])
+        XCTAssertEqual(elements[4].itemIndex, 4)
+        XCTAssertEqual(ids(DockLayout.elements(items: items, running: ["notes"], showsUnpinned: false)), ["safari", "divider:1", "widget:clock"])
     }
 
-    func testDropIndexRoundsToTheNearestSlotAndStaysInRange() {
-        XCTAssertEqual(DockLayout.dropIndex(from: 1, slotsMoved: 0.4, count: 5), 1)
-        XCTAssertEqual(DockLayout.dropIndex(from: 1, slotsMoved: 1.6, count: 5), 3)
-        XCTAssertEqual(DockLayout.dropIndex(from: 1, slotsMoved: -0.6, count: 5), 0)
-        XCTAssertEqual(DockLayout.dropIndex(from: 3, slotsMoved: 9, count: 5), 4)
-        XCTAssertEqual(DockLayout.dropIndex(from: 3, slotsMoved: -9, count: 5), 0)
+    func testDividersWithNothingToDivideAreLeftOut() {
+        let items: [DockItem] = [.divider, .app("a"), .divider, .divider, .runningApps, .divider, .app("hidden"), .divider]
+        XCTAssertEqual(ids(DockLayout.elements(items: items, running: [], isShown: { $0 != "hidden" })), ["a"])
+        XCTAssertEqual(ids(DockLayout.elements(items: items + [.widget(.date)], running: [])), ["a", "divider:2", "hidden", "divider:7", "widget:date"])
     }
 
-    func testEachAppAppearsOnce() {
-        let sections = DockLayout.sections(pinned: ["safari", "safari"], running: ["notes", "notes"])
-        XCTAssertEqual(sections.pinned.map(\.bundleID), ["safari"])
-        XCTAssertEqual(sections.running.map(\.bundleID), ["notes"])
+    func testDropIndexGoesPastAnElementOnceTheCenterCrossesIt() {
+        // Apps 10 long, a widget 40 long, spacing 2: centers 5, 32, 59.
+        let lengths = [10.0, 40, 10]
+        XCTAssertEqual(DockLayout.dropIndex(from: 0, distance: 20, lengths: lengths, spacing: 2), 0)
+        XCTAssertEqual(DockLayout.dropIndex(from: 0, distance: 28, lengths: lengths, spacing: 2), 1)
+        XCTAssertEqual(DockLayout.dropIndex(from: 0, distance: 100, lengths: lengths, spacing: 2), 2)
+        XCTAssertEqual(DockLayout.dropIndex(from: 2, distance: -60, lengths: lengths, spacing: 2), 0)
+        // Two icons over, exactly.
+        XCTAssertEqual(DockLayout.dropIndex(from: 0, distance: 108, lengths: [48, 48, 48, 48], spacing: 6), 2)
+        XCTAssertEqual(DockLayout.dropIndex(from: 3, distance: -108, lengths: [48, 48, 48, 48], spacing: 6), 1)
+    }
+
+    func testShiftIsTheLengthOfWhatItMovedPast() {
+        let lengths = [10.0, 40, 10]
+        XCTAssertEqual(DockLayout.shift(from: 0, to: 1, lengths: lengths, spacing: 2), 42)
+        XCTAssertEqual(DockLayout.shift(from: 2, to: 0, lengths: lengths, spacing: 2), -54)
+    }
+
+    func testMovingAWidgetBetweenApps() {
+        let items: [DockItem] = [.app("spotify"), .app("zen"), .runningApps, .divider, .widget(.date)]
+        let elements = DockLayout.elements(items: items, running: [])
+        // spotify, zen, divider, date: move date to between spotify and zen.
+        let moved = DockLayout.items(items, afterMoving: 3, to: 1, in: elements)
+        XCTAssertEqual(moved, [.app("spotify"), .widget(.date), .app("zen"), .runningApps, .divider])
+    }
+
+    func testMovingForwardLandsAfterTheElementItPassed() {
+        let items: [DockItem] = [.divider, .app("a"), .app("b"), .runningApps, .widget(.clock)]
+        let elements = DockLayout.elements(items: items, running: [])
+        XCTAssertEqual(DockLayout.items(items, afterMoving: 0, to: 2, in: elements), [.divider, .app("b"), .runningApps, .widget(.clock), .app("a")])
+    }
+
+    func testDraggingAnOpenAppPinsIt() {
+        let items: [DockItem] = [.app("a"), .divider, .runningApps]
+        let elements = DockLayout.elements(items: items, running: ["notes"])
+        XCTAssertEqual(ids(elements), ["a", "divider:1", "notes"])
+        XCTAssertEqual(DockLayout.items(items, afterMoving: 2, to: 0, in: elements), [.app("notes"), .app("a"), .divider, .runningApps])
+        XCTAssertEqual(DockLayout.items(items, afterMoving: 2, to: 2, in: elements), items)
     }
 }

@@ -54,7 +54,7 @@ screencapture -x "$out/1-work-profile.png"
 swift scripts/drag-app.swift Safari 108 "$out/11-drag-to-reorder.png"
 sleep 1
 profiles="$HOME/Library/Application Support/Dockry/profiles.json"
-order=$(python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); print(" ".join(next(p["pinnedApps"] for p in d["profiles"] if p["name"] == "Work")))' "$profiles")
+order=$(python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); print(" ".join(i for i in next(p["items"] for p in d["profiles"] if p["name"] == "Work") if "." in i))' "$profiles")
 if [[ "$order" != "com.apple.finder com.apple.mail com.apple.iCal com.apple.Safari com.apple.Notes com.apple.Terminal" ]]; then
   echo "Dragging Safari didn't reorder the dock; Work's pinned apps are: $order" >&2
   exit 1
