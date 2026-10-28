@@ -22,6 +22,19 @@ for user in "alex:Alex Rivera" "sam:Sam Chen"; do
     || echo "couldn't create the account ${user%%:*}"
 done
 
+# CI has no Claude account: a saved Claude Code sign-in (readable by any app, -A, so no
+# Keychain prompt) and a local server with a sample answer from the usage endpoint.
+security add-generic-password -A -s "Claude Code-credentials" -a "$USER" \
+  -w '{"claudeAiOauth": {"accessToken": "ci-token"}}' || echo "couldn't add the Claude sign-in"
+usage_dir=$(mktemp -d)
+cat > "$usage_dir/usage" <<'JSON'
+{"five_hour": {"utilization": 34, "resets_at": "2030-01-01T12:00:00Z"},
+ "seven_day": {"utilization": 72, "resets_at": "2030-01-05T00:00:00Z"}}
+JSON
+python3 -m http.server 8765 --directory "$usage_dir" >/dev/null 2>&1 &
+usage_server=$!
+defaults write "$bundle_id" claudeUsageEndpoint "http://localhost:8765/usage"
+
 # Apps for the "running" part of the dock: two pinned in Work, two that aren't.
 for app in Safari Notes Calculator TextEdit; do
   open -a "$app" || echo "couldn't open $app"
@@ -62,6 +75,8 @@ osascript -e 'tell application "System Events" to tell process "Dockry" to click
 sleep 1
 screencapture -x "$out/4-menu-bar.png"
 osascript -e 'tell application "System Events" to key code 53' || true  # Esc closes the menu
+
+kill "$usage_server" 2>/dev/null || true
 
 # Quitting has to give the system Dock its original settings back.
 pkill -TERM -x Dockry

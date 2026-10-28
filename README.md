@@ -27,8 +27,9 @@ to show the widget with a track.
   remove it from the profile, show it in Finder, or quit it.
 - **Profiles** such as *Work* and *Chill*. Each has its own pinned apps, widgets and desktop.
   Activating a profile swaps the dock's contents and jumps to its desktop.
-- **Widgets:** clock, date, Spotify (what's playing, with previous / play-pause / next), and
-  users.
+- **Widgets:** clock, date, Spotify (what's playing, with previous / play-pause / next),
+  users, and Claude usage (how much of your plan's 5-hour and weekly limits you've used, as
+  `/usage` shows in Claude Code).
 - **Fast User Switching:** the users widget shows the Mac's other accounts. Click one to
   switch to it, as you would from the user menu in Control Center. **Switch User** in the
   menu bar menu does the same and also opens the login window.
@@ -80,6 +81,15 @@ account.
 Fast User Switching must be turned on: System Settings › Control Center › Fast User
 Switching, or Users & Groups on older versions.
 
+### Claude usage
+
+The widget uses the account Claude Code is signed in to. The first time, macOS asks whether
+Dockry may use the "Claude Code-credentials" Keychain item. Choose **Always Allow**.
+Anthropic has no official usage API for Pro/Max plans, so the widget calls the same
+unofficial endpoint as Claude Code's `/usage`. It could change without notice. Dockry
+checks every 5 minutes and waits 30 minutes when rate-limited. Hover over the widget to see
+when each limit resets.
+
 ### Spotify
 
 The widget reads what's playing from the notification Spotify broadcasts, which needs no
@@ -119,7 +129,8 @@ opens the file, and **Reload Profiles** applies your changes. Only `name` is req
 
 - `symbol` is an [SF Symbol](https://developer.apple.com/sf-symbols/) name.
 - `pinnedApps` are bundle identifiers. To find one, run `osascript -e 'id of app "Safari"'`.
-- `widgets` can include `clock`, `date`, `spotify` and `users`, shown in the order you list them.
+- `widgets` can include `clock`, `date`, `spotify`, `users` and `claude`, shown in the order
+  you list them.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
 
 If the file can't be read, the menu says so and Dockry uses the default profiles without

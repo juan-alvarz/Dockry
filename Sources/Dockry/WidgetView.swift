@@ -15,6 +15,8 @@ struct WidgetView: View {
             SpotifyWidget()
         case .users:
             UsersWidget()
+        case .claude:
+            ClaudeUsageWidget()
         }
     }
 }
