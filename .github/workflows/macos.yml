@@ -56,6 +56,20 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref_name, 'dev-')
         run: scripts/publish-screenshots.sh "${{ github.ref_name }}"
 
+      # TEMPORARY: what does SACSwitchToUser take? Stop at it in a debugger and disassemble it.
+      - name: Inspect SACSwitchToUser
+        continue-on-error: true
+        run: |
+          cat > /tmp/probe.swift <<'SWIFT'
+          import Foundation
+          let login = dlopen("/System/Library/PrivateFrameworks/login.framework/Versions/A/login", RTLD_NOW)
+          let f = unsafeBitCast(dlsym(login, "SACSwitchToUser"), to: (@convention(c) (UInt) -> Int32).self)
+          print(f(0))
+          SWIFT
+          swiftc -o /tmp/probe /tmp/probe.swift
+          lldb --batch -o "breakpoint set -n SACSwitchToUser" -o run -o "disassemble -f" \
+            -o "image lookup -n SACSwitchToUser -v" /tmp/probe 2>&1 | head -150
+
       # Last, because it sends this job's desktop session to the background.
       - name: Check Fast User Switching
         run: scripts/check-user-switching.sh

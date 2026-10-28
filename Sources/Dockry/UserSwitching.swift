@@ -3,17 +3,15 @@ import DockryCore
 
 /// Fast User Switching: this Mac's other accounts, and switching to them the way the user
 /// menu in Control Center does. macOS has no public API for this (the old CGSession tool is
-/// gone), so it calls the private login.framework functions that still exist in macOS 15.
+/// gone), so it calls a private login.framework function that still exists in macOS 15.
 enum UserSwitching {
+    /// For now this opens the login window with every account on it. Switching straight to
+    /// `user` (SACSwitchToUser) crashes when called with a UID, so it waits until CI confirms
+    /// what that function actually takes.
     static func switchTo(_ user: MacUser) {
-        if let switchToUser = loginFunction("SACSwitchToUser", as: (@convention(c) (uid_t) -> Int32).self) {
-            _ = switchToUser(user.uid)
-        } else {
-            showLoginWindow()
-        }
+        showLoginWindow()
     }
 
-    /// The login window lists every account, so this still works if switching directly doesn't.
     static func showLoginWindow() {
         _ = loginFunction("SACSwitchToLoginWindow", as: (@convention(c) () -> Int32).self)?()
     }
