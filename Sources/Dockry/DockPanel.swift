@@ -7,6 +7,17 @@ import SwiftUI
 final class DockPanel: NSPanel {
     private let hostingView: NSView
 
+    /// Whether the panel may use the system Dock's space at the bottom of the screen (while
+    /// Dockry hides that Dock).
+    var coversSystemDock = false {
+        didSet {
+            reposition()
+            // The Dock relaunches when its settings change, and macOS updates visibleFrame
+            // only once it's back, without telling us. Look again after it has restarted.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.reposition() }
+        }
+    }
+
     init<Content: View>(content: Content) {
         let hostingView = DockHostingView(rootView: content.fixedSize())
         hostingView.sizingOptions = [.intrinsicContentSize]
@@ -37,7 +48,7 @@ final class DockPanel: NSPanel {
         guard let screen = NSScreen.screens.first else { return }
         let size = hostingView.intrinsicContentSize
         // visibleFrame excludes the system Dock while it's showing, so the two never overlap.
-        let area = screen.visibleFrame
+        let area = coversSystemDock ? screen.frame : screen.visibleFrame
         let origin = CGPoint(x: (area.midX - size.width / 2).rounded(), y: area.minY)
         setFrame(NSRect(origin: origin, size: size), display: true)
     }

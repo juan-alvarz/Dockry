@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         set {
             UserDefaults.standard.set(newValue, forKey: Self.hidesSystemDockKey)
             newValue ? SystemDock.hide() : SystemDock.restore()
+            dockPanel?.coversSystemDock = newValue
         }
     }
 
@@ -42,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if hidesSystemDock {
             SystemDock.hide()
+            panel.coversSystemDock = true
         }
         quitGracefullyOnSIGTERM()
     }

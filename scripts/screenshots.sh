@@ -8,8 +8,13 @@ out=${1:-docs/screenshots}
 mkdir -p "$out"
 bundle_id=io.github.juan-alvarz.Dockry
 
-dock_autohide() { defaults read com.apple.dock autohide 2>/dev/null || echo unset; }
-original_autohide=$(dock_autohide)
+# The Dock settings Dockry changes while it hides the system Dock.
+dock_settings() {
+  for key in autohide autohide-delay; do
+    echo "$key=$(defaults read com.apple.dock "$key" 2>/dev/null || echo unset)"
+  done
+}
+original_settings=$(dock_settings)
 
 # Apps for the "running" part of the dock: two pinned in Work, two that aren't.
 for app in Safari Notes Calculator TextEdit; do
@@ -38,9 +43,9 @@ osascript -e 'tell application "System Events" to key code 53' || true  # Esc cl
 # Quitting has to give the system Dock its original settings back.
 pkill -TERM -x Dockry
 sleep 3
-restored_autohide=$(dock_autohide)
-if [[ "$restored_autohide" != "$original_autohide" ]]; then
-  echo "Dock autohide is '$restored_autohide' after quitting, expected '$original_autohide'" >&2
+restored_settings=$(dock_settings)
+if [[ "$restored_settings" != "$original_settings" ]]; then
+  echo "Dock settings after quitting: $restored_settings; expected: $original_settings" >&2
   exit 1
 fi
 echo "Screenshots saved to $out; the system Dock was restored."

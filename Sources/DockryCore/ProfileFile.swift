@@ -19,8 +19,9 @@ public struct ProfileFile {
     }
 
     /// A missing file gives the default profiles. An unreadable one also gives the defaults,
-    /// but is first moved to `profiles.json.broken` so saving can't overwrite the user's edits;
-    /// the decoding error is returned so it can be shown.
+    /// but is first copied to `profiles.json.broken` so saving can't lose the user's edits;
+    /// the decoding error is returned so it can be shown. It's copied rather than moved so an
+    /// editor that has the file open keeps saving to profiles.json.
     public func load() -> (library: ProfileLibrary, error: Error?) {
         guard exists else { return (ProfileLibrary(), nil) }
         do {
@@ -29,7 +30,7 @@ public struct ProfileFile {
         } catch {
             let backup = url.appendingPathExtension("broken")
             try? FileManager.default.removeItem(at: backup)
-            try? FileManager.default.moveItem(at: url, to: backup)
+            try? FileManager.default.copyItem(at: url, to: backup)
             return (ProfileLibrary(), error)
         }
     }

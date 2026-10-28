@@ -38,7 +38,7 @@ final class ProfileFileTests: XCTestCase {
         let result = file.load()
         XCTAssertEqual(result.library, ProfileLibrary())
         XCTAssertNotNil(result.error)
-        XCTAssertFalse(file.exists)
+        XCTAssertTrue(file.exists)
         let backup = file.url.appendingPathExtension("broken")
         XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), "{ not json")
     }

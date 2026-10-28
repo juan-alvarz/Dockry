@@ -37,14 +37,15 @@ final class ProfileStore: ObservableObject {
         loadError = result.error
     }
 
-    func openFileInEditor() {
+    /// Opens profiles.json in the user's app for JSON, or shows it in Finder if there's none.
+    /// (Not TextEdit: its smart quotes turn typed " into curly quotes, which breaks JSON.)
+    func openFile() {
         if !file.exists {
             save(library)
         }
-        NSWorkspace.shared.open(
-            [file.url],
-            withApplicationAt: URL(fileURLWithPath: "/System/Applications/TextEdit.app"),
-            configuration: NSWorkspace.OpenConfiguration())
+        if !NSWorkspace.shared.open(file.url) {
+            NSWorkspace.shared.activateFileViewerSelecting([file.url])
+        }
     }
 
     private func update(_ change: (inout ProfileLibrary) -> Void) {

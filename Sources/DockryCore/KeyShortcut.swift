@@ -4,11 +4,6 @@ public struct KeyShortcut: Equatable {
     /// Modifier flags with the same raw values as CGEventFlags / NSEvent.ModifierFlags.
     public let modifierFlags: UInt64
 
-    public init(keyCode: UInt16, modifierFlags: UInt64) {
-        self.keyCode = keyCode
-        self.modifierFlags = modifierFlags
-    }
-
     /// Virtual key codes of the 1–9 keys (kVK_ANSI_1…kVK_ANSI_9), which aren't sequential.
     private static let digitKeyCodes: [UInt16] = [0x12, 0x13, 0x14, 0x15, 0x17, 0x16, 0x1A, 0x1C, 0x19]
 

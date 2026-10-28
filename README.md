@@ -83,8 +83,8 @@ opens the file, and **Reload Profiles** applies your changes. Only `name` is req
 - `pinnedApps` are bundle identifiers. To find one, run `osascript -e 'id of app "Safari"'`.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
 
-If the file can't be read, Dockry renames it to `profiles.json.broken` and starts with the
-default profiles. Your edits are kept in that file.
+If the file can't be read, Dockry copies it to `profiles.json.broken` and uses the default
+profiles until you fix it and choose **Reload Profiles**.
 
 ## Project layout
 
