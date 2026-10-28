@@ -34,6 +34,7 @@ final class PointerMonitor {
             monitors.append(local)
         }
         startTimer()
+        BackgroundCursor.enable()
     }
 
     /// While someone needs smooth updates (the pointer is over a dock), poll every frame.
@@ -82,6 +83,9 @@ final class DockPointer: ObservableObject {
     /// The pointer's location in the window's SwiftUI coordinates (origin at the top left),
     /// while it's over the dock.
     @Published private(set) var location: CGPoint?
+    /// Where the pointer last was over the dock, kept after it leaves so magnification can
+    /// shrink back from there.
+    @Published private(set) var lastLocation: CGPoint?
     @Published private(set) var hoveredItem: String?
     @Published private(set) var isRevealed = true
 
@@ -100,6 +104,15 @@ final class DockPointer: ObservableObject {
     var dockFrame: CGRect = .zero
     /// The app icons' frames in the window's SwiftUI coordinates, by bundle identifier.
     var itemFrames: [String: CGRect] = [:]
+    /// The separators' frames, which show the resize cursor like the macOS Dock's divider.
+    var separatorFrames: [String: CGRect] = [:]
+    /// False while the size follows the macOS Dock.
+    var canResize = true
+    /// While a separator is being dragged, the resize cursor stays wherever the pointer goes.
+    var isResizing = false {
+        didSet { update() }
+    }
+    private var showsResizeCursor = false
 
     private var subscriptions: Set<AnyCancellable> = []
     private var hideTask: Task<Void, Never>?
@@ -131,6 +144,9 @@ final class DockPointer: ObservableObject {
         }
         if newLocation != location {
             location = newLocation
+            if let newLocation {
+                lastLocation = newLocation
+            }
         }
         let hovered = isOverDock ? itemFrames.first { $0.value.contains(point) }?.key : nil
         if hovered != hoveredItem {
@@ -139,6 +155,20 @@ final class DockPointer: ObservableObject {
         if autohides {
             updateReveal(isOverDock: isOverDock, isAtEdge: isAtScreenEdge(point, in: frame.size))
         }
+        let isOverSeparator = isOverDock && separatorFrames.values.contains {
+            $0.insetBy(dx: metrics.axis == .horizontal ? -3 : 0, dy: metrics.axis == .vertical ? -3 : 0).contains(point)
+        }
+        updateCursor(resize: canResize && (isResizing || isOverSeparator))
+    }
+
+    private func updateCursor(resize: Bool) {
+        if resize {
+            // Set on every move: the app under the other windows may set its own cursor.
+            (metrics.axis == .horizontal ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).set()
+        } else if showsResizeCursor {
+            NSCursor.arrow.set()
+        }
+        showsResizeCursor = resize
     }
 
     /// Where the pointer counts as over the dock: the dock itself, plus the room magnified
@@ -189,5 +219,23 @@ final class DockPointer: ObservableObject {
                 hoveredItem = nil
             }
         }
+    }
+}
+
+/// Dockry is never the active app, and macOS ignores cursor changes from background apps,
+/// so the separator's resize cursor wouldn't show. The window server has a per-connection
+/// switch for this (private, used by other dock and window utilities); without it, the
+/// cursor just stays an arrow.
+enum BackgroundCursor {
+    static func enable() {
+        typealias DefaultConnection = @convention(c) () -> Int32
+        typealias SetConnectionProperty = @convention(c) (Int32, Int32, CFString, CFTypeRef) -> Int32
+        guard let handle = dlopen(nil, RTLD_NOW),
+              let defaultConnection = dlsym(handle, "_CGSDefaultConnection"),
+              let setProperty = dlsym(handle, "CGSSetConnectionProperty")
+        else { return }
+        let connection = unsafeBitCast(defaultConnection, to: DefaultConnection.self)()
+        _ = unsafeBitCast(setProperty, to: SetConnectionProperty.self)(
+            connection, connection, "SetsCursorInBackground" as CFString, kCFBooleanTrue)
     }
 }
