@@ -28,10 +28,14 @@ for user in "alex:Alex Rivera" "sam:Sam Chen"; do
     || echo "couldn't create the account ${user%%:*}"
 done
 
-# CI has no Claude account: a saved Claude Code sign-in (readable by any app, -A, so no
-# Keychain prompt) and a local server with a sample answer from the usage endpoint.
+# CI has no Claude account: a saved Claude Code sign-in and a local server with a sample
+# answer from the usage endpoint. The sign-in goes in a separate, unlocked keychain and is
+# readable by any app (-A), since the runner's login keychain is locked.
+security create-keychain -p ci ci.keychain
+security unlock-keychain -p ci ci.keychain
+security list-keychains -d user -s ci.keychain $(security list-keychains -d user | tr -d '"')
 security add-generic-password -A -s "Claude Code-credentials" -a "$USER" \
-  -w '{"claudeAiOauth": {"accessToken": "ci-token"}}' || echo "couldn't add the Claude sign-in"
+  -w '{"claudeAiOauth": {"accessToken": "ci-token"}}' ci.keychain || echo "couldn't add the Claude sign-in"
 usage_dir=$(mktemp -d)
 cat > "$usage_dir/usage" <<'JSON'
 {"five_hour": {"utilization": 34, "resets_at": "2030-01-01T12:00:00Z"},

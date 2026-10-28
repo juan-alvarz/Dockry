@@ -41,8 +41,12 @@ final class ClaudeUsageMonitor: ObservableObject {
 
     /// Returns how long to wait before the next refresh.
     private func refresh() async -> TimeInterval {
-        // Off the main thread: the first read waits for the user to answer the Keychain prompt.
-        guard let token = await Task.detached(operation: Self.claudeCodeAccessToken).value else {
+        // On a background queue, never the main thread: the first read waits until the user
+        // answers the Keychain prompt. (A Task.detached here still ran on the main thread.)
+        let token = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async { continuation.resume(returning: claudeCodeAccessToken()) }
+        }
+        guard let token else {
             state = .signedOut
             return Self.refreshInterval
         }
@@ -69,19 +73,19 @@ final class ClaudeUsageMonitor: ObservableObject {
         }
         return Self.refreshInterval
     }
+}
 
-    /// Claude Code's saved sign-in. The first read makes macOS ask whether Dockry may use
-    /// the "Claude Code-credentials" Keychain item.
-    nonisolated private static func claudeCodeAccessToken() -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "Claude Code-credentials",
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data
-        else { return nil }
-        return ClaudeUsage.accessToken(fromCredentials: data)
-    }
+/// Claude Code's saved sign-in. The first read makes macOS ask whether Dockry may use the
+/// "Claude Code-credentials" Keychain item, and blocks until the user answers.
+private func claudeCodeAccessToken() -> String? {
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: "Claude Code-credentials",
+        kSecReturnData as String: true,
+        kSecMatchLimit as String: kSecMatchLimitOne,
+    ]
+    var result: CFTypeRef?
+    guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data
+    else { return nil }
+    return ClaudeUsage.accessToken(fromCredentials: data)
 }
