@@ -5,7 +5,8 @@ import DockryCore
 @MainActor
 final class ProfileStore: ObservableObject {
     @Published private(set) var library: ProfileLibrary
-    /// Set when profiles.json couldn't be read and the defaults are in use instead.
+    /// Set when profiles.json couldn't be read and the defaults are in use instead. Changes
+    /// aren't saved meanwhile, so the user's file isn't replaced while they fix it.
     @Published private(set) var loadError: Error?
 
     private let file = ProfileFile()
@@ -38,7 +39,6 @@ final class ProfileStore: ObservableObject {
     }
 
     /// Opens profiles.json in the user's app for JSON, or shows it in Finder if there's none.
-    /// (Not TextEdit: its smart quotes turn typed " into curly quotes, which breaks JSON.)
     func openFile() {
         if !file.exists {
             save(library)
@@ -57,6 +57,7 @@ final class ProfileStore: ObservableObject {
     }
 
     private func save(_ library: ProfileLibrary) {
+        guard loadError == nil else { return }
         do {
             try file.save(library)
         } catch {

@@ -17,8 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         get { UserDefaults.standard.bool(forKey: Self.hidesSystemDockKey) }
         set {
             UserDefaults.standard.set(newValue, forKey: Self.hidesSystemDockKey)
-            newValue ? SystemDock.hide() : SystemDock.restore()
-            dockPanel?.coversSystemDock = newValue
+            applySystemDockSetting()
         }
     }
 
@@ -42,8 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if hidesSystemDock {
-            SystemDock.hide()
-            panel.coversSystemDock = true
+            applySystemDockSetting()
         }
         quitGracefullyOnSIGTERM()
     }
@@ -51,6 +49,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         // Never leave the user without a Dock after Dockry quits.
         SystemDock.restore()
+    }
+
+    private func applySystemDockSetting() {
+        hidesSystemDock ? SystemDock.hide() : SystemDock.restore()
+        dockPanel?.coversSystemDock = hidesSystemDock
     }
 
     func activateProfile(named name: String) {

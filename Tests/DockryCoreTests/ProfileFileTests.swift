@@ -31,15 +31,13 @@ final class ProfileFileTests: XCTestCase {
         XCTAssertNil(result.error)
     }
 
-    func testUnreadableFileIsBackedUpAndDefaultsAreUsed() throws {
+    func testUnreadableFileGivesDefaultsAndLeavesTheFileAlone() throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try Data("{ not json".utf8).write(to: file.url)
 
         let result = file.load()
         XCTAssertEqual(result.library, ProfileLibrary())
         XCTAssertNotNil(result.error)
-        XCTAssertTrue(file.exists)
-        let backup = file.url.appendingPathExtension("broken")
-        XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), "{ not json")
+        XCTAssertEqual(try String(contentsOf: file.url, encoding: .utf8), "{ not json")
     }
 }

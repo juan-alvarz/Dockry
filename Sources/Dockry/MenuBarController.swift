@@ -46,7 +46,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
         if app.store.loadError != nil {
-            let warning = NSMenuItem(title: "profiles.json has an error; using the default profiles", action: nil, keyEquivalent: "")
+            let warning = NSMenuItem(title: "profiles.json has an error; changes aren’t saved until it’s fixed", action: nil, keyEquivalent: "")
             warning.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: nil)
             menu.addItem(warning)
         }

@@ -13,8 +13,10 @@ final class DockPanel: NSPanel {
         didSet {
             reposition()
             // The Dock relaunches when its settings change, and macOS updates visibleFrame
-            // only once it's back, without telling us. Look again after it has restarted.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.reposition() }
+            // only once it's back, without telling us. Keep checking while it restarts.
+            for delay in stride(from: 0.5, through: 5, by: 0.5) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.reposition() }
+            }
         }
     }
 
