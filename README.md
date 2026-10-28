@@ -27,8 +27,12 @@ to show the widget with a track.
   remove it from the profile, show it in Finder, or quit it.
 - **Profiles** such as *Work* and *Chill*. Each has its own pinned apps, widgets and desktop.
   Activating a profile swaps the dock's contents and jumps to its desktop.
-- **Widgets:** clock, date, Spotify (what's playing, with previous / play-pause / next), and
-  users.
+- **Widgets:** clock, date, Spotify (what's playing, with previous / play-pause / next),
+  users, and clipboard.
+- **Clipboard history:** the clipboard tile (or ⌃⌥V) lists the last 20 pieces of text you
+  copied. Click one to copy it again, then paste as usual. The history stays in memory and
+  is gone when Dockry quits. Anything that password managers mark as private on the
+  clipboard is never recorded.
 - **Fast User Switching:** the users widget shows the Mac's other accounts. Click one to
   switch to it, as you would from the user menu in Control Center. **Switch User** in the
   menu bar menu does the same and also opens the login window.
@@ -119,7 +123,8 @@ opens the file, and **Reload Profiles** applies your changes. Only `name` is req
 
 - `symbol` is an [SF Symbol](https://developer.apple.com/sf-symbols/) name.
 - `pinnedApps` are bundle identifiers. To find one, run `osascript -e 'id of app "Safari"'`.
-- `widgets` can include `clock`, `date`, `spotify` and `users`, shown in the order you list them.
+- `widgets` can include `clock`, `date`, `spotify`, `users` and `clipboard`, shown in the
+  order you list them.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
 
 If the file can't be read, the menu says so and Dockry uses the default profiles without

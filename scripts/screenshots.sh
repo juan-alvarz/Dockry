@@ -33,6 +33,19 @@ open build/Dockry.app
 sleep 6
 screencapture -x "$out/1-work-profile.png"
 
+# Copy a few things, then ⌃⌥V (key code 9 is V) opens the clipboard history above the dock.
+for text in "https://github.com/juan-alvarz/Dockry" "git checkout -b dev-clipboard origin/dev" \
+  "Meeting notes: ship the clipboard widget, review the PRs in the morning"; do
+  printf '%s' "$text" | pbcopy
+  sleep 1
+done
+osascript -e 'tell application "System Events" to key code 9 using {control down, option down}' \
+  || echo "couldn't open the clipboard history"
+sleep 1
+screencapture -x "$out/5-clipboard.png"
+osascript -e 'tell application "System Events" to key code 9 using {control down, option down}' || true
+sleep 1
+
 # ⌃⌥2 is Dockry's hot key for the second profile, Chill. key code 19 is the 2 key.
 osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' \
   || echo "couldn't send the hot key"

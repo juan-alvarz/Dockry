@@ -38,6 +38,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKeys.register(keyCode: UInt16(kVK_Space), modifiers: controlKey | optionKey) {
             switcher.showOrAdvance()
         }
+        // Shows the clipboard history when the active profile has the clipboard widget.
+        hotKeys.register(keyCode: UInt16(kVK_ANSI_V), modifiers: controlKey | optionKey) {
+            ClipboardMonitor.shared.isShowingHistory.toggle()
+        }
         // ⌃⌥1 … ⌃⌥9 activate the first nine profiles.
         for digit in 1...9 {
             guard let keyCode = KeyShortcut.keyCode(forDigit: digit) else { continue }
