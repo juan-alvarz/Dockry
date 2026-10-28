@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics  // CGRect's minX and friends; on Linux, Foundation has them
+#endif
 
 public enum DockPlacement {
     /// Which screens get a dock, as indexes into `screens` (screen frames in one global
