@@ -1,0 +1,110 @@
+import AppKit
+import Combine
+import DockryCore
+
+/// The menu bar item: switches profiles and holds Dockry's settings.
+@MainActor
+final class MenuBarController: NSObject, NSMenuDelegate {
+    private unowned let app: AppDelegate
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private var symbolSubscription: AnyCancellable?
+
+    init(app: AppDelegate) {
+        self.app = app
+        super.init()
+        let menu = NSMenu()
+        menu.delegate = self  // rebuilt each time it opens, see menuNeedsUpdate
+        statusItem.menu = menu
+        symbolSubscription = app.store.$library
+            .map(\.active.symbol)
+            .removeDuplicates()
+            .sink { [weak self] symbol in
+                self?.statusItem.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Dockry")
+            }
+    }
+
+    /// The profile list on its own, shown by the profile button in the dock.
+    func popUpProfileMenu() {
+        let menu = NSMenu()
+        profileItems().forEach(menu.addItem)
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        let app = self.app
+        menu.removeAllItems()
+        menu.addItem(.sectionHeader(title: "Profiles"))
+        profileItems().forEach(menu.addItem)
+
+        menu.addItem(.separator())
+        let hideDock = ActionMenuItem("Hide macOS Dock") { app.hidesSystemDock.toggle() }
+        hideDock.state = app.hidesSystemDock ? .on : .off
+        menu.addItem(hideDock)
+        if let item = desktopSwitchingItem() {
+            menu.addItem(item)
+        }
+
+        menu.addItem(.separator())
+        if app.store.loadError != nil {
+            let warning = NSMenuItem(title: "profiles.json had an error; saved it as profiles.json.broken", action: nil, keyEquivalent: "")
+            warning.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: nil)
+            menu.addItem(warning)
+        }
+        menu.addItem(ActionMenuItem("Edit Profiles…") { app.store.openFileInEditor() })
+        menu.addItem(ActionMenuItem("Reload Profiles") { app.store.reload() })
+
+        menu.addItem(.separator())
+        menu.addItem(ActionMenuItem("Quit Dockry", key: "q") { NSApp.terminate(nil) })
+    }
+
+    private func profileItems() -> [NSMenuItem] {
+        let app = self.app
+        return app.store.library.profiles.enumerated().map { index, profile in
+            let item = ActionMenuItem(profile.name, key: index < 9 ? String(index + 1) : "") {
+                app.activateProfile(named: profile.name)
+            }
+            // Shows the global ⌃⌥N hot key next to the profile.
+            item.keyEquivalentModifierMask = [.control, .option]
+            item.image = NSImage(systemSymbolName: profile.symbol, accessibilityDescription: nil)
+            item.state = profile.name == app.store.active.name ? .on : .off
+            return item
+        }
+    }
+
+    /// Explains what's missing when a profile has a desktop that Dockry can't switch to yet.
+    private func desktopSwitchingItem() -> NSMenuItem? {
+        for desktop in app.store.library.profiles.compactMap(\.desktop) {
+            switch DesktopSwitcher.status(for: desktop) {
+            case .ready:
+                continue
+            case .needsAccessibility:
+                return ActionMenuItem("Allow Desktop Switching…") { DesktopSwitcher.requestAccessibility() }
+            case .shortcutOff:
+                return ActionMenuItem("Turn On “Switch to Desktop \(desktop)” Shortcut…") {
+                    DesktopSwitcher.openKeyboardShortcutsSettings()
+                }
+            }
+        }
+        return nil
+    }
+}
+
+/// A menu item that runs a closure, instead of the target/selector pair.
+private final class ActionMenuItem: NSMenuItem {
+    private let handler: () -> Void
+
+    init(_ title: String, key: String = "", handler: @escaping () -> Void) {
+        self.handler = handler
+        super.init(title: title, action: #selector(run), keyEquivalent: key)
+        target = self
+    }
+
+    @available(*, unavailable)
+    required init(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    @objc private func run() {
+        handler()
+    }
+}

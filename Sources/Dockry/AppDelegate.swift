@@ -1,0 +1,76 @@
+import AppKit
+import Carbon.HIToolbox
+import DockryCore
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    let store = ProfileStore()
+    private let runningApps = RunningApps()
+    private let hotKeys = HotKeys()
+    private var dockPanel: DockPanel?
+    private var menuBar: MenuBarController?
+    private var terminationSignal: DispatchSourceSignal?
+
+    private static let hidesSystemDockKey = "hideSystemDock"
+
+    var hidesSystemDock: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.hidesSystemDockKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.hidesSystemDockKey)
+            newValue ? SystemDock.hide() : SystemDock.restore()
+        }
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let menuBar = MenuBarController(app: self)
+        self.menuBar = menuBar
+
+        let dock = DockView(store: store, runningApps: runningApps) {
+            menuBar.popUpProfileMenu()
+        }
+        let panel = DockPanel(content: dock)
+        panel.orderFrontRegardless()
+        dockPanel = panel
+
+        // ⌃⌥1 … ⌃⌥9 activate the first nine profiles.
+        for digit in 1...9 {
+            guard let keyCode = KeyShortcut.keyCode(forDigit: digit) else { continue }
+            hotKeys.register(keyCode: keyCode, modifiers: controlKey | optionKey) { [weak self] in
+                self?.activateProfile(at: digit - 1)
+            }
+        }
+
+        if hidesSystemDock {
+            SystemDock.hide()
+        }
+        quitGracefullyOnSIGTERM()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // Never leave the user without a Dock after Dockry quits.
+        SystemDock.restore()
+    }
+
+    func activateProfile(named name: String) {
+        store.activate(named: name)
+        if let desktop = store.active.desktop {
+            DesktopSwitcher.switchTo(desktop: desktop)
+        }
+    }
+
+    private func activateProfile(at index: Int) {
+        let profiles = store.library.profiles
+        guard profiles.indices.contains(index) else { return }
+        activateProfile(named: profiles[index].name)
+    }
+
+    /// `killall Dockry` and logout send SIGTERM, which would otherwise end the process
+    /// without `applicationWillTerminate`, leaving the system Dock hidden.
+    private func quitGracefullyOnSIGTERM() {
+        signal(SIGTERM, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        source.setEventHandler { NSApp.terminate(nil) }
+        source.resume()
+        terminationSignal = source
+    }
+}
