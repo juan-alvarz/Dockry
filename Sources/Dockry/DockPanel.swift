@@ -67,8 +67,11 @@ final class DockController {
             layOut()
             // The Dock relaunches when its settings change, and macOS updates visibleFrame
             // only once it's back, without telling us. Keep checking while it restarts.
-            for delay in stride(from: 0.5, through: 5, by: 0.5) {
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.layOut() }
+            Task { [weak self] in
+                for _ in 0..<10 {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    self?.layOut()
+                }
             }
         }
     }
@@ -81,7 +84,7 @@ final class DockController {
             .store(in: &subscriptions)
         // Published values arrive before they're stored; lay out once they are.
         settings.objectWillChange
-            .receive(on: DispatchQueue.main)
+            .receive(on: RunLoop.main)
             .sink { [weak self] in self?.layOut() }
             .store(in: &subscriptions)
         layOut()
