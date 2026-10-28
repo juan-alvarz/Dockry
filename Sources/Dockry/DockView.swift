@@ -182,7 +182,7 @@ private struct AppIconView: View {
         .accessibilityLabel(app.name)
         .offset(metrics.position.inward(by: bounceHeight))
         .overlay(alignment: Alignment(metrics.position.outerEdge)) { indicator }
-        .overlay(alignment: Alignment(metrics.position.innerEdge)) {
+        .overlay {
             if isHovered {
                 NameLabel(name: app.name, position: metrics.position)
             }
@@ -234,27 +234,33 @@ private struct AppIconView: View {
 }
 
 /// The app's name, shown next to the hovered icon on the side facing the screen's middle.
+/// Used as an overlay on the icon, whose size it reads to stay just clear of it.
 private struct NameLabel: View {
     let name: String
     let position: DockPosition
 
     var body: some View {
-        let label = Text(name)
-            .font(.system(size: 13, weight: .medium))
-            .lineLimit(1)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(Color(nsColor: .windowBackgroundColor).opacity(0.92), in: Capsule())
-            .overlay(Capsule().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.2), radius: 4, y: 1)
-            .fixedSize()
-            .allowsHitTesting(false)
-        // Each guide puts the label just past the icon's edge instead of over it.
-        switch position {
-        case .bottom: label.alignmentGuide(.top) { $0[.bottom] + 10 }
-        case .left: label.alignmentGuide(.trailing) { $0[.leading] - 10 }
-        case .right: label.alignmentGuide(.leading) { $0[.trailing] + 10 }
+        GeometryReader { icon in
+            let gap: CGFloat = 10
+            // A zero-size anchor just past the icon's edge; the label grows away from it.
+            let (anchor, alignment): (CGPoint, Alignment) = switch position {
+            case .bottom: (CGPoint(x: icon.size.width / 2, y: -gap), .bottom)
+            case .left: (CGPoint(x: icon.size.width + gap, y: icon.size.height / 2), .leading)
+            case .right: (CGPoint(x: -gap, y: icon.size.height / 2), .trailing)
+            }
+            Text(name)
+                .font(.system(size: 13, weight: .medium))
+                .lineLimit(1)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color(nsColor: .windowBackgroundColor).opacity(0.92), in: Capsule())
+                .overlay(Capsule().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.2), radius: 4, y: 1)
+                .fixedSize()
+                .frame(width: 0, height: 0, alignment: alignment)
+                .position(anchor)
         }
+        .allowsHitTesting(false)
     }
 }
 
