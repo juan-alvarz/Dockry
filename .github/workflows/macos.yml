@@ -53,7 +53,8 @@ jobs:
       # Feature branches don't commit their PNGs, so their PRs into dev can't conflict over
       # binary files; the PR links to them on the screenshots branch instead.
       - name: Publish screenshots for a feature branch
-        if: github.event_name == 'push' && startsWith(github.ref_name, 'dev-')
+        # Also when an earlier step failed: the screenshots show what went wrong.
+        if: always() && github.event_name == 'push' && startsWith(github.ref_name, 'dev-')
         run: scripts/publish-screenshots.sh "${{ github.ref_name }}"
 
       # Last, because it sends this job's desktop session to the background.

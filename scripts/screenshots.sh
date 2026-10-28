@@ -16,6 +16,12 @@ dock_settings() {
 }
 original_settings=$(dock_settings)
 
+# When Dockry stops responding, show where its main thread is stuck.
+report_hang() {
+  echo "Dockry isn't responding. Its main thread:" >&2
+  sample Dockry 2 -mayDie 2>/dev/null | sed -n '/Call graph/,/Total number in stack/p' | head -60 >&2 || true
+}
+
 # Accounts for the Fast User Switching widget (this runner only has its own).
 for user in "alex:Alex Rivera" "sam:Sam Chen"; do
   sudo sysadminctl -addUser "${user%%:*}" -fullName "${user#*:}" -password "dockry-ci" 2>/dev/null \
@@ -71,7 +77,7 @@ sleep 2
 
 # Open Dockry's menu bar menu.
 osascript -e 'tell application "System Events" to tell process "Dockry" to click menu bar item 1 of last menu bar' \
-  || echo "couldn't open the menu bar menu"
+  || { echo "couldn't open the menu bar menu"; report_hang; }
 sleep 1
 screencapture -x "$out/4-menu-bar.png"
 osascript -e 'tell application "System Events" to key code 53' || true  # Esc closes the menu
