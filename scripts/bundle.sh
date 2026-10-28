@@ -17,6 +17,9 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS"
 cp "$(swift build "${build_args[@]}" --show-bin-path)/Dockry" "$app/Contents/MacOS/Dockry"
 cp App/Info.plist "$app/Contents/Info.plist"
+# The icon's PNGs are rendered from App/AppIcon.svg (see App/README.md).
+mkdir -p "$app/Contents/Resources"
+iconutil --convert icns App/AppIcon.iconset --output "$app/Contents/Resources/AppIcon.icns"
 if [[ -n "$version" ]]; then
   plutil -replace CFBundleShortVersionString -string "$version" "$app/Contents/Info.plist"
 fi

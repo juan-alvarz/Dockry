@@ -1,3 +1,5 @@
+<img src="App/AppIcon.iconset/icon_128x128@2x.png" width="128" alt="Dockry's icon: one app, magnified between two smaller ones, with its running dot">
+
 # Dockry
 
 A dock for macOS that changes with what you're doing. Dockry runs next to the system Dock
@@ -200,6 +202,6 @@ turn off Edit › Substitutions › Smart Quotes first: curly quotes aren't vali
 |---|---|
 | `Sources/DockryCore` | Profiles, dock settings, magnification and screen placement, Spotify's Web API, shortcut parsing. Plain Foundation, unit tested. |
 | `Sources/Dockry` | The app: dock window and views, menu bar, hot keys, system Dock and desktop integration. |
-| `App/Info.plist` | Bundle metadata used by `scripts/bundle.sh`. |
+| `App` | Bundle metadata and the app icon, used by `scripts/bundle.sh` (see `App/README.md`). |
 | `.github/workflows/macos.yml` | Builds, tests and takes the screenshots on a macOS runner. |
 | `.github/workflows/release.yml` | Builds a universal Dockry.app and publishes it, as a disk image and a zip, as a GitHub release. |
