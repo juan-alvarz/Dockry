@@ -110,6 +110,7 @@ final class DockController {
                 coversSystemDock: coversSystemDock)
             entry.pointer.metrics = metrics
             entry.pointer.autohides = dock.autohides
+            entry.pointer.canResize = !settings.syncsWithMacDock
             entry.panel.orderFrontRegardless()
         }
     }

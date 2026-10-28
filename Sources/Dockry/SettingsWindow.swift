@@ -266,6 +266,8 @@ private struct ProfileEditor: View {
     let profile: Profile
     let renamed: (String) -> Void
 
+    private static let suggestedColors = ["#3563E9", "#7C3AED", "#E2457A", "#F08A4B", "#F5B83D", "#22A06B", "#0EA5A4"]
+
     private static let suggestedSymbols = [
         "briefcase.fill", "cup.and.saucer.fill", "gamecontroller.fill", "paintbrush.fill",
         "book.fill", "music.note", "film.fill", "chevron.left.forwardslash.chevron.right",
@@ -292,6 +294,25 @@ private struct ProfileEditor: View {
                         }
                         .buttonStyle(.plain)
                         .help(symbol)
+                    }
+                }
+                LabeledContent("Color") {
+                    HStack(spacing: 6) {
+                        // A few to pick with one click; the color well has the rest.
+                        ForEach(Self.suggestedColors, id: \.self) { hex in
+                            Button { change { $0.color = hex } } label: {
+                                Circle()
+                                    .fill(Color(hex: hex) ?? .gray)
+                                    .frame(width: 18, height: 18)
+                                    .overlay(Circle().strokeBorder(.primary.opacity(profile.color == hex ? 0.8 : 0), lineWidth: 2))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        ColorPicker("Other color", selection: colorBinding, supportsOpacity: false)
+                            .labelsHidden()
+                        Button("None") { change { $0.color = nil } }
+                            .controlSize(.small)
+                            .disabled(profile.color == nil)
                     }
                 }
                 Picker("Desktop", selection: binding(\.desktop)) {
@@ -370,6 +391,12 @@ private struct ProfileEditor: View {
 
     private func change(_ change: (inout Profile) -> Void) {
         store.updateProfile(named: profile.name, change)
+    }
+
+    private var colorBinding: Binding<Color> {
+        Binding(
+            get: { profile.color.flatMap(Color.init(hex:)) ?? .gray },
+            set: { color in change { $0.color = color.hexString } })
     }
 
     private func binding<Value>(_ keyPath: WritableKeyPath<Profile, Value>) -> Binding<Value> {

@@ -24,6 +24,8 @@ public struct Profile: Codable, Equatable {
     public var desktop: Int?
     /// Whether activating the profile opens its pinned apps that aren't running yet.
     public var opensAppsOnSwitch: Bool
+    /// The profile button's color, as "#RRGGBB"; nil for the plain gray button.
+    public var color: String?
 
     public init(
         name: String,
@@ -31,7 +33,8 @@ public struct Profile: Codable, Equatable {
         pinnedApps: [String] = [],
         widgets: [WidgetKind] = [],
         desktop: Int? = nil,
-        opensAppsOnSwitch: Bool = false
+        opensAppsOnSwitch: Bool = false,
+        color: String? = nil
     ) {
         self.name = name
         self.symbol = symbol
@@ -39,6 +42,7 @@ public struct Profile: Codable, Equatable {
         self.widgets = widgets
         self.desktop = desktop
         self.opensAppsOnSwitch = opensAppsOnSwitch
+        self.color = color
     }
 
     // Lenient decoding so a hand-written profile only needs a name, and a typo in a widget
@@ -52,7 +56,9 @@ public struct Profile: Codable, Equatable {
             pinnedApps: try container.decodeIfPresent([String].self, forKey: .pinnedApps) ?? [],
             widgets: widgetNames.compactMap(WidgetKind.init(rawValue:)),
             desktop: try container.decodeIfPresent(Int.self, forKey: .desktop),
-            opensAppsOnSwitch: (try? container.decodeIfPresent(Bool.self, forKey: .opensAppsOnSwitch)) ?? false
+            opensAppsOnSwitch: (try? container.decodeIfPresent(Bool.self, forKey: .opensAppsOnSwitch)) ?? false,
+            // Like a bad widget name, a bad color only drops the color.
+            color: (try? container.decodeIfPresent(String.self, forKey: .color)).flatMap { $0 }.flatMap(HexColor.normalized)
         )
     }
 }
@@ -71,7 +77,8 @@ extension Profile {
                 "com.apple.Terminal",
             ],
             widgets: [.clock, .date, .users],
-            desktop: 1
+            desktop: 1,
+            color: "#3563E9"
         ),
         Profile(
             name: "Chill",
@@ -84,7 +91,8 @@ extension Profile {
                 "com.apple.TV",
             ],
             widgets: [.spotify, .clock, .users],
-            desktop: 2
+            desktop: 2,
+            color: "#F08A4B"
         ),
     ]
 }
