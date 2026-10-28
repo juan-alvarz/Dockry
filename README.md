@@ -23,8 +23,9 @@ to show the widget with a track.
   profile's pinned apps, then any other app that's running, then the profile's widgets.
   Like the system Dock it's exactly as wide as what's in it; if that would be wider than the
   screen, it scrolls sideways instead.
-  A dot marks running apps. Click to open or switch to an app. Right-click to keep it in or
-  remove it from the profile, show it in Finder, or quit it.
+  A dot marks running apps. Click to open or switch to an app. Drag a pinned app sideways to
+  give it a new place; the others make room as you drag. Right-click to keep it in or remove
+  it from the profile, show it in Finder, or quit it.
 - **Profiles** such as *Work* and *Chill*. Each has its own pinned apps, widgets and desktop.
   Activating a profile swaps the dock's contents and jumps to its desktop.
 - **Widgets:** clock, date, Spotify (what's playing, with previous / play-pause / next), and

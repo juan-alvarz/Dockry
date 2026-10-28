@@ -49,6 +49,17 @@ public struct ProfileLibrary: Codable, Equatable {
         updateActive { $0.pinnedApps.removeAll { $0 == bundleID } }
     }
 
+    /// Puts the active profile's pinned apps in `order`, the order the dock shows after a
+    /// drag. Pinned apps it leaves out (ones the dock doesn't show, like an app that isn't
+    /// installed) go after it, in their old order; apps in it that aren't pinned are ignored.
+    public mutating func reorderPins(_ order: [String]) {
+        updateActive { profile in
+            let pinned = profile.pinnedApps
+            let shown = order.filter { pinned.contains($0) }
+            profile.pinnedApps = shown + pinned.filter { !shown.contains($0) }
+        }
+    }
+
     private mutating func updateActive(_ change: (inout Profile) -> Void) {
         guard let index = profiles.firstIndex(where: { $0.name == activeProfileName }) else { return }
         change(&profiles[index])

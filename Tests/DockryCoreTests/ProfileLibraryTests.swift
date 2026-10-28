@@ -45,6 +45,13 @@ final class ProfileLibraryTests: XCTestCase {
         XCTAssertEqual(library.active.pinnedApps, [])
     }
 
+    func testReorderPinsKeepsAppsTheDockDidntShowAtTheEnd() {
+        var library = ProfileLibrary(profiles: [Profile(name: "Work", pinnedApps: ["a", "b", "hidden", "c"]), chill])
+        library.reorderPins(["c", "a", "b", "not-pinned"])
+        XCTAssertEqual(library.active.pinnedApps, ["c", "a", "b", "hidden"])
+        XCTAssertEqual(library.profiles[1].pinnedApps, [])
+    }
+
     func testDecodingAHandWrittenProfileFillsInDefaults() throws {
         let json = #"{ "profiles": [{ "name": "Gaming", "widgets": ["clock", "weather"], "desktop": 3 }] }"#
         let library = try JSONDecoder().decode(ProfileLibrary.self, from: Data(json.utf8))

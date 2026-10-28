@@ -31,6 +31,10 @@ final class ProfileStore: ObservableObject {
         update { $0.unpin(bundleID) }
     }
 
+    func reorderPins(_ order: [String]) {
+        update { $0.reorderPins(order) }
+    }
+
     /// Picks up changes made to profiles.json by hand.
     func reload() {
         let result = file.load()
