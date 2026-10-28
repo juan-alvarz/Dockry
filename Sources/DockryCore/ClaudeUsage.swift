@@ -50,11 +50,10 @@ public struct ClaudeUsage: Equatable {
         return Window(percentUsed: min(max(percent, 0), 100), resetsAt: resetsAt)
     }
 
+    /// ISO 8601, with or without fractional seconds of any length (they're dropped; a reset
+    /// time doesn't need them).
     private static func parseDate(_ text: String) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: text) { return date }
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter.date(from: text)
+        let withoutFraction = text.replacingOccurrences(of: #"\.\d+"#, with: "", options: .regularExpression)
+        return ISO8601DateFormatter().date(from: withoutFraction)
     }
 }

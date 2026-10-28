@@ -3,8 +3,7 @@ import SwiftUI
 
 /// The Claude plan's 5-hour and weekly usage, like `/usage` in Claude Code.
 struct ClaudeUsageWidget: View {
-    // Owned by the widget, so usage is only fetched while a profile with it is showing.
-    @StateObject private var monitor = ClaudeUsageMonitor()
+    @ObservedObject private var monitor = ClaudeUsageMonitor.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -19,6 +18,8 @@ struct ClaudeUsageWidget: View {
                 ProgressView().controlSize(.small)
             case .signedOut:
                 message("Not signed in")
+            case .accessDenied:
+                message("Access denied")
             case .expired:
                 message("Sign-in expired")
             case .unavailable:
@@ -30,6 +31,9 @@ struct ClaudeUsageWidget: View {
         .frame(height: 48)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .help(helpText)
+        // Fetch only while the widget is on screen.
+        .onAppear { monitor.widgetAppeared() }
+        .onDisappear { monitor.widgetDisappeared() }
     }
 
     private func message(_ text: String) -> some View {
@@ -49,6 +53,8 @@ struct ClaudeUsageWidget: View {
                 .joined(separator: "\n")
         case .signedOut:
             return "Sign in to Claude Code, and allow Dockry to read its saved sign-in when macOS asks."
+        case .accessDenied:
+            return "Dockry wasn't allowed to read Claude Code's sign-in. It asks again the next time it starts."
         case .expired:
             return "Open Claude Code to refresh its sign-in."
         case .unavailable:

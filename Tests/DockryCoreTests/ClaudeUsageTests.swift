@@ -15,6 +15,12 @@ final class ClaudeUsageTests: XCTestCase {
         XCTAssertNotNil(usage.session.resetsAt)
     }
 
+    func testResetTimesWithMicroseconds() throws {
+        let json = #"{"five_hour": {"utilization": 1, "resets_at": "2026-10-28T09:00:00.943648+00:00"}, "seven_day": {"utilization": 1}}"#
+        let usage = try XCTUnwrap(ClaudeUsage(responseJSON: Data(json.utf8)))
+        XCTAssertEqual(usage.session.resetsAt, ISO8601DateFormatter().date(from: "2026-10-28T09:00:00Z"))
+    }
+
     func testMissingResetTimeIsFine() throws {
         let json = #"{"five_hour": {"utilization": 0}, "seven_day": {"utilization": 5, "resets_at": null}}"#
         let usage = try XCTUnwrap(ClaudeUsage(responseJSON: Data(json.utf8)))
