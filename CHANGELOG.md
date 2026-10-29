@@ -1,9 +1,14 @@
 # Changelog
 
 The first `## <version>` heading below is Dockry's version: `scripts/bundle.sh` stamps it into
-the app, and when this file changes on `main` the Release workflow publishes that version as
-`Dockry-<version>` with its notes, unless it's already released. To release, add a new heading
-on top with what changed. A heading that isn't a version, like `## Unreleased`, is skipped.
+the app, and the Release workflow, started by hand, publishes that version as `Dockry-<version>`
+with its notes. Each version is released once: to release, add a new heading on top with what
+changed. A heading that isn't a version, like `## Unreleased`, is skipped.
+
+## 0.1.0
+
+- The version Dockry shows in Settings now always matches the build: it comes from this
+  changelog, which also gives each release its notes.
 
 ## 0.0.9
 
