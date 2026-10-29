@@ -117,7 +117,7 @@ final class ProfileApps: ObservableObject {
                     if let asked = openingWindow[app.processIdentifier], Date().timeIntervalSince(asked) < 3 { return }
                     let profiles = windows.profiles(of: app)
                     if profiles.contains(active) {
-                        windows.park(app, except: active)
+                        windows.park(app, except: active, newWindowsProfile: owner)
                         windows.raise(app, in: active)
                     } else if let other = profiles.sorted().first {
                         switchToProfile?(other)
@@ -138,7 +138,7 @@ final class ProfileApps: ObservableObject {
             windows.adopt(window, into: profile)
             // An app that opened a window by itself (a link, say) shows the others' too.
             if profile == active {
-                windows.park(app, except: active)
+                windows.park(app, except: active, newWindowsProfile: owner)
             }
             windowChanges += 1
         }
@@ -186,7 +186,7 @@ final class ProfileApps: ObservableObject {
         let active = store.active.name
         openingWindow[app.processIdentifier] = Date()
         if let item = AppWindows.newWindowItem(in: app) {
-            windows.park(app, except: active)
+            windows.park(app, except: active, newWindowsProfile: owner(of: app) ?? active)
             app.unhide()
             app.activate()
             // Once it's in front, so the window opens in front.

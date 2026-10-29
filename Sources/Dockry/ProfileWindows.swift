@@ -4,8 +4,9 @@ import ApplicationServices
 /// Windows per profile, like macOS desktops but for Dockry's profiles: a window belongs to
 /// the profile that was active when it opened, so one app (Zen, say) can have windows in
 /// several profiles. macOS can't hide one window of an app, so, as workspace tools do, the
-/// other profiles' windows are parked just past the screen's bottom right corner, and put
-/// back where they were when their profile is active again.
+/// other profiles' windows are parked just past the bottom right corner of all the screens
+/// together (past one screen's corner may be on the next screen), and put back where they
+/// were when their profile is active again.
 @MainActor
 final class ProfileWindows {
     private struct Tracked {
@@ -72,7 +73,7 @@ final class ProfileWindows {
                 continue
             }
             // Parked before the app shows again, so the others' windows never flash by.
-            park(app, except: profile)
+            park(app, except: profile, newWindowsProfile: appOwner)
             for index in tracked[app.processIdentifier, default: []].indices {
                 unpark(app.processIdentifier, index, ifIn: profile)
             }
@@ -81,18 +82,20 @@ final class ProfileWindows {
     }
 
     /// Parks the app's windows that aren't in `profile`, for opening a window of its own there.
-    func park(_ app: NSRunningApplication, except profile: String) {
+    /// Windows not seen before go to `newWindowsProfile` first.
+    func park(_ app: NSRunningApplication, except profile: String, newWindowsProfile: String) {
+        _ = refresh(app, adoptingInto: newWindowsProfile)
         let pid = app.processIdentifier
+        let screens = NSScreen.screens.reduce(CGRect.null) { $0.union($1.frame) }
         for index in tracked[pid, default: []].indices where tracked[pid]![index].profile != profile {
             let window = tracked[pid]![index]
             guard window.home == nil, let frame = AppWindows.frame(of: window.element), !Self.isParked(frame),
                   AppWindows.attribute(kAXMinimizedAttribute, of: window.element) as? Bool != true
             else { continue }
             tracked[pid]![index].home = frame
-            let screen = NSScreen.screens.first { $0.frame.contains(CGPoint(x: frame.midX, y: frame.midY)) } ?? NSScreen.screens[0]
             // One point of it stays on screen; macOS won't move a window wholly off.
             AppWindows.move(window.element, to: CGRect(
-                x: screen.frame.maxX - 1, y: screen.frame.minY - frame.height + 1, width: frame.width, height: frame.height))
+                x: screens.maxX - 1, y: screens.minY - frame.height + 1, width: frame.width, height: frame.height))
         }
     }
 
