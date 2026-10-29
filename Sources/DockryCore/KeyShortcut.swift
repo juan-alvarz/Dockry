@@ -1,14 +1,32 @@
-public struct KeyShortcut: Equatable {
+public struct KeyShortcut: Hashable, Codable {
     /// macOS virtual key code (kVK_*).
     public let keyCode: UInt16
     /// Modifier flags with the same raw values as CGEventFlags / NSEvent.ModifierFlags.
     public let modifierFlags: UInt64
+    /// The key as the keyboard showed it when the shortcut was recorded, like "1" or "Space".
+    public var key: String?
 
-    /// Virtual key codes of the 1–9 keys (kVK_ANSI_1…kVK_ANSI_9), which aren't sequential.
-    private static let digitKeyCodes: [UInt16] = [0x12, 0x13, 0x14, 0x15, 0x17, 0x16, 0x1A, 0x1C, 0x19]
+    public static let control: UInt64 = 1 << 18
+    public static let option: UInt64 = 1 << 19
+    public static let shift: UInt64 = 1 << 17
+    public static let command: UInt64 = 1 << 20
 
-    public static func keyCode(forDigit digit: Int) -> UInt16? {
-        (1...9).contains(digit) ? digitKeyCodes[digit - 1] : nil
+    public init(keyCode: UInt16, modifierFlags: UInt64, key: String? = nil) {
+        self.keyCode = keyCode
+        self.modifierFlags = modifierFlags
+        self.key = key
+    }
+
+    /// Only ⌃⌥⇧⌘ count, as in a global shortcut.
+    public var modifiers: UInt64 { modifierFlags & (Self.control | Self.option | Self.shift | Self.command) }
+
+    /// A global shortcut needs ⌃, ⌥ or ⌘; with only ⇧ (or nothing) it would take over typing.
+    public var isUsableGlobally: Bool { modifiers & (Self.control | Self.option | Self.command) != 0 }
+
+    /// Like a menu shows it: "⌃⌥1".
+    public var displayString: String {
+        let symbols: [(UInt64, String)] = [(Self.control, "⌃"), (Self.option, "⌥"), (Self.shift, "⇧"), (Self.command, "⌘")]
+        return symbols.filter { modifiers & $0.0 != 0 }.map(\.1).joined() + (key ?? "Key \(keyCode)")
     }
 
     /// The "Switch to Desktop N" shortcut from the `AppleSymbolicHotKeys` dictionary of the

@@ -5,19 +5,20 @@ import SwiftUI
 
 /// A ⌘Tab-style overlay for switching profiles from the keyboard.
 ///
-/// ⌃⌥Space opens it with the next profile selected. While ⌃⌥ are held, Space moves the
-/// selection and letting go switches, so a quick ⌃⌥Space flips between two profiles. If the
-/// keys are already up when it opens (or it was opened from the menu), it stays open:
-/// arrows/Tab move, 1–9 or Return pick, Esc or a click elsewhere cancels.
+/// Its shortcut (which the user sets, say ⌃⌥Space) opens it with the next profile selected.
+/// While the shortcut's modifiers are held, its key moves the selection and letting go
+/// switches, so a quick press flips between two profiles. If the keys are already up when it
+/// opens (or it was opened from the menu), it stays open: arrows/Tab move, 1–9 or Return pick,
+/// Esc or a click elsewhere cancels.
 final class ProfileSwitcherPanel: NSPanel {
     private let store: ProfileStore
     private let selection = SwitcherSelection()
     private let onChoose: (String) -> Void
     private var choosesOnModifierRelease = false
+    /// The modifiers of the shortcut that opened it, which choose the profile when let go.
+    private var holdModifiers: NSEvent.ModifierFlags = []
 
-    private static let holdModifiers: NSEvent.ModifierFlags = [.control, .option]
-
-    init(store: ProfileStore, onChoose: @escaping (String) -> Void) {
+    init(store: ProfileStore, profileApps: ProfileApps, onChoose: @escaping (String) -> Void) {
         self.store = store
         self.onChoose = onChoose
         // Non-activating: the panel takes the keyboard without pulling the user's app out of focus.
@@ -30,15 +31,16 @@ final class ProfileSwitcherPanel: NSPanel {
         backgroundColor = .clear
         hasShadow = true  // follows the rounded content, since the rest of the window is clear
         hidesOnDeactivate = false
-        contentView = NSHostingView(rootView: ProfileSwitcherView(store: store, selection: selection) { [weak self] in
+        contentView = NSHostingView(rootView: ProfileSwitcherView(store: store, profileApps: profileApps, selection: selection) { [weak self] in
             self?.choose(at: $0)
         })
     }
 
     override var canBecomeKey: Bool { true }
 
-    /// What ⌃⌥Space does: opens the switcher, or moves to the next profile if it's open.
-    func showOrAdvance() {
+    /// Opens the switcher, or moves to the next profile if it's open. `shortcut` is the one
+    /// that was pressed, if any.
+    func showOrAdvance(holding shortcut: KeyShortcut? = nil) {
         if isVisible {
             move(by: 1)
             return
@@ -46,7 +48,8 @@ final class ProfileSwitcherPanel: NSPanel {
         let profiles = store.library.profiles
         let activeIndex = profiles.firstIndex { $0.name == store.active.name } ?? 0
         selection.index = (activeIndex + 1) % profiles.count
-        choosesOnModifierRelease = NSEvent.modifierFlags.isSuperset(of: Self.holdModifiers)
+        holdModifiers = NSEvent.ModifierFlags(rawValue: UInt(shortcut?.modifiers ?? 0))
+        choosesOnModifierRelease = !holdModifiers.isEmpty && NSEvent.modifierFlags.isSuperset(of: holdModifiers)
 
         guard let screen = NSScreen.screens.first, let size = contentView?.fittingSize else { return }
         let origin = CGPoint(
@@ -78,7 +81,7 @@ final class ProfileSwitcherPanel: NSPanel {
     }
 
     override func flagsChanged(with event: NSEvent) {
-        if choosesOnModifierRelease && !event.modifierFlags.isSuperset(of: Self.holdModifiers) {
+        if choosesOnModifierRelease && !event.modifierFlags.isSuperset(of: holdModifiers) {
             choose(at: selection.index)
         }
         super.flagsChanged(with: event)
@@ -111,6 +114,7 @@ private final class SwitcherSelection: ObservableObject {
 
 private struct ProfileSwitcherView: View {
     @ObservedObject var store: ProfileStore
+    @ObservedObject var profileApps: ProfileApps
     @ObservedObject var selection: SwitcherSelection
     let choose: (Int) -> Void
 
@@ -121,9 +125,10 @@ private struct ProfileSwitcherView: View {
             ForEach(Array(store.library.profiles.enumerated()), id: \.element.name) { index, profile in
                 Button { choose(index) } label: {
                     ProfileTile(
-                        profile: profile, number: index + 1,
+                        profile: profile,
                         isSelected: index == selection.index,
-                        isActive: profile.name == store.active.name)
+                        isActive: profile.name == store.active.name,
+                        isPlaying: profileApps.playingProfiles.contains(profile.name))
                 }
                 .buttonStyle(.plain)
             }
@@ -136,9 +141,9 @@ private struct ProfileSwitcherView: View {
 
 private struct ProfileTile: View {
     let profile: Profile
-    let number: Int
     let isSelected: Bool
     let isActive: Bool
+    let isPlaying: Bool
 
     private let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
 
@@ -147,9 +152,15 @@ private struct ProfileTile: View {
             Image(systemName: profile.symbol)
                 .font(.system(size: 30, weight: .semibold))
                 .frame(height: 36)
-            Text(profile.name)
-                .font(.system(size: 14, weight: .semibold))
-                .lineLimit(1)
+            HStack(spacing: 4) {
+                Text(profile.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1)
+                if profile.freshApps {
+                    FreshAppsBadge()
+                        .font(.system(size: 9, weight: .semibold))
+                }
+            }
             // A peek at the profile's apps makes it recognizable at a glance.
             HStack(spacing: -4) {
                 ForEach(profile.pinnedApps.prefix(5), id: \.self) { bundleID in
@@ -159,11 +170,20 @@ private struct ProfileTile: View {
                 }
             }
             .frame(height: 20)
-            Text(isActive ? "Active" : number <= 9 ? "⌃⌥\(number)" : " ")
+            Text(isActive ? "Active" : profile.shortcut?.displayString ?? " ")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.secondary)
         }
         .frame(width: 128, height: 144)
+        .overlay(alignment: .topTrailing) {
+            if isPlaying {
+                Image(systemName: "speaker.wave.2.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(10)
+                    .help("Playing sound")
+            }
+        }
         .background(isSelected ? AnyShapeStyle(Color.accentColor.opacity(0.3)) : AnyShapeStyle(.clear), in: shape)
         .overlay(shape.strokeBorder(Color.accentColor, lineWidth: isSelected ? 2 : 0))
         .contentShape(shape)

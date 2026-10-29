@@ -8,7 +8,7 @@ import SwiftUI
 /// the app you're using. Spanning the whole edge lets SwiftUI size and center the dock
 /// itself; clicks on the strip's transparent parts go through to the windows below.
 final class DockPanel: NSPanel {
-    init<Content: View>(content: Content) {
+    init<Content: View>(content: Content, pointer: DockPointer) {
         super.init(
             contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false)
@@ -19,8 +19,19 @@ final class DockPanel: NSPanel {
         hasShadow = false  // the SwiftUI content draws its own
         hidesOnDeactivate = false
         let hostingView = DockHostingView(rootView: content)
+        hostingView.pointer = pointer
+        hostingView.registerForDraggedTypes([.fileURL])
         hostingView.sizingOptions = []  // the panel has a fixed size; see place(on:)
         contentView = hostingView
+    }
+
+    /// The part of the screen docks go in: visibleFrame leaves out the menu bar and, while
+    /// it's showing, the system Dock, so the two docks never overlap.
+    static func area(on screen: NSScreen, coversSystemDock: Bool) -> NSRect {
+        let visible = screen.visibleFrame
+        return coversSystemDock
+            ? NSRect(x: screen.frame.minX, y: screen.frame.minY, width: screen.frame.width, height: visible.maxY - screen.frame.minY)
+            : visible
     }
 
     override var canBecomeKey: Bool { false }
@@ -29,12 +40,7 @@ final class DockPanel: NSPanel {
     /// - Parameter coversSystemDock: Whether the panel may use the system Dock's space (while
     ///   Dockry hides that Dock).
     func place(on screen: NSScreen, position: DockPosition, thickness: CGFloat, coversSystemDock: Bool) {
-        // visibleFrame leaves out the menu bar and, while it's showing, the system Dock, so
-        // the two docks never overlap.
-        let visible = screen.visibleFrame
-        let area = coversSystemDock
-            ? NSRect(x: screen.frame.minX, y: screen.frame.minY, width: screen.frame.width, height: visible.maxY - screen.frame.minY)
-            : visible
+        let area = Self.area(on: screen, coversSystemDock: coversSystemDock)
         let frame = switch position {
         case .bottom: NSRect(x: area.minX, y: area.minY, width: area.width, height: thickness)
         case .left: NSRect(x: area.minX, y: area.minY, width: thickness, height: area.height)
@@ -47,9 +53,52 @@ final class DockPanel: NSPanel {
 }
 
 private final class DockHostingView<Content: View>: NSHostingView<Content> {
+    weak var pointer: DockPointer?
+
     /// Dockry is never the active app, so without this the first click on an icon would only
     /// focus the panel instead of opening the app.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    // Folders and apps dragged from Finder, handled here rather than with SwiftUI's onDrop,
+    // which never saw drags over this non-activating panel. DockPointer follows the drag so
+    // the dock opens a gap where the item will go, and DockView adds it there.
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        draggingUpdated(sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard let pointer, !DockDrop.items(from: sender.draggingPasteboard).isEmpty else { return [] }
+        // The hosting view is flipped, like SwiftUI's coordinates.
+        return pointer.dropMoved(to: convert(sender.draggingLocation, from: nil)) ? .copy : []
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        pointer?.dropMoved(to: nil)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        defer { pointer?.dropMoved(to: nil) }
+        let items = DockDrop.items(from: sender.draggingPasteboard)
+        guard !items.isEmpty, let drop = pointer?.performDrop else { return false }
+        drop(items)
+        return true
+    }
+}
+
+/// What dropping files on the dock adds: folders, and apps, which get pinned. Other files
+/// aren't taken, as in the macOS Dock's app side.
+enum DockDrop {
+    static func items(from pasteboard: NSPasteboard) -> [DockItem] {
+        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        return urls.compactMap { url in
+            if url.pathExtension == "app" {
+                return Bundle(url: url)?.bundleIdentifier.map(DockItem.app)
+            }
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
+            return values?.isDirectory == true && values?.isPackage != true ? .folder(url.path) : nil
+        }
+    }
 }
 
 /// One dock per screen that should have one (see DockPlacement), kept up to date as screens
@@ -96,6 +145,8 @@ final class DockController {
         let screens = NSScreen.screens
         let chosen = DockPlacement.screens(screens.map(\.frame), position: dock.position).map { screens[$0] }
 
+        updateWindowSpace(screens: chosen, dock: dock, metrics: metrics)
+
         let chosenIDs = Set(chosen.compactMap(\.displayID))
         for (id, removed) in docks where !chosenIDs.contains(id) {
             removed.panel.orderOut(nil)
@@ -115,9 +166,33 @@ final class DockController {
         }
     }
 
+    /// Keeps windows out of the docks' space, except while the dock hides automatically:
+    /// the macOS Dock keeps no space then either.
+    private func updateWindowSpace(screens: [NSScreen], dock: DockSettings, metrics: DockMetrics) {
+        let keeper = WindowSpaceKeeper.shared
+        keeper.isEnabled = settings.keepsWindowsClear && !dock.autohides
+        guard keeper.isEnabled else {
+            keeper.reservations = []
+            return
+        }
+        // The dock itself, its gap from the screen edge and as much again above it, so windows
+        // don't touch it; magnified icons may still go over windows.
+        let thickness = metrics.thickness + 2 * DockMetrics.margin
+        keeper.reservations = screens.map { screen in
+            let area = DockPanel.area(on: screen, coversSystemDock: coversSystemDock)
+            let allowed = WindowFit.allowedArea(visible: screen.visibleFrame, dockArea: area, position: dock.position, thickness: thickness)
+            let strip = switch dock.position {
+            case .bottom: NSRect(x: screen.frame.minX, y: screen.frame.minY, width: screen.frame.width, height: allowed.minY - screen.frame.minY)
+            case .left: NSRect(x: screen.frame.minX, y: screen.frame.minY, width: allowed.minX - screen.frame.minX, height: screen.frame.height)
+            case .right: NSRect(x: allowed.maxX, y: screen.frame.minY, width: screen.frame.maxX - allowed.maxX, height: screen.frame.height)
+            }
+            return WindowSpaceKeeper.Reservation(position: dock.position, dock: strip, allowed: allowed)
+        }
+    }
+
     private func makePanel() -> (panel: DockPanel, pointer: DockPointer) {
         let pointer = DockPointer()
-        let panel = DockPanel(content: makeDock(pointer))
+        let panel = DockPanel(content: makeDock(pointer), pointer: pointer)
         pointer.window = panel
         return (panel, pointer)
     }

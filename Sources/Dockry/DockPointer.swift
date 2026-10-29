@@ -88,6 +88,15 @@ final class DockPointer: ObservableObject {
     @Published private(set) var lastLocation: CGPoint?
     @Published private(set) var hoveredItem: String?
     @Published private(set) var isRevealed = true
+    /// Where files dragged from Finder are over the dock, in the window's SwiftUI coordinates.
+    @Published private(set) var dropLocation: CGPoint?
+    /// The element the dock's drop gap is in front of (one past the last for the end), kept
+    /// while the pointer is in the gap so the gap doesn't run away from it. Set by DockView.
+    var dropGap: Int?
+    /// The gap's frame, while there is one.
+    var dropGapFrame: CGRect?
+    /// Adds dropped items at the gap; set by DockView.
+    var performDrop: (([DockItem]) -> Void)?
 
     weak var window: NSWindow?
     var metrics = DockMetrics(DockSettings()) {
@@ -106,13 +115,22 @@ final class DockPointer: ObservableObject {
     var itemFrames: [String: CGRect] = [:]
     /// The separators' frames, which show the resize cursor like the macOS Dock's divider.
     var separatorFrames: [String: CGRect] = [:]
+    /// Widgets' frames, for the dock to know their lengths when one is dragged past them.
+    var widgetFrames: [String: CGRect] = [:]
+    /// The hovered app's window list, which the pointer can move onto and click in; while
+    /// it's on it (or the gap to the icon), the hover stays put.
+    var calloutFrame: CGRect?
     /// False while the size follows the macOS Dock.
     var canResize = true
+    /// While a separator is being dragged: where the drag started and the dock's size then.
+    /// Kept here rather than in the separator, which can be rebuilt mid-drag.
+    private var resizeStart: (mouse: CGPoint, size: Double)?
     /// While a separator is being dragged, the resize cursor stays wherever the pointer goes.
-    var isResizing = false {
-        didSet { update() }
-    }
+    var isResizing: Bool { resizeStart != nil }
     private var showsResizeCursor = false
+    /// After the resize cursor goes, the arrow is set again for a moment, in case the one
+    /// change was lost while the pointer crossed into another app's window.
+    private var restoresArrowUntil = Date.distantPast
 
     private var subscriptions: Set<AnyCancellable> = []
     private var hideTask: Task<Void, Never>?
@@ -128,12 +146,64 @@ final class DockPointer: ObservableObject {
             .store(in: &subscriptions)
     }
 
+    /// Follows a separator being dragged: the dock grows as the pointer moves toward the
+    /// middle of the screen. In screen coordinates, since the window itself resizes during
+    /// the drag, which would throw off the gesture's own coordinates.
+    func resize(_ settings: SettingsStore) {
+        guard canResize else { return }
+        let mouse = NSEvent.mouseLocation
+        if resizeStart == nil {
+            resizeStart = (mouse, settings.own.iconSize)
+            DockInteraction.shared.begin()  // an auto-hiding dock stays up
+            update()
+        }
+        guard let resizeStart else { return }
+        let delta = switch metrics.position {
+        case .bottom: mouse.y - resizeStart.mouse.y
+        case .left: mouse.x - resizeStart.mouse.x
+        case .right: resizeStart.mouse.x - mouse.x
+        }
+        settings.own.iconSize = (resizeStart.size + Double(delta)).rounded().clamped(to: DockSettings.sizeRange)
+    }
+
+    /// Follows a drag from Finder; returns whether it's over the dock, where it can be dropped.
+    @discardableResult
+    func dropMoved(to location: CGPoint?) -> Bool {
+        let over = location.flatMap { dockFrame.insetBy(dx: -24, dy: -24).contains($0) ? $0 : nil }
+        if over == nil {
+            dropGap = nil
+            dropGapFrame = nil
+        }
+        if over != dropLocation {
+            dropLocation = over
+        }
+        return over != nil
+    }
+
+    func endResize() {
+        guard resizeStart != nil else { return }
+        resizeStart = nil
+        DockInteraction.shared.end()
+        update()
+    }
+
     func update() {
         guard let window else { return }
+        // SwiftUI can drop the separator's drag without ending it when the dock's window
+        // resizes or its row is rebuilt mid-drag. Without this the resize would never end,
+        // and the resize cursor would follow the pointer everywhere for good.
+        if isResizing && NSEvent.pressedMouseButtons & 1 == 0 {
+            endResize()
+            return
+        }
         let screenPoint = NSEvent.mouseLocation
         let frame = window.frame
         let point = CGPoint(x: screenPoint.x - frame.minX, y: frame.maxY - screenPoint.y)
 
+        if hoveredItem != nil, let calloutFrame, calloutFrame.insetBy(dx: -14, dy: -14).contains(point) {
+            updateCursor(resize: false)
+            return
+        }
         let isOverDock = isRevealed && activeZone.contains(point)
         let newLocation = isOverDock ? point : nil
         if (newLocation == nil) != (location == nil) {
@@ -148,7 +218,7 @@ final class DockPointer: ObservableObject {
                 lastLocation = newLocation
             }
         }
-        let hovered = isOverDock ? itemFrames.first { $0.value.contains(point) }?.key : nil
+        let hovered = isOverDock && dropLocation == nil ? itemFrames.first { $0.value.contains(point) }?.key : nil
         if hovered != hoveredItem {
             hoveredItem = hovered
         }
@@ -165,7 +235,10 @@ final class DockPointer: ObservableObject {
         if resize {
             // Set on every move: the app under the other windows may set its own cursor.
             (metrics.axis == .horizontal ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).set()
-        } else if showsResizeCursor {
+        } else if showsResizeCursor || Date() < restoresArrowUntil {
+            if showsResizeCursor {
+                restoresArrowUntil = Date().addingTimeInterval(0.3)
+            }
             NSCursor.arrow.set()
         }
         showsResizeCursor = resize

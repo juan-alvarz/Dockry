@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 out=${1:-docs/screenshots}
 mkdir -p "$out"
-bundle_id=io.github.juan-alvarz.Dockry
+bundle_id=com.dockry.Dockry
 
 # The Dock settings Dockry changes while it hides the system Dock.
 dock_settings() {
@@ -38,6 +38,24 @@ JSON
 defaults write "$bundle_id" claudeUsageTestResponse "$usage_response"
 # Nobody can answer the location prompt on CI: the weather widget uses New York instead.
 defaults write "$bundle_id" weatherTestLocation "40.71,-74.01"
+# Dockry has no shortcuts until the user sets them; give CI the ones it presses below:
+# ⌃⌥Space for the switcher, ⌃⌥1 and ⌃⌥2 for the default profiles.
+shortcut() { echo "{\"keyCode\": $1, \"modifierFlags\": 786432, \"key\": \"$2\"}"; }
+defaults write "$bundle_id" profileSwitcherShortcut -data "$(shortcut 49 Space | xxd -p | tr -d '\n')"
+mkdir -p "$HOME/Library/Application Support/Dockry"
+cat > "$HOME/Library/Application Support/Dockry/profiles.json" <<JSON
+{"activeProfileName": "Work", "profiles": [
+  {"name": "Work", "symbol": "briefcase.fill", "desktop": 1, "color": "#3563E9", "shortcut": $(shortcut 18 1),
+   "items": ["com.apple.finder", "com.apple.Safari", "com.apple.mail", "com.apple.iCal", "com.apple.Notes",
+             "com.apple.Terminal", "divider", "running-apps", "divider", "widget:clock", "widget:date",
+             "widget:claude", "widget:weather", "widget:users"]},
+  {"name": "Chill", "symbol": "cup.and.saucer.fill", "desktop": 2, "color": "#F08A4B", "shortcut": $(shortcut 19 2),
+   "items": ["com.apple.finder", "com.apple.Music", "com.apple.Photos", "com.apple.MobileSMS", "com.apple.TV",
+             "divider", "running-apps", "divider", "widget:spotify", "widget:clock", "widget:users"]}
+]}
+JSON
+# Spotify's notification has no album art, and CI can't ask Spotify for it; use a sample.
+defaults write "$bundle_id" spotifyTestArtwork "$PWD/scripts/sample-album-art.png"
 
 # Apps for the "running" part of the dock: two pinned in Work, two that aren't.
 for app in Safari Notes Calculator TextEdit; do
@@ -54,7 +72,7 @@ screencapture -x "$out/1-work-profile.png"
 swift scripts/drag-app.swift Safari 108 "$out/11-drag-to-reorder.png"
 sleep 1
 profiles="$HOME/Library/Application Support/Dockry/profiles.json"
-order=$(python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); print(" ".join(next(p["pinnedApps"] for p in d["profiles"] if p["name"] == "Work")))' "$profiles")
+order=$(python3 -c 'import json, sys; d = json.load(open(sys.argv[1])); print(" ".join(i for i in next(p["items"] for p in d["profiles"] if p["name"] == "Work") if "." in i))' "$profiles")
 if [[ "$order" != "com.apple.finder com.apple.mail com.apple.iCal com.apple.Safari com.apple.Notes com.apple.Terminal" ]]; then
   echo "Dragging Safari didn't reorder the dock; Work's pinned apps are: $order" >&2
   exit 1
@@ -74,7 +92,7 @@ if [[ "$frontmost" != "Calculator" ]]; then
   exit 1
 fi
 
-# ⌃⌥2 is Dockry's hot key for the second profile, Chill. key code 19 is the 2 key.
+# ⌃⌥2 is the hot key set above for the second profile, Chill. key code 19 is the 2 key.
 osascript -e 'tell application "System Events" to key code 19 using {control down, option down}' \
   || echo "couldn't send the hot key"
 sleep 2
@@ -141,6 +159,8 @@ relaunch -showSettings general
 screencapture -x "$out/7-settings-general.png"
 relaunch -showSettings profiles
 screencapture -x "$out/8-settings-profiles.png"
+relaunch -showWidget spotify
+screencapture -x "$out/12-settings-widgets.png"
 
 # The calendar from the date widget (in the active profile, Work).
 relaunch -openPopover calendar

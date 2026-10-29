@@ -45,11 +45,40 @@ final class ProfileLibraryTests: XCTestCase {
         XCTAssertEqual(library.active.pinnedApps, [])
     }
 
-    func testReorderPinsKeepsAppsTheDockDidntShowInPlace() {
-        var library = ProfileLibrary(profiles: [Profile(name: "Work", pinnedApps: ["a", "b", "hidden", "c"]), chill])
-        library.reorderPins(["c", "a", "b", "not-pinned"])
-        XCTAssertEqual(library.active.pinnedApps, ["c", "a", "hidden", "b"])
-        XCTAssertEqual(library.profiles[1].pinnedApps, [])
+    func testChangingPinnedAppsKeepsWidgetsAndDividersInPlace() {
+        var profile = Profile(name: "Work", items: [.app("a"), .widget(.clock), .app("b"), .divider, .runningApps])
+        profile.pinnedApps = ["b", "a", "c"]
+        XCTAssertEqual(profile.items, [.app("b"), .widget(.clock), .app("a"), .app("c"), .divider, .runningApps])
+        profile.pinnedApps.removeAll { $0 == "b" }
+        XCTAssertEqual(profile.items, [.widget(.clock), .app("a"), .app("c"), .divider, .runningApps])
+        profile.widgets.append(.date)
+        XCTAssertEqual(profile.items, [.widget(.clock), .widget(.date), .app("a"), .app("c"), .divider, .runningApps])
+    }
+
+    func testItemsStayUniqueAndKeepThePlaceForOpenApps() {
+        var profile = Profile(name: "Work", items: [.app("a"), .app("a"), .widget(.clock), .widget(.clock), .divider, .divider])
+        XCTAssertEqual(profile.items, [.app("a"), .runningApps, .widget(.clock), .divider, .divider])
+        profile.insert(.app("a"), at: 3)
+        XCTAssertEqual(profile.items, [.runningApps, .widget(.clock), .app("a"), .divider, .divider])
+        profile.removeItem(at: 0)
+        XCTAssertEqual(profile.items.first, .runningApps)
+        profile.insert(.divider, at: 0)
+        XCTAssertEqual(profile.items.first, .divider)
+    }
+
+    func testProfilesFromBeforeItemsGetTheOldLayout() throws {
+        let json = #"{ "name": "Work", "pinnedApps": ["a"], "widgets": ["clock"] }"#
+        let profile = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
+        XCTAssertEqual(profile.items, [.app("a"), .divider, .runningApps, .divider, .widget(.clock)])
+        let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(profile)) as? [String: Any])
+        XCTAssertEqual(saved["items"] as? [String], ["a", "divider", "running-apps", "divider", "widget:clock"])
+        XCTAssertNil(saved["pinnedApps"])
+    }
+
+    func testUnknownWidgetsInItemsAreDropped() throws {
+        let json = #"{ "name": "Work", "items": ["a", "widget:stocks", "widget:date"] }"#
+        let profile = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
+        XCTAssertEqual(profile.items, [.app("a"), .runningApps, .widget(.date)])
     }
 
     func testDecodingAHandWrittenProfileFillsInDefaults() throws {
@@ -109,5 +138,49 @@ final class ProfileLibraryEditingTests: XCTestCase {
         XCTAssertEqual(library.profiles.map(\.name), ["Chill", "Work"])
         library.moveProfile(named: "Work", by: -1)
         XCTAssertEqual(library.profiles.map(\.name), ["Work", "Chill"])
+    }
+}
+
+final class ProfileCloneAndFieldsTests: XCTestCase {
+    func testDuplicateCopiesTheProfileRightAfterItWithoutItsShortcut() {
+        var work = Profile(name: "Work", pinnedApps: ["com.apple.Safari"], widgets: [.clock], desktop: 2)
+        work.shortcut = KeyShortcut(keyCode: 18, modifierFlags: 0x900)
+        work.wallpaper = "/tmp/work.jpg"
+        var library = ProfileLibrary(profiles: [work, Profile(name: "Chill")])
+        XCTAssertEqual(library.duplicateProfile(named: "Work"), "Work Copy")
+        XCTAssertEqual(library.duplicateProfile(named: "Work"), "Work Copy 2")
+        XCTAssertEqual(library.profiles.map(\.name), ["Work", "Work Copy 2", "Work Copy", "Chill"])
+        let copy = library.profiles[2]
+        XCTAssertEqual(copy.items, work.items)
+        XCTAssertEqual(copy.desktop, 2)
+        XCTAssertEqual(copy.wallpaper, "/tmp/work.jpg")
+        XCTAssertNil(copy.shortcut)
+        XCTAssertNil(library.duplicateProfile(named: "Nope"))
+    }
+
+    func testFoldersWallpaperAndOpeningAppsSurviveTheFile() throws {
+        var profile = Profile(name: "Work", items: [.app("com.apple.Safari"), .folder("/Users/me/Downloads"), .runningApps])
+        profile.wallpaper = "/Users/me/Pictures/work.heic"
+        profile.opensAppsOnSwitch = true
+        let decoded = try JSONDecoder().decode(Profile.self, from: JSONEncoder().encode(profile))
+        XCTAssertEqual(decoded, profile)
+        XCTAssertEqual(decoded.folders, ["/Users/me/Downloads"])
+    }
+
+    func testFreshAppsIsChosenWhenAddingAndKeptByCopiesAndTheFile() throws {
+        var library = ProfileLibrary(profiles: [Profile(name: "Work")])
+        let name = library.addProfile(named: "Private", freshApps: true)
+        let copy = library.duplicateProfile(named: name)!
+        XCTAssertEqual(library.profiles.map(\.freshApps), [false, true, true])
+        XCTAssertEqual(copy, "Private Copy")
+        let decoded = try JSONDecoder().decode(ProfileLibrary.self, from: JSONEncoder().encode(library))
+        XCTAssertEqual(decoded.profiles.map(\.freshApps), [false, true, true])
+    }
+
+    func testBadOpensAppsValueIsIgnored() throws {
+        let json = #"{"name": "Work", "opensAppsOnSwitch": "yes", "items": ["folder:/tmp"]}"#
+        let profile = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
+        XCTAssertFalse(profile.opensAppsOnSwitch)
+        XCTAssertEqual(profile.folders, ["/tmp"])
     }
 }

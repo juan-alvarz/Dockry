@@ -7,21 +7,24 @@ struct DockActions {
     let openSettings: () -> Void
 }
 
-/// The dock: profile button, the profile's pinned apps, other running apps, then widgets.
+/// The dock: the profile button, then the profile's items (pinned apps, other running apps,
+/// widgets and dividers) in the order the user dragged them into.
 /// Like the macOS Dock it's as long as its items and centered on its screen edge; once it
 /// would be longer than the screen it scrolls instead.
 struct DockView: View {
     @ObservedObject var store: ProfileStore
     @ObservedObject var runningApps: RunningApps
+    @ObservedObject var profileApps: ProfileApps
     @ObservedObject var settings: SettingsStore
     @ObservedObject var pointer: DockPointer
     let actions: DockActions
+    @ObservedObject private var appWindows = AppWindows.shared
 
     /// The panel's coordinate space, which DockPointer's locations are in.
     static let space = "dockPanel"
 
-    /// The pinned icon being dragged to a new place, and how far it has moved along the dock.
-    @State private var drag: (bundleID: String, distance: CGFloat)?
+    /// The item being dragged to a new place (by element id), and how far it has moved along the dock.
+    @State private var drag: (id: String, distance: CGFloat)?
 
     var body: some View {
         let metrics = DockMetrics(settings.dock)
@@ -46,114 +49,208 @@ struct DockView: View {
         .animation(.easeInOut(duration: 0.25), value: pointer.isRevealed)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: Alignment(metrics.position.outerEdge))
         .coordinateSpace(name: Self.space)
+        .onAppear(perform: acceptDrops)
+    }
+
+    private var elements: [DockElement] {
+        DockLayout.elements(
+            items: store.active.items,
+            running: runningApps.apps.filter(profileApps.isShown).compactMap(RunningApps.dockID),
+            showsUnpinned: settings.showsUnpinnedApps,
+            isShown: { AppCatalog.app(bundleID: $0, running: runningApps.app(withBundleID: $0)) != nil })
+    }
+
+    /// Like the macOS Dock: folders and apps dragged from Finder go in where the dock opened
+    /// a gap for them (see DockPanel's DockHostingView).
+    private func acceptDrops() {
+        let (store, pointer) = (store, pointer)
+        let dock = self
+        pointer.performDrop = { items in
+            let elements = dock.elements
+            let index = DockLayout.itemIndex(
+                insertingAt: pointer.dropGap ?? elements.count, elements: elements, itemCount: store.active.items.count)
+            store.updateActive { profile in
+                for (offset, item) in items.enumerated() {
+                    profile.insert(item, at: index + offset)
+                }
+            }
+        }
+    }
+
+    /// Which element the drop gap goes in front of, while files are dragged over the dock.
+    /// While the pointer is in the gap it stays put; otherwise it's in front of the first
+    /// element past the pointer.
+    private func dropGap(_ elements: [DockElement], _ metrics: DockMetrics) -> Int? {
+        guard drag == nil, let location = pointer.dropLocation else { return nil }
+        let isHorizontal = metrics.axis == .horizontal
+        let along = isHorizontal ? location.x : location.y
+        if let current = pointer.dropGap, let frame = pointer.dropGapFrame,
+           (isHorizontal ? frame.minX...frame.maxX : frame.minY...frame.maxY).contains(along) {
+            return current
+        }
+        let centers = elements.map { element in
+            frame(of: element).map { Double(isHorizontal ? $0.midX : $0.midY) } ?? .infinity
+        }
+        let gap = DockLayout.dropGap(at: Double(along), centers: centers)
+        pointer.dropGap = gap
+        return gap
+    }
+
+    /// An element's frame in the dock's space, once it has been laid out.
+    private func frame(of element: DockElement) -> CGRect? {
+        switch element.content {
+        case .app, .folder: pointer.itemFrames[element.id]
+        case .widget: pointer.widgetFrames[element.id]
+        case .divider: pointer.separatorFrames[element.id]
+        }
     }
 
     private func row(_ metrics: DockMetrics, magnifies: Bool) -> some View {
         let profile = store.active
-        let sections = DockLayout.sections(pinned: profile.pinnedApps, running: runningApps.bundleIDs)
+        let elements = elements
+        let lengths = elements.map { Double(length(of: $0, metrics)) }
+        // While dragging, the others slide over to show where the dragged item will land.
+        let from = drag.flatMap { drag in elements.firstIndex { $0.id == drag.id } }
+        let to = from.map { DockLayout.dropIndex(from: $0, distance: Double(drag!.distance), lengths: lengths, spacing: Double(metrics.spacing)) }
+        var order = elements
+        if let from, let to {
+            order.insert(order.remove(at: from), at: to)
+        }
+        let dragOffset = from.flatMap { from in to.map { to in
+            drag!.distance - CGFloat(DockLayout.shift(from: from, to: to, lengths: lengths, spacing: Double(metrics.spacing)))
+        } } ?? 0
 
-        // No magnification while dragging an icon: the places it moves between keep their size.
-        let isMagnifying = magnifies && drag == nil && pointer.location != nil
+        let gap = dropGap(elements, metrics)
+        // No magnification while dragging: the places an item moves between keep their size.
+        let isDragging = drag != nil || pointer.dropLocation != nil
+        let isMagnifying = magnifies && !isDragging && pointer.location != nil
         return DockRowLayout(
-            metrics: metrics, pointer: magnifies && drag == nil ? pointerAlongDock(metrics) : nil,
+            metrics: metrics, pointer: magnifies && !isDragging ? pointerAlongDock(metrics) : nil,
             amount: isMagnifying ? 1 : 0
         ) {
-            DockBackground(settings: settings, openSettings: actions.openSettings)
+            DockBackground(settings: settings, store: store, openSettings: actions.openSettings)
                 .layoutValue(key: DockBackgroundKey.self, value: true)
-            ProfileButton(profile: profile, action: actions.showProfileMenu)
-            DockSeparator(settings: settings, pointer: pointer, id: "pinned")
-            pinnedIcons(sections.pinned, profile: profile, metrics: metrics)
-            if settings.showsUnpinnedApps && !sections.running.isEmpty {
-                DockSeparator(settings: settings, pointer: pointer, id: "running")
-                appIcons(sections.running, profile: profile)
+            ProfileButton(
+                profile: profile, othersPlaying: profileApps.playingProfiles.subtracting([profile.name]).sorted(),
+                action: actions.showProfileMenu)
+            DockSeparator(settings: settings, pointer: pointer, id: "profile", store: store, itemIndex: nil)
+            ForEach(Array(order.enumerated()), id: \.element.id) { index, element in
+                if index == gap {
+                    dropGapView(metrics)
+                }
+                let isDragged = element.id == drag?.id
+                elementView(element, profile: profile, metrics: metrics, elements: elements, lengths: lengths)
+                    .offset(isDragged ? metrics.position.along(dragOffset) : .zero)
+                    .zIndex(isDragged ? 1 : 0)
             }
-            if !profile.widgets.isEmpty {
-                DockSeparator(settings: settings, pointer: pointer, id: "widgets")
-                ForEach(profile.widgets, id: \.self) { WidgetView(kind: $0) }
+            if gap == order.count {
+                dropGapView(metrics)
             }
         }
+        .animation(.spring(duration: 0.25), value: order.map(\.id))
+        .animation(.spring(duration: 0.25), value: gap)
         .background(FrameReader { pointer.dockFrame = $0 })
         // Only entering and leaving animate; while over the dock, icons follow the pointer.
         .animation(.easeOut(duration: isMagnifying ? 0.14 : 0.22), value: isMagnifying)
     }
 
-    private func appIcons(_ entries: [DockEntry], profile: Profile) -> some View {
-        ForEach(entries) { entry in
-            let running = runningApps.app(withBundleID: entry.bundleID)
-            if let app = AppCatalog.app(bundleID: entry.bundleID, running: running) {
-                AppIconView(
-                    entry: entry, app: app, runningApp: running, profileName: profile.name, store: store,
-                    isHovered: pointer.hoveredItem == entry.bundleID)
-                    .background(FrameReader { [pointer] in pointer.itemFrames[entry.bundleID] = $0 })
-                    .onDisappear { [pointer] in pointer.itemFrames[entry.bundleID] = nil }
-                    .layoutValue(key: MagnifiesKey.self, value: true)
-            }
-        }
+    /// The room the dock makes for something dragged from Finder.
+    private func dropGapView(_ metrics: DockMetrics) -> some View {
+        Color.clear
+            .frame(width: metrics.iconSize, height: metrics.iconSize)
+            .background(FrameReader { [pointer] in pointer.dropGapFrame = $0 })
     }
 
-    /// The pinned apps, which can be dragged along the dock to a new place like in the macOS
-    /// Dock. While dragging, the others slide over to show where the icon will land.
-    private func pinnedIcons(_ entries: [DockEntry], profile: Profile, metrics: DockMetrics) -> some View {
-        // Only the icons that are shown take part, so the positions match what's on screen.
-        let shown = entries.filter { AppCatalog.app(bundleID: $0.bundleID, running: runningApps.app(withBundleID: $0.bundleID)) != nil }
-        let slot = metrics.iconSize + metrics.spacing
-        let order = drag.map { Self.reordered(shown, moving: $0.bundleID, by: $0.distance, slot: slot) } ?? shown
-
-        return ForEach(order) { entry in
-            let running = runningApps.app(withBundleID: entry.bundleID)
+    @ViewBuilder
+    private func elementView(
+        _ element: DockElement, profile: Profile, metrics: DockMetrics, elements: [DockElement], lengths: [Double]
+    ) -> some View {
+        let move = DockSeparator.Move(
+            changed: { dragChanged(element, distance: $0) },
+            ended: { dragEnded(element, distance: $0, profile: profile, elements: elements, lengths: lengths, metrics: metrics) })
+        switch element.content {
+        case .app(let entry):
+            // The copy in this profile, when profiles have their own apps.
+            let (here, instances) = AppOpening.instances(of: entry.bundleID, runningApps: runningApps, profileApps: profileApps)
+            let running = here ?? instances.first
             if let app = AppCatalog.app(bundleID: entry.bundleID, running: running) {
-                let offset = dragOffset(of: entry, shown: shown, order: order, slot: slot)
                 AppIconView(
                     entry: entry, app: app, runningApp: running, profileName: profile.name, store: store,
-                    isHovered: drag == nil && pointer.hoveredItem == entry.bundleID)
+                    opening: AppOpening.choose(
+                        url: app.url, bundleID: entry.bundleID, here: here, instances: instances,
+                        profileApps: profileApps, settings: settings, profile: profile),
+                    profileApps: profileApps,
+                    itemIndex: element.itemIndex, isHovered: drag == nil && pointer.hoveredItem == entry.bundleID,
+                    minimizedCount: running.flatMap { appWindows.minimizedCounts[$0.processIdentifier] } ?? 0,
+                    pointer: pointer)
                     .background(FrameReader { [pointer] in pointer.itemFrames[entry.bundleID] = $0 })
                     .onDisappear { [pointer] in pointer.itemFrames[entry.bundleID] = nil }
-                    .offset(metrics.axis == .horizontal ? CGSize(width: offset, height: 0) : CGSize(width: 0, height: offset))
-                    .zIndex(entry.bundleID == drag?.bundleID ? 1 : 0)
                     // High priority, so letting go after a drag doesn't also click (open) the app.
-                    .highPriorityGesture(
-                        // Global coordinates, so the icon's own movement doesn't change the reading.
-                        DragGesture(minimumDistance: 6, coordinateSpace: .global)
-                            .onChanged { value in
-                                if drag == nil {
-                                    DockInteraction.shared.begin()  // an auto-hiding dock stays up
-                                }
-                                drag = (entry.bundleID, Self.distance(value.translation, along: metrics.axis))
-                            }
-                            .onEnded { value in
-                                // Unless the profile changed mid-drag, which would reorder the wrong one.
-                                if store.active.name == profile.name {
-                                    let distance = Self.distance(value.translation, along: metrics.axis)
-                                    let final = Self.reordered(shown, moving: entry.bundleID, by: distance, slot: slot)
-                                    store.reorderPins(final.map(\.bundleID))
-                                }
-                                withAnimation(.spring(duration: 0.25)) { drag = nil }
-                                DockInteraction.shared.end()
-                            })
+                    .highPriorityGesture(dragGesture(move, metrics: metrics))
                     .layoutValue(key: MagnifiesKey.self, value: true)
             }
+        case .widget(let kind):
+            WidgetView(kind: kind)
+                .background(FrameReader { [pointer] in pointer.widgetFrames[element.id] = $0 })
+                .onDisappear { [pointer] in pointer.widgetFrames[element.id] = nil }
+                .contextMenu {
+                    Button("Remove \(kind.info.name) from \(profile.name)") {
+                        store.updateActive { $0.removeItem(at: element.itemIndex) }
+                    }
+                    DockEditMenu(store: store, index: element.itemIndex + 1)
+                }
+                .highPriorityGesture(dragGesture(move, metrics: metrics))
+        case .folder(let path):
+            FolderIconView(
+                path: path, isHovered: drag == nil && pointer.hoveredItem == element.id, profileName: profile.name,
+                store: store, itemIndex: element.itemIndex)
+                .background(FrameReader { [pointer] in pointer.itemFrames[element.id] = $0 })
+                .onDisappear { [pointer] in pointer.itemFrames[element.id] = nil }
+                .highPriorityGesture(dragGesture(move, metrics: metrics))
+                .layoutValue(key: MagnifiesKey.self, value: true)
+        case .divider:
+            DockSeparator(settings: settings, pointer: pointer, id: element.id, store: store, itemIndex: element.itemIndex, move: move)
         }
-        .animation(.spring(duration: 0.25), value: order.map(\.bundleID))
     }
 
-    /// `entries` with the one being dragged moved to where `distance` (in points) puts it.
-    private static func reordered(
-        _ entries: [DockEntry], moving bundleID: String, by distance: CGFloat, slot: CGFloat
-    ) -> [DockEntry] {
-        guard let from = entries.firstIndex(where: { $0.bundleID == bundleID }) else { return entries }
-        let to = DockLayout.dropIndex(from: from, slotsMoved: distance / slot, count: entries.count)
-        var result = entries
-        result.insert(result.remove(at: from), at: to)
-        return result
+    /// Dragging along the dock moves an item; global coordinates, so the item's own movement
+    /// doesn't change the reading.
+    private func dragGesture(_ move: DockSeparator.Move, metrics: DockMetrics) -> some Gesture {
+        DragGesture(minimumDistance: 6, coordinateSpace: .global)
+            .onChanged { move.changed(Self.distance($0.translation, along: metrics.axis)) }
+            .onEnded { move.ended(Self.distance($0.translation, along: metrics.axis)) }
     }
 
-    /// The dragged icon follows the pointer, measured from the place it would land in.
-    private func dragOffset(of entry: DockEntry, shown: [DockEntry], order: [DockEntry], slot: CGFloat) -> CGFloat {
-        guard let drag, entry.bundleID == drag.bundleID,
-              let from = shown.firstIndex(where: { $0.bundleID == entry.bundleID }),
-              let to = order.firstIndex(where: { $0.bundleID == entry.bundleID })
-        else { return 0 }
-        return drag.distance - CGFloat(to - from) * slot
+    private func dragChanged(_ element: DockElement, distance: CGFloat) {
+        if drag == nil {
+            DockInteraction.shared.begin()  // an auto-hiding dock stays up
+        }
+        drag = (element.id, distance)
+    }
+
+    private func dragEnded(
+        _ element: DockElement, distance: CGFloat, profile: Profile, elements: [DockElement], lengths: [Double], metrics: DockMetrics
+    ) {
+        // Unless the profile changed mid-drag, which would move the wrong item.
+        if store.active.items == profile.items, let from = elements.firstIndex(where: { $0.id == element.id }) {
+            let to = DockLayout.dropIndex(from: from, distance: Double(distance), lengths: lengths, spacing: Double(metrics.spacing))
+            let items = DockLayout.items(profile.items, afterMoving: from, to: to, in: elements)
+            store.updateActive { $0.items = items }
+        }
+        withAnimation(.spring(duration: 0.25)) { drag = nil }
+        DockInteraction.shared.end()
+    }
+
+    /// An element's unmagnified length along the dock. Only app icons magnify, so the others'
+    /// measured frames are already that.
+    private func length(of element: DockElement, _ metrics: DockMetrics) -> CGFloat {
+        let frame: CGRect? = switch element.content {
+        case .app, .folder: nil
+        case .widget: pointer.widgetFrames[element.id]
+        case .divider: pointer.separatorFrames[element.id]
+        }
+        guard let frame else { return metrics.iconSize }
+        return metrics.axis == .horizontal ? frame.width : frame.height
     }
 
     private static func distance(_ translation: CGSize, along axis: Axis) -> CGFloat {
@@ -196,6 +293,7 @@ private struct FrameReader: View {
 /// The blurred shelf behind the items. Right-clicking it shows the dock's own menu.
 private struct DockBackground: View {
     @ObservedObject var settings: SettingsStore
+    let store: ProfileStore
     let openSettings: () -> Void
     @Environment(\.dockMetrics) private var metrics
 
@@ -208,7 +306,10 @@ private struct DockBackground: View {
         }
         .overlay(shape.strokeBorder(.white.opacity(0.2), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.25), radius: 12, y: metrics.position == .bottom ? 4 : 0)
-        .contextMenu { DockMenu(settings: settings, openSettings: openSettings) }
+        .contextMenu {
+            DockMenu(settings: settings, openSettings: openSettings)
+            DockEditMenu(store: store, index: store.active.items.count)
+        }
     }
 }
 
@@ -243,7 +344,14 @@ private struct AppIconView: View {
     let runningApp: NSRunningApplication?
     let profileName: String
     let store: ProfileStore
+    let opening: AppOpening
+    let profileApps: ProfileApps
+    /// The profile item it comes from (for an app that isn't pinned, the open apps' place).
+    let itemIndex: Int
     let isHovered: Bool
+    /// Its windows in the Dock's minimized windows, which a yellow dot shows.
+    let minimizedCount: Int
+    let pointer: DockPointer
 
     @Environment(\.dockMetrics) private var metrics
     @State private var isBouncing = false
@@ -262,7 +370,10 @@ private struct AppIconView: View {
         .offset(metrics.position.inward(by: bounceHeight))
         .overlay(alignment: Alignment(metrics.position.outerEdge)) { indicator }
         .overlay {
-            if isHovered {
+            // With minimized windows, the name comes with the app's windows to bring back.
+            if isHovered, minimizedCount > 0, let runningApp {
+                WindowList(app: runningApp, name: app.name, position: metrics.position, pointer: pointer)
+            } else if isHovered {
                 NameLabel(name: app.name, position: metrics.position)
             }
         }
@@ -270,13 +381,15 @@ private struct AppIconView: View {
             if entry.isPinned {
                 Button("Remove from \(profileName)") { store.unpin(entry.bundleID) }
             } else {
-                Button("Keep in \(profileName)") { store.pin(entry.bundleID) }
+                // Where it is now: just before the other open apps.
+                Button("Keep in \(profileName)") { store.updateActive { $0.insert(.app(entry.bundleID), at: itemIndex) } }
             }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([app.url]) }
             if let runningApp {
                 Divider()
                 Button("Quit") { AppQuitter.quit(runningApp) }
             }
+            DockEditMenu(store: store, index: itemIndex + 1)
         }
         .onChange(of: entry.isRunning) { _, isRunning in
             if isRunning {
@@ -285,19 +398,34 @@ private struct AppIconView: View {
         }
     }
 
-    /// The dot under a running app.
+    /// The dot under a running app, and a yellow one beside it while it has minimized windows.
     private var indicator: some View {
-        Circle()
-            .fill(.primary.opacity(0.75))
-            .frame(width: 4, height: 4)
-            .offset(metrics.position.inward(by: -metrics.edgePadding * 0.6))
-            .opacity(entry.isRunning && metrics.showsIndicators ? 1 : 0)
+        let dots = Group {
+            Circle()
+                .fill(.primary.opacity(0.75))
+                .frame(width: 4, height: 4)
+            if minimizedCount > 0 {
+                Circle()
+                    .fill(Color.yellow)
+                    .frame(width: 4, height: 4)
+                    .help(minimizedCount == 1 ? "1 minimized window" : "\(minimizedCount) minimized windows")
+            }
+        }
+        return Group {
+            if metrics.axis == .horizontal {
+                HStack(spacing: 3) { dots }
+            } else {
+                VStack(spacing: 3) { dots }
+            }
+        }
+        .offset(metrics.position.inward(by: -metrics.edgePadding * 0.6))
+        .opacity(entry.isRunning && metrics.showsIndicators ? 1 : 0)
     }
 
     /// Like the Dock: launches the app, or brings it forward and reopens a window. An app
     /// that isn't running yet bounces until it is.
     private func open() {
-        NSWorkspace.shared.openApplication(at: app.url, configuration: NSWorkspace.OpenConfiguration())
+        opening.perform(profileApps)
         guard metrics.animatesLaunch, !entry.isRunning, !isBouncing else { return }
         isBouncing = true
         Task {
@@ -314,19 +442,12 @@ private struct AppIconView: View {
 
 /// The app's name, shown next to the hovered icon on the side facing the screen's middle.
 /// Used as an overlay on the icon, whose size it reads to stay just clear of it.
-private struct NameLabel: View {
+struct NameLabel: View {
     let name: String
     let position: DockPosition
 
     var body: some View {
-        GeometryReader { icon in
-            let gap: CGFloat = 10
-            // A zero-size anchor just past the icon's edge; the label grows away from it.
-            let (anchor, alignment): (CGPoint, Alignment) = switch position {
-            case .bottom: (CGPoint(x: icon.size.width / 2, y: -gap), .bottom)
-            case .left: (CGPoint(x: icon.size.width + gap, y: icon.size.height / 2), .leading)
-            case .right: (CGPoint(x: -gap, y: icon.size.height / 2), .trailing)
-            }
+        IconCallout(position: position) {
             Text(name)
                 .font(.system(size: 13, weight: .medium))
                 .lineLimit(1)
@@ -335,16 +456,98 @@ private struct NameLabel: View {
                 .background(Color(nsColor: .windowBackgroundColor).opacity(0.92), in: Capsule())
                 .overlay(Capsule().strokeBorder(.primary.opacity(0.12), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.2), radius: 4, y: 1)
-                .fixedSize()
-                .frame(width: 0, height: 0, alignment: alignment)
-                .position(anchor)
         }
         .allowsHitTesting(false)
     }
 }
 
+/// Places its content next to the icon it overlays, on the side facing the screen's middle.
+private struct IconCallout<Content: View>: View {
+    let position: DockPosition
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        GeometryReader { icon in
+            let gap: CGFloat = 10
+            // A zero-size anchor just past the icon's edge; the content grows away from it.
+            let (anchor, alignment): (CGPoint, Alignment) = switch position {
+            case .bottom: (CGPoint(x: icon.size.width / 2, y: -gap), .bottom)
+            case .left: (CGPoint(x: icon.size.width + gap, y: icon.size.height / 2), .leading)
+            case .right: (CGPoint(x: -gap, y: icon.size.height / 2), .trailing)
+            }
+            content
+                .fixedSize()
+                .frame(width: 0, height: 0, alignment: alignment)
+                .position(anchor)
+        }
+    }
+}
+
+/// The hovered app's name and its windows, minimized ones marked; clicking one brings it
+/// forward, out of the Dock if it's minimized. The pointer can move onto it without the
+/// dock losing the hover (see DockPointer.calloutFrame).
+private struct WindowList: View {
+    let app: NSRunningApplication
+    let name: String
+    let position: DockPosition
+    let pointer: DockPointer
+    @State private var windows: [AppWindows.Window] = []
+
+    var body: some View {
+        IconCallout(position: position) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 2)
+                ForEach(Array(windows.prefix(8).enumerated()), id: \.offset) { _, window in
+                    WindowRow(window: window) { AppWindows.shared.show(window.element, of: app) }
+                }
+            }
+            .padding(6)
+            .frame(width: 240, alignment: .leading)
+            .background(VisualEffectBackground().clipShape(RoundedRectangle(cornerRadius: 10)))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.primary.opacity(0.12), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
+            .background(FrameReader { [pointer] in pointer.calloutFrame = $0 })
+            .onDisappear { [pointer] in pointer.calloutFrame = nil }
+        }
+        .onAppear { windows = AppWindows.shared.windows(of: app.processIdentifier) }
+    }
+}
+
+private struct WindowRow: View {
+    let window: AppWindows.Window
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(window.isMinimized ? Color.yellow : .clear)
+                    .frame(width: 6, height: 6)
+                Text(window.title.isEmpty ? "Untitled" : window.title)
+                    .lineLimit(1)
+                    .foregroundStyle(window.isMinimized ? .secondary : .primary)
+                Spacer(minLength: 0)
+            }
+            .font(.system(size: 12))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(isHovered ? Color.accentColor.opacity(0.25) : .clear, in: RoundedRectangle(cornerRadius: 6))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .help(window.isMinimized ? "Minimized" : "")
+    }
+}
+
 private struct ProfileButton: View {
     let profile: Profile
+    /// Other profiles with an app playing sound, which a badge points out.
+    let othersPlaying: [String]
     let action: () -> Void
     @Environment(\.dockMetrics) private var metrics
 
@@ -364,9 +567,27 @@ private struct ProfileButton: View {
             .foregroundStyle(textStyle)
             .background(fillStyle, in: RoundedRectangle(cornerRadius: 12 * metrics.unit, style: .continuous))
             .contentShape(Rectangle())
+            .overlay(alignment: .topLeading) {
+                if profile.freshApps {
+                    FreshAppsBadge()
+                        .font(.system(size: 7 * metrics.unit, weight: .bold))
+                        .padding(3 * metrics.unit)
+                        .background(.regularMaterial, in: Circle())
+                        .offset(x: -4 * metrics.unit, y: -4 * metrics.unit)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if !othersPlaying.isEmpty {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.system(size: 8 * metrics.unit, weight: .bold))
+                        .padding(3 * metrics.unit)
+                        .background(.regularMaterial, in: Circle())
+                        .offset(x: 4 * metrics.unit, y: -4 * metrics.unit)
+                }
+            }
         }
         .buttonStyle(.plain)
-        .help("Switch profile (⌃⌥1–9)")
+        .help(othersPlaying.isEmpty ? "Switch profile" : "Switch profile. Playing sound: \(othersPlaying.joined(separator: ", "))")
     }
 
     private var fillStyle: AnyShapeStyle {
@@ -393,13 +614,26 @@ extension Color {
     }
 }
 
-/// The line between the dock's sections. Like the macOS Dock's, dragging it resizes the dock.
+/// The line between groups of items. Like the macOS Dock's, dragging it across the dock
+/// resizes the dock; dragging it along the dock moves it, except the one after the profile
+/// button, which stays put.
 private struct DockSeparator: View {
+    struct Move {
+        let changed: (CGFloat) -> Void
+        let ended: (CGFloat) -> Void
+    }
+
+    private enum Drag { case resize, move }
+
     @ObservedObject var settings: SettingsStore
     let pointer: DockPointer
     let id: String
+    let store: ProfileStore
+    /// Its place in the profile's items; nil for the one after the profile button.
+    let itemIndex: Int?
+    var move: Move?
     @Environment(\.dockMetrics) private var metrics
-    @State private var dragStart: (mouse: CGPoint, size: Double)?
+    @State private var drag: Drag?
 
     var body: some View {
         let isHorizontal = metrics.axis == .horizontal
@@ -411,35 +645,66 @@ private struct DockSeparator: View {
             .contentShape(Rectangle())
             .background(FrameReader { [pointer, id] in pointer.separatorFrames[id] = $0 })
             .onDisappear { [pointer, id] in pointer.separatorFrames[id] = nil }
-            .gesture(DragGesture(minimumDistance: 1)
-                .onChanged { _ in resize() }
-                .onEnded { _ in
-                    if dragStart != nil {
-                        dragStart = nil
-                        pointer.isResizing = false
-                        DockInteraction.shared.end()
+            .gesture(DragGesture(minimumDistance: 3, coordinateSpace: .global)
+                .onChanged { value in
+                    let along = isHorizontal ? value.translation.width : value.translation.height
+                    let across = isHorizontal ? value.translation.height : value.translation.width
+                    if drag == nil {
+                        drag = move != nil && abs(along) > abs(across) ? .move : .resize
                     }
+                    if drag == .move { move?.changed(along) } else { pointer.resize(settings) }
+                }
+                .onEnded { value in
+                    if drag == .move {
+                        move?.ended(isHorizontal ? value.translation.width : value.translation.height)
+                    } else {
+                        pointer.endResize()
+                    }
+                    drag = nil
                 })
-            .help(Text(settings.syncsWithMacDock ? "Dockry follows the macOS Dock’s size" : "Drag to resize the dock"))
+            .help(Text(help))
+            .contextMenu {
+                if let itemIndex {
+                    Button("Remove Divider") { store.updateActive { $0.removeItem(at: itemIndex) } }
+                }
+                DockEditMenu(store: store, index: itemIndex.map { $0 + 1 } ?? 0)
+            }
     }
 
-    /// Follows the pointer in screen coordinates: the window itself resizes during the drag,
-    /// which would throw off the gesture's own coordinates.
-    private func resize() {
-        guard !settings.syncsWithMacDock else { return }
-        let mouse = NSEvent.mouseLocation
-        if dragStart == nil {
-            dragStart = (mouse, settings.own.iconSize)
-            pointer.isResizing = true
-            DockInteraction.shared.begin()
+    private var help: String {
+        let resize = settings.syncsWithMacDock ? "Dockry follows the macOS Dock’s size" : "Drag to resize the dock"
+        return move == nil ? resize : "\(resize). Drag along the dock to move the divider."
+    }
+}
+
+/// Adding to the dock at `index` in the profile's items, in the right-click menus of its items.
+struct DockEditMenu: View {
+    let store: ProfileStore
+    let index: Int
+
+    var body: some View {
+        let missing = DockWidget.all.filter { !store.active.widgets.contains($0.kind) }
+        Divider()
+        Button("Add Divider") { store.updateActive { $0.insert(.divider, at: index) } }
+        Button("Add Folder…") { addFolder() }
+        if !missing.isEmpty {
+            Menu("Add Widget") {
+                ForEach(missing, id: \.kind) { widget in
+                    Button(widget.info.name) { store.updateActive { $0.insert(.widget(widget.kind), at: index) } }
+                }
+            }
         }
-        guard let dragStart else { return }
-        let delta = switch metrics.position {
-        case .bottom: mouse.y - dragStart.mouse.y
-        case .left: mouse.x - dragStart.mouse.x
-        case .right: dragStart.mouse.x - mouse.x
-        }
-        settings.own.iconSize = (dragStart.size + Double(delta)).rounded().clamped(to: DockSettings.sizeRange)
+    }
+
+    private func addFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        panel.prompt = "Add to Dock"
+        NSApp.activate(ignoringOtherApps: true)  // a panel from a background app opens behind
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        store.updateActive { $0.insert(.folder(url.path), at: index) }
     }
 }
 
@@ -450,6 +715,11 @@ extension DockPosition {
         case .bottom: "Bottom"
         case .right: "Right"
         }
+    }
+
+    /// An offset along the dock.
+    func along(_ distance: CGFloat) -> CGSize {
+        isVertical ? CGSize(width: 0, height: distance) : CGSize(width: distance, height: 0)
     }
 
     /// An offset toward the middle of the screen (negative: toward the screen edge).

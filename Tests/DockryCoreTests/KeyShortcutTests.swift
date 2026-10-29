@@ -8,12 +8,11 @@ final class KeyShortcutTests: XCTestCase {
         [id: ["enabled": enabled, "value": ["parameters": parameters, "type": "standard"]]]
     }
 
-    func testDigitKeyCodes() {
-        XCTAssertEqual(KeyShortcut.keyCode(forDigit: 1), 0x12)
-        XCTAssertEqual(KeyShortcut.keyCode(forDigit: 5), 0x17)
-        XCTAssertEqual(KeyShortcut.keyCode(forDigit: 9), 0x19)
-        XCTAssertNil(KeyShortcut.keyCode(forDigit: 0))
-        XCTAssertNil(KeyShortcut.keyCode(forDigit: 10))
+    func testShowsModifiersInMenuOrder() {
+        let shortcut = KeyShortcut(keyCode: 0x12, modifierFlags: KeyShortcut.command | KeyShortcut.control | KeyShortcut.option | 0x100, key: "1")
+        XCTAssertEqual(shortcut.displayString, "⌃⌥⌘1")
+        XCTAssertTrue(shortcut.isUsableGlobally)
+        XCTAssertFalse(KeyShortcut(keyCode: 0x12, modifierFlags: KeyShortcut.shift, key: "1").isUsableGlobally)
     }
 
     func testReadsAnEnabledDesktopShortcut() {

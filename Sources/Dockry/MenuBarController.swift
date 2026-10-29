@@ -27,6 +27,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     func popUpProfileMenu() {
         let menu = NSMenu()
         profileItems().forEach(menu.addItem)
+        let active = app.store.active.name
+        menu.addItem(.separator())
+        menu.addItem(ActionMenuItem("Edit “\(active)” Profile…") { SettingsWindow.show(profile: active) })
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 
@@ -65,14 +68,31 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private func profileItems() -> [NSMenuItem] {
         let app = self.app
-        return app.store.library.profiles.enumerated().map { index, profile in
-            let item = ActionMenuItem(profile.name, key: index < 9 ? String(index + 1) : "") {
+        let playing = app.profileApps.playingProfiles
+        return app.store.library.profiles.map { profile in
+            // Shows the profile's global shortcut, if it has one with a plain key.
+            let key = profile.shortcut?.key.flatMap { $0.count == 1 ? $0.lowercased() : nil } ?? ""
+            let item = ActionMenuItem(profile.name, key: key) {
                 app.activateProfile(named: profile.name)
             }
-            // Shows the global ⌃⌥N hot key next to the profile.
-            item.keyEquivalentModifierMask = [.control, .option]
+            item.keyEquivalentModifierMask = NSEvent.ModifierFlags(rawValue: UInt(profile.shortcut?.modifiers ?? 0))
             item.image = NSImage(systemSymbolName: profile.symbol, accessibilityDescription: nil)
             item.state = profile.name == app.store.active.name ? .on : .off
+            // Badges after the name: fresh apps, and playing sound.
+            let badges = [
+                profile.freshApps ? (FreshAppsBadge.symbol, "Fresh apps") : nil,
+                playing.contains(profile.name) ? ("speaker.wave.2.fill", "Playing sound") : nil,
+            ].compactMap { $0 }
+            if !badges.isEmpty {
+                let title = NSMutableAttributedString(string: profile.name)
+                for (symbol, description) in badges {
+                    let badge = NSTextAttachment()
+                    badge.image = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
+                    title.append(NSAttributedString(string: "  "))
+                    title.append(NSAttributedString(attachment: badge))
+                }
+                item.attributedTitle = title
+            }
             return item
         }
     }

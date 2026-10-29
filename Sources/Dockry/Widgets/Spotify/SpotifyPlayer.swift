@@ -49,6 +49,12 @@ final class SpotifyPlayer: ObservableObject {
         send("play track \"\(uri.replacingOccurrences(of: "\"", with: ""))\"")
     }
 
+    /// Brings the Spotify app forward, the one thing here that does.
+    func openApp() {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleID) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+    }
+
     func seek(to seconds: Double) {
         playback?.position = seconds
         send("set player position to \(Int(seconds))")
@@ -117,7 +123,7 @@ final class SpotifyPlayer: ObservableObject {
             return
         }
         let isSameSong = newTrack.title == track?.title && newTrack.artist == track?.artist
-        newTrack.artworkURL = isSameSong ? track?.artworkURL : nil
+        newTrack.artworkURL = isSameSong ? track?.artworkURL : ScreenshotHook.spotifyArtwork
         track = newTrack
         // The notification has no artwork; ask Spotify for it.
         if newTrack.artworkURL == nil && isSpotifyRunning {
@@ -132,8 +138,36 @@ final class SpotifyPlayer: ObservableObject {
         }
     }
 
+    /// Spotify plays from the background: AppleScript would open a stopped Spotify in front,
+    /// so it's started hidden first, and if it still comes forward (playing a song can do
+    /// that), it's hidden again. "Open Spotify" in the player is how to see it.
     private func send(_ command: String) {
-        Task { _ = await AppleScript.run("tell application id \"\(Self.bundleID)\" to \(command)") }
+        Task {
+            let wasRunning = isSpotifyRunning
+            // Unless the user is in Spotify already.
+            let wasInFront = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Self.bundleID
+            if !wasRunning {
+                await launchHidden()
+            }
+            _ = await AppleScript.run("tell application id \"\(Self.bundleID)\" to \(command)")
+            for _ in 0..<(wasInFront ? 0 : wasRunning ? 2 : 10) {
+                try? await Task.sleep(for: .milliseconds(300))
+                if let spotify = NSWorkspace.shared.frontmostApplication, spotify.bundleIdentifier == Self.bundleID {
+                    spotify.hide()
+                    break
+                }
+            }
+        }
+    }
+
+    private func launchHidden() async {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleID) else { return }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        configuration.hides = true
+        _ = try? await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+        // Its AppleScript isn't ready the moment it launches.
+        try? await Task.sleep(for: .seconds(2))
     }
 }
 

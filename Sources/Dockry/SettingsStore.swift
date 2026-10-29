@@ -26,6 +26,42 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(hidesSystemDock, forKey: Key.hidesSystemDock) }
     }
 
+    /// Keep other apps' windows out of the dock's space, like the macOS Dock.
+    @Published var keepsWindowsClear: Bool {
+        didSet { defaults.set(keepsWindowsClear, forKey: Key.keepsWindowsClear) }
+    }
+
+    /// Give each profile its own open apps, hiding the other profiles' (see ProfileApps).
+    @Published var separatesProfileApps: Bool {
+        didSet { defaults.set(separatesProfileApps, forKey: Key.separatesProfileApps) }
+    }
+
+    /// With separate apps per profile, clicking an app in the dock that's open in another
+    /// profile opens a window of its own here (⌘N) instead of moving the app over, and each
+    /// window stays in its profile.
+    @Published var opensNewAppInstances: Bool {
+        didSet { defaults.set(opensNewAppInstances, forKey: Key.opensNewAppInstances) }
+    }
+
+    /// Fade a profile's wallpaper in when switching to it (see Wallpapers); off, it changes
+    /// as soon as macOS shows it, and no pictures are decoded ahead of time.
+    @Published var fadesWallpapers: Bool {
+        didSet { defaults.set(fadesWallpapers, forKey: Key.fadesWallpapers) }
+    }
+
+    /// How the wallpaper comes in, and how long it takes (0.1 to 1 second).
+    @Published var wallpaperTransition: WallpaperTransition {
+        didSet { defaults.set(wallpaperTransition.rawValue, forKey: Key.wallpaperTransition) }
+    }
+    @Published var wallpaperTransitionDuration: Double {
+        didSet { defaults.set(wallpaperTransitionDuration, forKey: Key.wallpaperTransitionDuration) }
+    }
+
+    /// Opens the profile switcher; none unless the user sets one.
+    @Published var profileSwitcherShortcut: KeyShortcut? {
+        didSet { defaults.set(profileSwitcherShortcut.flatMap { try? JSONEncoder().encode($0) }, forKey: Key.profileSwitcherShortcut) }
+    }
+
     /// What the dock uses right now.
     var dock: DockSettings { syncsWithMacDock ? macDock : own }
 
@@ -36,6 +72,13 @@ final class SettingsStore: ObservableObject {
         static let syncsWithMacDock = "syncsWithMacDock"
         static let showsUnpinnedApps = "showsUnpinnedApps"
         static let hidesSystemDock = "hideSystemDock"
+        static let keepsWindowsClear = "keepsWindowsClear"
+        static let separatesProfileApps = "separatesProfileApps"
+        static let opensNewAppInstances = "opensNewAppInstances"
+        static let fadesWallpapers = "fadesWallpapers"
+        static let wallpaperTransition = "wallpaperTransition"
+        static let wallpaperTransitionDuration = "wallpaperTransitionDuration"
+        static let profileSwitcherShortcut = "profileSwitcherShortcut"
         static let position = "position"
         static let iconSize = "iconSize"
         static let magnifies = "magnifies"
@@ -59,6 +102,14 @@ final class SettingsStore: ObservableObject {
         syncsWithMacDock = defaults.bool(forKey: Key.syncsWithMacDock)
         showsUnpinnedApps = defaults.object(forKey: Key.showsUnpinnedApps) as? Bool ?? true
         hidesSystemDock = defaults.bool(forKey: Key.hidesSystemDock)
+        keepsWindowsClear = defaults.object(forKey: Key.keepsWindowsClear) as? Bool ?? true
+        separatesProfileApps = defaults.bool(forKey: Key.separatesProfileApps)
+        opensNewAppInstances = defaults.bool(forKey: Key.opensNewAppInstances)
+        fadesWallpapers = defaults.object(forKey: Key.fadesWallpapers) as? Bool ?? true
+        wallpaperTransition = defaults.string(forKey: Key.wallpaperTransition).flatMap(WallpaperTransition.init) ?? .fade
+        wallpaperTransitionDuration = (defaults.object(forKey: Key.wallpaperTransitionDuration) as? Double ?? 0.3).clamped(to: 0.1...1)
+        profileSwitcherShortcut = defaults.data(forKey: Key.profileSwitcherShortcut)
+            .flatMap { try? JSONDecoder().decode(KeyShortcut.self, from: $0) }
         macDock = Self.readMacDock()
         updateMacDockWatch()
     }

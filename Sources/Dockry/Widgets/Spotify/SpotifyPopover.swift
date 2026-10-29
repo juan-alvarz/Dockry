@@ -30,6 +30,10 @@ struct SpotifyPopover: View {
                 Divider()
                 search
             }
+            Button("Open Spotify") { player.openApp() }
+                .buttonStyle(.link)
+                .font(.caption)
+                .frame(maxWidth: .infinity)
         }
         .padding(16)
         .frame(width: 320)
@@ -123,7 +127,7 @@ struct SpotifyPopover: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
-                    Button("Open Settings…") { SettingsWindow.show(tab: .spotify) }
+                    Button("Open Settings…") { SettingsWindow.show(widget: .spotify) }
                     if !query.isEmpty, let url = Self.spotifySearchURL(query) {
                         Button("Search in Spotify") { NSWorkspace.shared.open(url) }
                     }
