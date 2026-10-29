@@ -170,8 +170,14 @@ GitHub Actions only run when started by hand from the Actions tab, on the branch
 
 - **Build & Screenshots** builds, runs the tests, takes the screenshots above and checks Fast
   User Switching.
-- **Release**, given a version such as `0.0.7`, tests and builds a universal Dockry.app, tags
-  the commit `Dockry-0.0.7` and publishes it as a disk image and a zip.
+- **Release** publishes the version on top of [CHANGELOG.md](CHANGELOG.md),
+  such as `0.1.0`: it tests and builds a universal Dockry.app, tags the commit `Dockry-0.1.0`
+  and publishes it as a disk image and a zip, with that version's notes. It fails if that
+  version is already released.
+
+To release a new version, add a `## <version>` heading with its changes on top of
+`CHANGELOG.md`, merge it to `main` and run **Release** on `main`. That heading is also the
+version the app shows, in every build.
 
 ## Setup
 
@@ -286,4 +292,5 @@ turn off Edit › Substitutions › Smart Quotes first: curly quotes aren't vali
 | `Sources/Dockry/Widgets` | One folder per widget. Each describes itself with a `WidgetInfo` (name, icon, what it does, what it needs; in `DockryCore`) and provides its dock view and, optionally, its settings as a `DockWidget`. |
 | `App` | Bundle metadata and the app icon, used by `scripts/bundle.sh` (see `App/README.md`). |
 | `.github/workflows/screenshots.yml` | Builds, tests and takes the screenshots on a macOS runner, when started by hand. |
+| `CHANGELOG.md` | What changed in each version. Its top version is Dockry's version. |
 | `.github/workflows/release.yml` | Builds a universal Dockry.app and publishes it, as a disk image and a zip, as a GitHub release, when started by hand. |
