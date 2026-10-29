@@ -1,50 +1,29 @@
 name: Release
 
-# Publishes the version on top of CHANGELOG.md as a GitHub release, Dockry-<version>, with
-# Dockry.app for Apple silicon and Intel Macs as a disk image and a zip, and that version's notes.
-# Runs when CHANGELOG.md changes on main, and does nothing if that version is already released.
-# Started by hand from the Actions tab, it releases the chosen branch's version, or, if that
-# version is already released, rebuilds its tagged commit and replaces its downloads.
+# Started by hand from the Actions tab: publishes the version on top of the chosen branch's
+# CHANGELOG.md as a GitHub release, Dockry-<version>, with Dockry.app for Apple silicon and Intel
+# Macs as a disk image and a zip, and that version's notes. A version is released only once:
+# if Dockry-<version> is already tagged, it fails, so add a new version to CHANGELOG.md first.
 on:
-  push:
-    branches: [main]
-    paths: [CHANGELOG.md]
   workflow_dispatch:
 
 permissions:
   contents: write  # to create the tag and the release
 
 jobs:
-  # On Linux, so a push that adds no new version (a fixed typo, say) doesn't wait for a Mac.
-  version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.read.outputs.version }}
-      released: ${{ steps.read.outputs.released }}
+  release:
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - id: read
+
+      - name: Read the version from CHANGELOG.md
         run: |
           version=$(scripts/version.sh)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
           if git ls-remote --exit-code --tags origin "refs/tags/Dockry-$version"; then
-            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "::error::Dockry-$version is already released. Add a new version on top of CHANGELOG.md."
+            exit 1
           fi
-
-  release:
-    needs: version
-    if: github.event_name != 'push' || needs.version.outputs.released != 'true'
-    runs-on: macos-15
-    env:
-      VERSION: ${{ needs.version.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check out the tagged commit of an existing release
-        if: needs.version.outputs.released == 'true'
-        run: |
-          git fetch --depth 1 origin tag "Dockry-$VERSION"
-          git checkout "Dockry-$VERSION"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Test
         run: swift test
@@ -81,9 +60,4 @@ jobs:
           Download **$tag.dmg** below, open it and drag Dockry to Applications. It runs on macOS 14 or later, on Apple silicon and Intel. ($tag.zip has the same app.)
 
           Dockry isn't notarized by Apple, so the first time macOS refuses to open it. See [Installing](https://github.com/$GITHUB_REPOSITORY#installing) for how to allow it and for the permissions it asks for."
-          if gh release view "$tag" > /dev/null 2>&1; then
-            gh release upload "$tag" "${files[@]}" --clobber
-            gh release edit "$tag" --notes "$notes"
-          else
-            gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --title "Dockry $VERSION" --notes "$notes"
-          fi
+          gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --title "Dockry $VERSION" --notes "$notes"
