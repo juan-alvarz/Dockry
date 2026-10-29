@@ -3,9 +3,8 @@ import Combine
 import CoreAudio
 import DockryCore
 
-/// Gives each profile its own open apps, like the workspaces of Linux desktops: an app
-/// belongs to the profile that was active when it opened, and switching profiles hides the
-/// other profiles' apps and shows the new one's. Finder is in every profile.
+/// Gives each profile its own open apps, like the workspaces of Linux desktops. Finder is in
+/// every profile.
 ///
 /// Profiles with fresh apps (Profile.freshApps) always keep theirs apart, even with the
 /// setting off: their own copies never show in another profile nor others' in them, and
@@ -13,12 +12,15 @@ import DockryCore
 @MainActor
 final class ProfileApps: ObservableObject {
     enum Mode {
-        /// Each app is in one profile. Bringing one forward from another profile (the dock,
+        /// Each app is in one profile: the one active when it opened. Switching hides the
+        /// other profiles' apps, and bringing one forward from another profile (the dock,
         /// ⌘Tab, a link) moves it to the profile you're in.
         case apps
-        /// Each window is in one profile (ProfileWindows), so an app can be in several.
-        /// Clicking an app in the dock opens a window of its own in the profile (⌘N), and
-        /// bringing forward an app whose windows are all elsewhere switches to their profile.
+        /// Each window is in one profile (ProfileWindows): the one active when it opened.
+        /// Switching parks the other profiles' windows off screen; nothing is hidden. An app
+        /// is in the profiles it has windows in, and clicking it in the dock where it has
+        /// none opens a new window of it there (its New Window, ⌘N). Bringing forward an app
+        /// whose windows are all in other profiles switches to theirs.
         case windows
     }
 
@@ -26,19 +28,17 @@ final class ProfileApps: ObservableObject {
     @Published private(set) var owners: [pid_t: String] = [:]
     /// The open apps playing sound right now, while keeping apps apart.
     @Published private(set) var playingPIDs: Set<pid_t> = []
+    /// Bumped when windows change profile or open, for the dock to follow.
+    @Published private(set) var windowChanges = 0
 
     var isEnabled = false {
         didSet {
             guard isEnabled != oldValue else { return }
-            if isEnabled {
-                show(store.active.name)
-            } else {
+            if !isEnabled {
                 windows.unparkAll()
-                // Nothing stays hidden once apps are shared again.
-                for app in NSWorkspace.shared.runningApplications where app.isHidden && owners[app.processIdentifier] != nil {
-                    app.unhide()
-                }
+                unhideAll()
             }
+            show(store.active.name)
             updateAudioWatch()
         }
     }
@@ -46,25 +46,24 @@ final class ProfileApps: ObservableObject {
     var mode = Mode.apps {
         didSet {
             guard mode != oldValue else { return }
-            if oldValue == .windows {
+            // Window mode hides nothing, and app mode parks nothing.
+            if mode == .windows {
+                unhideAll()
+            } else {
                 windows.unparkAll()
             }
             show(store.active.name)
         }
     }
-    /// Bumped when windows change profile, for the dock to follow.
-    @Published private(set) var windowChanges = 0
     /// Switches to a profile, as the user would.
     var switchToProfile: ((String) -> Void)?
 
     private let store: ProfileStore
     private let windows = ProfileWindows()
-    /// Apps hidden because they're on the other side of a fresh profile, to show again
-    /// while keeping apps apart is off.
-    private var hiddenForFresh: Set<pid_t> = []
-    /// Apps that were just asked for a window of their own, which brings them forward
-    /// before the window exists.
+    /// Apps just asked for a window of their own, which come forward before it's there.
     private var openingWindow: [pid_t: Date] = [:]
+    /// The apps Dockry hid, and only those, to show again: not ones the user hid.
+    private var hiddenByDockry: Set<pid_t> = []
     private var subscriptions: Set<AnyCancellable> = []
     /// Switching hides and shows apps, and macOS activates whichever comes forward; for a
     /// moment those activations aren't the user moving an app here.
@@ -97,7 +96,7 @@ final class ProfileApps: ObservableObject {
         apps(NSWorkspace.didTerminateApplicationNotification)
             .sink { [weak self] app in
                 self?.owners[app.processIdentifier] = nil
-                self?.windows.forget(app.processIdentifier)
+                self?.hiddenByDockry.remove(app.processIdentifier)
                 self?.save()
             }
             .store(in: &subscriptions)
@@ -107,23 +106,10 @@ final class ProfileApps: ObservableObject {
                 let active = store.active.name
                 if owner != active && (isFresh(owner) || isFresh(active)) {
                     switchToProfile?(owner)
-                    return
-                }
-                guard isEnabled else { return }
-                switch mode {
-                case .apps where owner != active:
+                } else if isEnabled && mode == .apps && owner != active {
                     assign(app, to: active)
-                case .windows:
-                    if let asked = openingWindow[app.processIdentifier], Date().timeIntervalSince(asked) < 3 { return }
-                    let profiles = windows.profiles(of: app)
-                    if profiles.contains(active) {
-                        windows.park(app, except: active, newWindowsProfile: owner)
-                        windows.raise(app, in: active)
-                    } else if let other = profiles.sorted().first {
-                        switchToProfile?(other)
-                    }
-                default:
-                    break
+                } else if isEnabled && mode == .windows {
+                    windowsActivated(app)
                 }
             }
             .store(in: &subscriptions)
@@ -132,17 +118,9 @@ final class ProfileApps: ObservableObject {
             var pid: pid_t = 0
             AXUIElementGetPid(window, &pid)
             guard let app = NSRunningApplication(processIdentifier: pid), let owner = owner(of: app) else { return }
-            let active = store.active.name
-            // A fresh profile's copy never has windows elsewhere, nor another's in it.
-            let profile = isFresh(owner) || isFresh(active) ? owner : active
-            windows.adopt(window, into: profile)
-            // An app that opened a window by itself (a link, say) shows the others' too.
-            if profile == active {
-                windows.park(app, except: active, newWindowsProfile: owner)
-            }
+            windows.adopt(window, pid: pid, into: newWindowProfile(owner: owner))
             windowChanges += 1
         }
-        ProfileWindows.rescueParkedWindows()
         // A renamed or removed profile's apps go to the active profile.
         store.$library
             .receive(on: RunLoop.main)
@@ -156,18 +134,19 @@ final class ProfileApps: ObservableObject {
             .store(in: &subscriptions)
     }
 
-    /// Whether the dock shows the app in the active profile: with windows per profile, when
-    /// it has windows there (or, without any, when it opened there).
+    /// Whether the dock shows the app in the active profile. In window mode, when it has a
+    /// window on this desktop or minimized; an app with no windows at all goes by the
+    /// profile it opened in.
     func isShown(_ app: NSRunningApplication) -> Bool {
         guard let owner = owner(of: app) else { return true }
         let active = store.active.name
         if isFresh(owner) || isFresh(active) { return owner == active }
         guard isEnabled else { return true }
         if mode == .windows {
-            let profiles = windows.profiles(of: app)
-            if !profiles.isEmpty { return profiles.contains(store.active.name) }
+            let profiles = windows.profiles(of: app.processIdentifier)
+            if !profiles.isEmpty { return profiles.contains(active) }
         }
-        return owner == store.active.name
+        return owner == active
     }
 
     /// Whether the app is a fresh profile's own copy.
@@ -179,29 +158,53 @@ final class ProfileApps: ObservableObject {
         store.library.profiles.first { $0.name == profile }?.freshApps == true
     }
 
-    /// Opens a window of the app's own in the active profile, as ⌘N would, with its windows
-    /// in other profiles parked first. An app without a New Window item has its windows
-    /// moved here instead.
-    func openWindow(_ app: NSRunningApplication) {
+    /// A new window goes to the active profile, unless a fresh profile is involved: its
+    /// copies' windows are always its own, and others' never are.
+    private func newWindowProfile(owner: String) -> String {
         let active = store.active.name
-        openingWindow[app.processIdentifier] = Date()
-        if let item = AppWindows.newWindowItem(in: app) {
-            windows.park(app, except: active, newWindowsProfile: owner(of: app) ?? active)
-            app.unhide()
-            app.activate()
-            // Once it's in front, so the window opens in front.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                AXUIElementPerformAction(item, kAXPressAction as CFString)
-            }
-        } else {
-            windows.move(app, to: active)
+        return isFresh(owner) || isFresh(active) ? owner : active
+    }
+
+    /// Opens a new window of the app in the active profile, as its New Window (⌘N) would,
+    /// for an app whose windows are all in other profiles. It comes forward once the window
+    /// is open, so the other profiles' parked windows don't come along. An app without a New
+    /// Window item has its windows moved here instead.
+    func openWindow(_ app: NSRunningApplication) {
+        let pid = app.processIdentifier
+        openingWindow[pid] = Date()
+        guard let item = AppWindows.newWindowItem(in: app) else {
+            windows.move(pid, to: store.active.name)
             windowChanges += 1
-            app.unhide()
             app.activate()
+            return
+        }
+        AXUIElementPerformAction(item, kAXPressAction as CFString)
+        let active = store.active.name
+        Task { [weak self] in
+            for _ in 0..<20 where self?.windows.profiles(of: pid).contains(active) != true {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            app.activate()
+            self?.windows.raise(pid, in: active)
         }
     }
 
-    /// Puts parked windows back before Dockry quits.
+    /// An app came forward (⌘Tab, a click on one of its windows, a link): with windows in
+    /// this profile, one of those comes forward; with all of them elsewhere, Dockry switches
+    /// to their profile.
+    private func windowsActivated(_ app: NSRunningApplication) {
+        let pid = app.processIdentifier
+        if let asked = openingWindow[pid], Date().timeIntervalSince(asked) < 3 { return }
+        let active = store.active.name
+        let profiles = windows.profiles(of: pid)
+        if profiles.contains(active) {
+            windows.raise(pid, in: active)
+        } else if let other = profiles.sorted().first {
+            switchToProfile?(other)
+        }
+    }
+
+    /// Puts parked windows back before Dockry quits; the next launch parks them again.
     func restoreWindows() {
         windows.unparkAll()
     }
@@ -220,30 +223,41 @@ final class ProfileApps: ObservableObject {
     func show(_ profile: String) {
         switchedAt = Date()
         let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && $0 != .current }
-        guard isEnabled else {
-            // Only fresh profiles' apps are kept apart.
-            for app in apps where isShown(app) && hiddenForFresh.remove(app.processIdentifier) != nil {
+        guard isEnabled && mode == .apps else {
+            // Fresh profiles' apps are hidden from the others' and theirs from them.
+            let apart = apps.filter { isFreshCopy($0) != isFresh(profile) }
+            for app in apps where !apart.contains(app) && hiddenByDockry.remove(app.processIdentifier) != nil {
                 app.unhide()
             }
-            for app in apps where !isShown(app) && !app.isHidden {
+            for app in apart where !app.isHidden {
                 app.hide()
-                hiddenForFresh.insert(app.processIdentifier)
+                hiddenByDockry.insert(app.processIdentifier)
             }
-            windowChanges += 1
-            return
-        }
-        if mode == .windows {
-            windows.show(profile, apps: apps, owner: owner(of:))
-            windowChanges += 1
+            // The rest share windows, or park those of other profiles.
+            if isEnabled {
+                let shared = apps.filter { !apart.contains($0) && owner(of: $0) != nil }
+                windows.scan(shared) { [self] in owner(of: $0) }
+                windows.show(profile, apps: shared)
+                windowChanges += 1
+            }
             return
         }
         // Showing first, so macOS has the new profile's apps to bring forward as the others hide.
-        for app in apps where owner(of: app) == profile && app.isHidden {
+        for app in apps where isShown(app) && hiddenByDockry.remove(app.processIdentifier) != nil {
             app.unhide()
         }
         for app in apps where !isShown(app) && !app.isHidden {
             app.hide()
+            hiddenByDockry.insert(app.processIdentifier)
         }
+    }
+
+    /// Shows the apps Dockry hid. Not by whether they're hidden now: hiding takes a moment.
+    private func unhideAll() {
+        for pid in hiddenByDockry {
+            NSRunningApplication(processIdentifier: pid)?.unhide()
+        }
+        hiddenByDockry = []
     }
 
     private func assign(_ app: NSRunningApplication, to profile: String) {

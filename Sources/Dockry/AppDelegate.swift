@@ -31,11 +31,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 actions: actions)
         }
 
-        settings.$separatesProfileApps
-            .sink { profileApps.isEnabled = $0 }
-            .store(in: &subscriptions)
+        // The mode first, so turning the feature on at launch doesn't hide apps in the other mode.
         settings.$opensNewAppInstances
             .sink { profileApps.mode = $0 ? .windows : .apps }
+            .store(in: &subscriptions)
+        settings.$separatesProfileApps
+            .sink { profileApps.isEnabled = $0 }
             .store(in: &subscriptions)
         settings.$wallpaperTransition.sink { Wallpapers.transition = $0 }.store(in: &subscriptions)
         settings.$wallpaperTransitionDuration.sink { Wallpapers.duration = $0 }.store(in: &subscriptions)
@@ -92,12 +93,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Spotify's sign-in comes back as a dockry:// URL, and dockry://profile/Work switches
-    /// to the Work profile (for Shortcuts and scripts).
+    /// Spotify's sign-in comes back as a dockry:// URL. For Shortcuts and scripts,
+    /// dockry://profile/Work switches to the Work profile, and dockry://open/com.apple.Safari
+    /// opens Safari as clicking it in the dock would.
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             if url.host == "profile", let name = url.pathComponents.dropFirst().first {
                 activateProfile(named: name)
+            } else if url.host == "open", let bundleID = url.pathComponents.dropFirst().first,
+                      let app = AppCatalog.app(bundleID: bundleID, running: runningApps.app(withBundleID: bundleID)) {
+                let (here, instances) = AppOpening.instances(of: bundleID, runningApps: runningApps, profileApps: profileApps)
+                AppOpening.choose(
+                    url: app.url, bundleID: bundleID, here: here, instances: instances,
+                    profileApps: profileApps, settings: settings, profile: store.active
+                ).perform(profileApps)
             } else {
                 SpotifyAccount.shared.handleCallback(url)
             }
