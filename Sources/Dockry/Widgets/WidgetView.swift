@@ -23,6 +23,7 @@ struct DockWidget {
         case .spotify: SpotifyWidget.widget
         case .users: UsersWidget.widget
         case .claude: ClaudeUsageWidget.widget
+        case .weather: WeatherWidget.widget
         }
     }
 }

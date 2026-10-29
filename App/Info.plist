@@ -33,6 +33,11 @@
 	<!-- Shown when macOS asks to let Dockry control another app: Spotify (album art and playback), or an app being quit from the dock. -->
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Dockry shows what Spotify is playing and controls it, and quits the apps you choose Quit for in the dock.</string>
+	<!-- Shown when macOS asks for the location, for the weather widget. -->
+	<key>NSLocationUsageDescription</key>
+	<string>Dockry shows the weather where you are. It only needs your town.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Dockry shows the weather where you are. It only needs your town.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>
