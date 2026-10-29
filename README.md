@@ -58,12 +58,38 @@ to show the widget with a track.
   animations and follows changes to them. Also **Hide macOS Dock** and **Open at login**.
 - **Profiles** such as *Work* and *Chill*. Each has its own pinned apps, widgets and desktop.
   Activating a profile swaps the dock's contents and jumps to its desktop. **Edit Profiles…**
-  opens an editor for all of this, including the color of the profile's button in the dock.
+  opens an editor for all of this, including the color of the profile's button in the dock,
+  a wallpaper per profile (profiles without one keep yours; it fades in as you switch,
+  unless you turn that off in **Settings › General › Profiles**, where you can also pick
+  Fade, Blur or Zoom and how long it takes), and opening the profile's apps
+  when switching to it. The duplicate button next to + and − clones a profile.
+- **Each profile's own open apps** (**Settings › General › Profiles**), like desktops on
+  Linux: an app belongs to the profile that was active when it opened, and switching hides
+  the other profiles' apps. Bringing an app forward moves it to the profile you're in, or
+  with **Open a new app instance**, windows are per profile, like desktops on a Mac:
+  clicking an app with windows in another profile opens a new window of it (⌘N), and
+  switching shows only the profile's windows.
+- **Fresh profiles** (marked with a white circle, or a symbol you pick in **Settings ›
+  General › Profiles**): when you create a profile, choose **Fresh apps** for one that
+  starts apps from scratch, like a new Mac. It runs its own copies of apps, and browsers and
+  Electron apps (Zen, Chrome, Slack…) keep their own sign-ins, history and tabs. Its apps
+  never show in other profiles, nor theirs in it. The choice can't be changed later.
+  `open dockry://profile/Work` switches to Work from Shortcuts or a script. A
+  speaker on the profile button, in the switcher and in the menu shows which profile is
+  playing sound.
+- **Folders:** drag one from Finder onto the dock, or right-click the dock and choose
+  **Add Folder…**. Apps dragged from Finder are pinned where you drop them. Like the macOS Dock's stacks,
+  clicking one shows what's inside, newest first; folders open in place.
+- **Minimized windows:** a yellow dot next to an app's dot means it has windows in the Dock.
+  Hover over the app to list its windows and click one to bring it back. Needs Accessibility
+  access, like keeping windows out of the dock's space, which also leaves a small gap above
+  the dock.
 - **Widgets:** clock (click for the Clock app), date (click for a month calendar), Spotify,
   users, and Claude usage (how much of your plan's 5-hour and weekly limits you've used, as
   `/usage` shows in Claude Code; click for each limit and when it resets). Clicking the
   Spotify song opens a player: progress you can drag, volume, shuffle and repeat, and search
-  that plays songs without bringing Spotify to the front. Widgets scale with the dock, and on
+  that plays songs without bringing Spotify to the front (**Open Spotify** at the bottom of
+  the player does). Widgets scale with the dock, and on
   a side dock they turn into compact tiles. **Settings › Widgets** lists every widget with
   what it does and what it needs, the profiles it's in, and its own settings.
 - **Fast User Switching:** the users widget shows the Mac's other accounts. Click one to
@@ -236,12 +262,16 @@ then **Reload from File**. Only `name` is required:
 - `symbol` is an [SF Symbol](https://developer.apple.com/sf-symbols/) name.
 - `items` is the dock after the profile button, in order. An app is its bundle identifier;
   to find one, run `osascript -e 'id of app "Safari"'`. A widget is `widget:` and one of
-  `clock`, `date`, `spotify`, `users` and `claude`. `divider` is a divider line, and
+  `clock`, `date`, `spotify`, `users` and `claude`. A folder is `folder:` and its path.
+  `divider` is a divider line, and
   `running-apps` is where open apps that aren't in the profile go (added after the last app
   if you leave it out). Files from older versions, with `pinnedApps` and `widgets` instead,
   still work.
 - `desktop` can be 1 to 9. Leave it out to stay on the current desktop.
 - `color` is the profile button's color, like `"#3563E9"`. Leave it out for a plain button.
+- `wallpaper` is the path of a picture to show while the profile is active.
+- `opensAppsOnSwitch` is `true` to open the profile's pinned apps when switching to it.
+- `freshApps` is `true` for a profile whose apps start from scratch, with their own data.
 
 If the file can't be read, the menu says so and Dockry uses the default profiles without
 saving over your file. Fix it and choose **Reload Profiles**. If you edit it in TextEdit,

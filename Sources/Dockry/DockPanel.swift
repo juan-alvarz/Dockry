@@ -8,7 +8,7 @@ import SwiftUI
 /// the app you're using. Spanning the whole edge lets SwiftUI size and center the dock
 /// itself; clicks on the strip's transparent parts go through to the windows below.
 final class DockPanel: NSPanel {
-    init<Content: View>(content: Content) {
+    init<Content: View>(content: Content, pointer: DockPointer) {
         super.init(
             contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false)
@@ -19,6 +19,8 @@ final class DockPanel: NSPanel {
         hasShadow = false  // the SwiftUI content draws its own
         hidesOnDeactivate = false
         let hostingView = DockHostingView(rootView: content)
+        hostingView.pointer = pointer
+        hostingView.registerForDraggedTypes([.fileURL])
         hostingView.sizingOptions = []  // the panel has a fixed size; see place(on:)
         contentView = hostingView
     }
@@ -51,9 +53,52 @@ final class DockPanel: NSPanel {
 }
 
 private final class DockHostingView<Content: View>: NSHostingView<Content> {
+    weak var pointer: DockPointer?
+
     /// Dockry is never the active app, so without this the first click on an icon would only
     /// focus the panel instead of opening the app.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    // Folders and apps dragged from Finder, handled here rather than with SwiftUI's onDrop,
+    // which never saw drags over this non-activating panel. DockPointer follows the drag so
+    // the dock opens a gap where the item will go, and DockView adds it there.
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        draggingUpdated(sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard let pointer, !DockDrop.items(from: sender.draggingPasteboard).isEmpty else { return [] }
+        // The hosting view is flipped, like SwiftUI's coordinates.
+        return pointer.dropMoved(to: convert(sender.draggingLocation, from: nil)) ? .copy : []
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        pointer?.dropMoved(to: nil)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        defer { pointer?.dropMoved(to: nil) }
+        let items = DockDrop.items(from: sender.draggingPasteboard)
+        guard !items.isEmpty, let drop = pointer?.performDrop else { return false }
+        drop(items)
+        return true
+    }
+}
+
+/// What dropping files on the dock adds: folders, and apps, which get pinned. Other files
+/// aren't taken, as in the macOS Dock's app side.
+enum DockDrop {
+    static func items(from pasteboard: NSPasteboard) -> [DockItem] {
+        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        return urls.compactMap { url in
+            if url.pathExtension == "app" {
+                return Bundle(url: url)?.bundleIdentifier.map(DockItem.app)
+            }
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
+            return values?.isDirectory == true && values?.isPackage != true ? .folder(url.path) : nil
+        }
+    }
 }
 
 /// One dock per screen that should have one (see DockPlacement), kept up to date as screens
@@ -130,8 +175,9 @@ final class DockController {
             keeper.reservations = []
             return
         }
-        // The dock itself and its gap from the screen edge; magnified icons may still go over windows.
-        let thickness = metrics.thickness + DockMetrics.margin
+        // The dock itself, its gap from the screen edge and as much again above it, so windows
+        // don't touch it; magnified icons may still go over windows.
+        let thickness = metrics.thickness + 2 * DockMetrics.margin
         keeper.reservations = screens.map { screen in
             let area = DockPanel.area(on: screen, coversSystemDock: coversSystemDock)
             let allowed = WindowFit.allowedArea(visible: screen.visibleFrame, dockArea: area, position: dock.position, thickness: thickness)
@@ -146,7 +192,7 @@ final class DockController {
 
     private func makePanel() -> (panel: DockPanel, pointer: DockPointer) {
         let pointer = DockPointer()
-        let panel = DockPanel(content: makeDock(pointer))
+        let panel = DockPanel(content: makeDock(pointer), pointer: pointer)
         pointer.window = panel
         return (panel, pointer)
     }

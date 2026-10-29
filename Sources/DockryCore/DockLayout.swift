@@ -11,6 +11,7 @@ public struct DockElement: Equatable, Identifiable {
     public enum Content: Equatable {
         case app(DockEntry)
         case widget(WidgetKind)
+        case folder(String)
         case divider
     }
 
@@ -23,6 +24,7 @@ public struct DockElement: Equatable, Identifiable {
         switch content {
         case .app(let entry): entry.bundleID
         case .widget(let kind): "widget:\(kind.rawValue)"
+        case .folder(let path): "folder:\(path)"
         case .divider: "divider:\(itemIndex)"
         }
     }
@@ -53,6 +55,8 @@ public enum DockLayout {
                 break
             case .widget(let kind):
                 result.append(DockElement(content: .widget(kind), itemIndex: index))
+            case .folder(let path):
+                result.append(DockElement(content: .folder(path), itemIndex: index))
             case .runningApps where showsUnpinned:
                 var seen = pinned
                 for bundleID in running where seen.insert(bundleID).inserted && isShown(bundleID) {
@@ -117,6 +121,21 @@ public enum DockLayout {
         if let removed, removed < anchor { anchor -= 1 }
         result.insert(moving, at: to < from ? anchor : anchor + 1)
         return result
+    }
+
+    /// Which element a drop at `position` along the dock goes in front of (`centers.count` for
+    /// after the last): the first whose center is past it.
+    public static func dropGap(at position: Double, centers: [Double]) -> Int {
+        centers.firstIndex { $0 > position } ?? centers.count
+    }
+
+    /// Where something put in front of element `gap` goes in the profile's items: before that
+    /// element's item, or after the last element's.
+    public static func itemIndex(insertingAt gap: Int, elements: [DockElement], itemCount: Int) -> Int {
+        if elements.indices.contains(gap) {
+            return elements[gap].itemIndex
+        }
+        return elements.last.map { $0.itemIndex + 1 } ?? itemCount
     }
 
     private static func centers(_ lengths: [Double], spacing: Double) -> [Double] {

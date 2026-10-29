@@ -57,13 +57,31 @@ public struct ProfileLibrary: Codable, Equatable {
     /// Adds a profile named `name`, or "name 2", "name 3"… if that's taken, and returns the
     /// name it got.
     @discardableResult
-    public mutating func addProfile(named name: String) -> String {
+    public mutating func addProfile(named name: String, freshApps: Bool = false) -> String {
+        let unique = uniqueName(name)
+        var profile = Profile(name: unique)
+        profile.freshApps = freshApps
+        profiles.append(profile)
+        return unique
+    }
+
+    /// Adds a copy of a profile right after it, named "name Copy" (or "name Copy 2"…), and
+    /// returns the copy's name. The copy has no shortcut, which stays the original's.
+    @discardableResult
+    public mutating func duplicateProfile(named name: String) -> String? {
+        guard let index = profiles.firstIndex(where: { $0.name == name }) else { return nil }
+        var copy = profiles[index]
+        copy.name = uniqueName("\(name) Copy")
+        copy.shortcut = nil
+        profiles.insert(copy, at: index + 1)
+        return copy.name
+    }
+
+    private func uniqueName(_ name: String) -> String {
         let names = Set(profiles.map(\.name))
-        let unique = names.contains(name)
+        return names.contains(name)
             ? (2...).lazy.map { "\(name) \($0)" }.first { !names.contains($0) }!
             : name
-        profiles.append(Profile(name: unique))
-        return unique
     }
 
     /// Removes a profile, unless it's the only one. Removing the active profile activates the first.

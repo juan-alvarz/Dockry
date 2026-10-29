@@ -38,10 +38,11 @@ struct DockMetrics: Equatable {
     var thickness: CGFloat { iconSize + edgePadding + innerPadding }
 
     /// Thickness of the transparent window that holds the dock: room for magnified icons,
-    /// the name label above the hovered icon, a launching icon's bounce and the shadow.
+    /// the name label or window list by the hovered icon, a launching icon's bounce and the
+    /// shadow. Clicks on its empty parts go through to the windows below.
     var panelThickness: CGFloat {
         let tallest = iconSize * max(magnification, 1.5)  // a bounce goes half an icon high
-        let label: CGFloat = position.isVertical ? 220 : 36
+        let label: CGFloat = position.isVertical ? 270 : 260
         return (Self.margin + edgePadding + tallest + label + 12).rounded(.up)
     }
 

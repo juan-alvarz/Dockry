@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 out=${1:-docs/screenshots}
 mkdir -p "$out"
-bundle_id=io.github.juan-alvarz.Dockry
+bundle_id=com.dockry.Dockry
 
 # The Dock settings Dockry changes while it hides the system Dock.
 dock_settings() {

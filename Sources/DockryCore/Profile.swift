@@ -31,6 +31,15 @@ public struct Profile: Equatable {
     public var color: String?
     /// A global keyboard shortcut that activates the profile; none unless the user sets one.
     public var shortcut: KeyShortcut?
+    /// Whether activating the profile opens its pinned apps that aren't running yet.
+    public var opensAppsOnSwitch = false
+    /// The desktop picture to show while the profile is active, as a file path; nil keeps
+    /// the user's own.
+    public var wallpaper: String?
+    /// A profile whose apps start from scratch, like on a new Mac: it runs its own copies of
+    /// apps, and browsers and Electron apps keep their data (sign-ins, history) apart from
+    /// the other profiles'. Chosen when the profile is created.
+    public var freshApps = false
 
     public init(
         name: String, symbol: String = Profile.defaultSymbol, items: [DockItem], desktop: Int? = nil,
@@ -85,6 +94,11 @@ public struct Profile: Equatable {
         items = updated
     }
 
+    /// The folders in the dock, as paths.
+    public var folders: [String] {
+        items.compactMap { if case .folder(let path) = $0 { path } else { nil } }
+    }
+
     /// Removes the item at `index`, except the open apps' place.
     public mutating func removeItem(at index: Int) {
         guard items.indices.contains(index), items[index] != .runningApps else { return }
@@ -128,7 +142,7 @@ public struct Profile: Equatable {
 // have `pinnedApps` and `widgets` instead.
 extension Profile: Codable {
     private enum CodingKeys: String, CodingKey {
-        case name, symbol, items, pinnedApps, widgets, desktop, color, shortcut
+        case name, symbol, items, pinnedApps, widgets, desktop, color, shortcut, opensAppsOnSwitch, wallpaper, freshApps
     }
 
     public init(from decoder: Decoder) throws {
@@ -150,6 +164,9 @@ extension Profile: Codable {
         }
         // Like a bad color, a bad shortcut only drops the shortcut.
         shortcut = (try? container.decodeIfPresent(KeyShortcut.self, forKey: .shortcut)).flatMap { $0 }
+        opensAppsOnSwitch = (try? container.decodeIfPresent(Bool.self, forKey: .opensAppsOnSwitch)).flatMap { $0 } ?? false
+        wallpaper = (try? container.decodeIfPresent(String.self, forKey: .wallpaper)).flatMap { $0 }
+        freshApps = (try? container.decodeIfPresent(Bool.self, forKey: .freshApps)).flatMap { $0 } ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -160,6 +177,13 @@ extension Profile: Codable {
         try container.encodeIfPresent(desktop, forKey: .desktop)
         try container.encodeIfPresent(color, forKey: .color)
         try container.encodeIfPresent(shortcut, forKey: .shortcut)
+        if opensAppsOnSwitch {
+            try container.encode(opensAppsOnSwitch, forKey: .opensAppsOnSwitch)
+        }
+        try container.encodeIfPresent(wallpaper, forKey: .wallpaper)
+        if freshApps {
+            try container.encode(freshApps, forKey: .freshApps)
+        }
     }
 }
 
