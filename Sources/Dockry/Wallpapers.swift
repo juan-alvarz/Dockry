@@ -1,6 +1,23 @@
 import AppKit
 import DockryCore
 import ImageIO
+import QuartzCore
+
+enum WallpaperTransition: String, CaseIterable {
+    case fade
+    /// Comes into focus as it fades in.
+    case blur
+    /// Settles from slightly larger as it fades in.
+    case zoom
+
+    var title: String {
+        switch self {
+        case .fade: "Fade"
+        case .blur: "Blur"
+        case .zoom: "Zoom"
+        }
+    }
+}
 
 /// Each profile's desktop picture. A profile without one shows the user's own, which is
 /// saved before the first profile's picture replaces it.
@@ -18,6 +35,9 @@ enum Wallpapers {
     static var fadesIn = true {
         didSet { if !fadesIn { decoded = [:] } }
     }
+    static var transition = WallpaperTransition.fade
+    /// Seconds, at most 1.
+    static var duration = 0.3
 
     static func switched(from previous: Profile?, to profile: Profile) {
         guard profile.wallpaper != previous?.wallpaper || previous == nil else { return }
@@ -92,15 +112,32 @@ enum Wallpapers {
         window.alphaValue = 0
         let view = NSView()
         view.wantsLayer = true
-        view.layer?.contents = image
-        view.layer?.contentsGravity = .resizeAspectFill
+        view.layerUsesCoreImageFilters = true
+        let picture = CALayer()
+        picture.contents = image
+        picture.contentsGravity = .resizeAspectFill
+        picture.frame = CGRect(origin: .zero, size: screen.frame.size)
+        view.layer?.addSublayer(picture)
         window.contentView = view
         window.setFrame(screen.frame, display: false)
         window.orderFront(nil)
         fades.append(window)
-        NSAnimationContext.runAnimationGroup { $0.duration = 0.3; window.animator().alphaValue = 1 }
+
+        let duration = min(max(duration, 0.1), 1)
+        switch transition {
+        case .fade:
+            break
+        case .blur:
+            let blur = CIFilter(name: "CIGaussianBlur", parameters: [kCIInputRadiusKey: 0])!
+            blur.name = "blur"
+            picture.filters = [blur]
+            animate(picture, "filters.blur.inputRadius", from: 40, to: 0, duration: duration)
+        case .zoom:
+            animate(picture, "transform.scale", from: 1.06, to: 1, duration: duration)
+        }
+        NSAnimationContext.runAnimationGroup { $0.duration = duration; window.animator().alphaValue = 1 }
         // By then macOS shows the same picture underneath.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(1.5, duration + 0.8)) {
             NSAnimationContext.runAnimationGroup({ $0.duration = 0.3; window.animator().alphaValue = 0 }) {
                 MainActor.assumeIsolated {
                     window.orderOut(nil)
@@ -108,6 +145,16 @@ enum Wallpapers {
                 }
             }
         }
+    }
+
+    private static func animate(_ layer: CALayer, _ keyPath: String, from: Double, to: Double, duration: Double) {
+        let animation = CABasicAnimation(keyPath: keyPath)
+        animation.fromValue = from
+        animation.toValue = to
+        animation.duration = duration
+        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.setValue(to, forKeyPath: keyPath)
+        layer.add(animation, forKey: keyPath)
     }
 
     /// The picture at screen size, fully decoded; dynamic pictures give their first image.

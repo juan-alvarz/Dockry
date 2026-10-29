@@ -34,6 +34,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.$separatesProfileApps
             .sink { profileApps.isEnabled = $0 }
             .store(in: &subscriptions)
+        settings.$opensNewAppInstances
+            .sink { profileApps.opensNewInstances = $0 }
+            .store(in: &subscriptions)
+        settings.$wallpaperTransition.sink { Wallpapers.transition = $0 }.store(in: &subscriptions)
+        settings.$wallpaperTransitionDuration.sink { Wallpapers.duration = $0 }.store(in: &subscriptions)
+        profileApps.switchToProfile = { [weak self] in self?.activateProfile(named: $0) }
         // After the change is stored, and with the profile it changed from.
         store.$library
             .map(\.active)

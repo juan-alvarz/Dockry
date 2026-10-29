@@ -48,6 +48,14 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(fadesWallpapers, forKey: Key.fadesWallpapers) }
     }
 
+    /// How the wallpaper comes in, and how long it takes (0.1 to 1 second).
+    @Published var wallpaperTransition: WallpaperTransition {
+        didSet { defaults.set(wallpaperTransition.rawValue, forKey: Key.wallpaperTransition) }
+    }
+    @Published var wallpaperTransitionDuration: Double {
+        didSet { defaults.set(wallpaperTransitionDuration, forKey: Key.wallpaperTransitionDuration) }
+    }
+
     /// Opens the profile switcher; none unless the user sets one.
     @Published var profileSwitcherShortcut: KeyShortcut? {
         didSet { defaults.set(profileSwitcherShortcut.flatMap { try? JSONEncoder().encode($0) }, forKey: Key.profileSwitcherShortcut) }
@@ -67,6 +75,8 @@ final class SettingsStore: ObservableObject {
         static let separatesProfileApps = "separatesProfileApps"
         static let opensNewAppInstances = "opensNewAppInstances"
         static let fadesWallpapers = "fadesWallpapers"
+        static let wallpaperTransition = "wallpaperTransition"
+        static let wallpaperTransitionDuration = "wallpaperTransitionDuration"
         static let profileSwitcherShortcut = "profileSwitcherShortcut"
         static let position = "position"
         static let iconSize = "iconSize"
@@ -95,6 +105,8 @@ final class SettingsStore: ObservableObject {
         separatesProfileApps = defaults.bool(forKey: Key.separatesProfileApps)
         opensNewAppInstances = defaults.bool(forKey: Key.opensNewAppInstances)
         fadesWallpapers = defaults.object(forKey: Key.fadesWallpapers) as? Bool ?? true
+        wallpaperTransition = defaults.string(forKey: Key.wallpaperTransition).flatMap(WallpaperTransition.init) ?? .fade
+        wallpaperTransitionDuration = (defaults.object(forKey: Key.wallpaperTransitionDuration) as? Double ?? 0.3).clamped(to: 0.1...1)
         profileSwitcherShortcut = defaults.data(forKey: Key.profileSwitcherShortcut)
             .flatMap { try? JSONDecoder().decode(KeyShortcut.self, from: $0) }
         macDock = Self.readMacDock()

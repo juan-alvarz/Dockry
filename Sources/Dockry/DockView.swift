@@ -438,8 +438,7 @@ private struct AppIconView: View {
         case .launch:
             NSWorkspace.shared.openApplication(at: app.url, configuration: configuration)
         case .newInstance:
-            configuration.createsNewApplicationInstance = true
-            NSWorkspace.shared.openApplication(at: app.url, configuration: configuration)
+            AppInstances.open(app.url, bundleID: entry.bundleID, profile: profileName)
         case .instance(let instance):
             // Opening by URL could bring forward another profile's copy.
             instance.activate()

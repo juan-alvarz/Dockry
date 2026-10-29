@@ -6,7 +6,8 @@ import DockryCore
 /// Gives each profile its own open apps, like the workspaces of Linux desktops: an app
 /// belongs to the profile that was active when it opened, and switching profiles hides the
 /// other profiles' apps and shows the new one's. Bringing an app forward while in another
-/// profile (from the dock, ⌘Tab, a link) moves it to that profile. Finder is in every profile.
+/// profile (from the dock, ⌘Tab, a link) moves it to that profile, or, while each profile
+/// opens its own copies of apps, switches to the app's profile. Finder is in every profile.
 @MainActor
 final class ProfileApps: ObservableObject {
     /// The profile each open app belongs to, by process.
@@ -29,6 +30,12 @@ final class ProfileApps: ObservableObject {
         }
     }
 
+    /// Profiles open their own copies of apps (AppInstances), so apps never move between
+    /// profiles; bringing another profile's app forward switches to that profile instead.
+    var opensNewInstances = false
+    /// Switches to a profile, as the user would.
+    var switchToProfile: ((String) -> Void)?
+
     private let store: ProfileStore
     private var subscriptions: Set<AnyCancellable> = []
     /// Switching hides and shows apps, and macOS activates whichever comes forward; for a
@@ -40,10 +47,10 @@ final class ProfileApps: ObservableObject {
 
     init(store: ProfileStore) {
         self.store = store
-        // Apps open before Dockry started go back where they were, by bundle identifier.
+        // Apps open before Dockry started go back where they were, by process.
         let saved = UserDefaults.standard.dictionary(forKey: Self.savedOwnersKey) as? [String: String] ?? [:]
         for app in NSWorkspace.shared.runningApplications {
-            assign(app, to: app.bundleIdentifier.flatMap { saved[$0] } ?? store.active.name)
+            assign(app, to: saved[String(app.processIdentifier)] ?? store.active.name)
         }
 
         let center = NSWorkspace.shared.notificationCenter
@@ -68,9 +75,13 @@ final class ProfileApps: ObservableObject {
         apps(NSWorkspace.didActivateApplicationNotification)
             .sink { [weak self] app in
                 guard let self, isEnabled, Date().timeIntervalSince(switchedAt) > 1,
-                      let owner = owners[app.processIdentifier], owner != store.active.name
+                      let owner = owner(of: app), owner != store.active.name
                 else { return }
-                assign(app, to: store.active.name)
+                if opensNewInstances {
+                    switchToProfile?(owner)
+                } else {
+                    assign(app, to: store.active.name)
+                }
             }
             .store(in: &subscriptions)
         // A renamed or removed profile's apps go to the active profile.
@@ -122,13 +133,9 @@ final class ProfileApps: ObservableObject {
     }
 
     private func save() {
-        var saved: [String: String] = [:]
-        for (pid, owner) in owners {
-            if let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier {
-                saved[bundleID] = owner
-            }
-        }
-        UserDefaults.standard.set(saved, forKey: Self.savedOwnersKey)
+        // By process: with copies per profile, one app can be in several.
+        UserDefaults.standard.set(
+            Dictionary(uniqueKeysWithValues: owners.map { (String($0.key), $0.value) }), forKey: Self.savedOwnersKey)
     }
 
     // MARK: Sound

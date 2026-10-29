@@ -60,12 +60,15 @@ to show the widget with a track.
   Activating a profile swaps the dock's contents and jumps to its desktop. **Edit Profiles…**
   opens an editor for all of this, including the color of the profile's button in the dock,
   a wallpaper per profile (profiles without one keep yours; it fades in as you switch,
-  unless you turn that off in **Settings › General › Profiles**), and opening the profile's apps
+  unless you turn that off in **Settings › General › Profiles**, where you can also pick
+  Fade, Blur or Zoom and how long it takes), and opening the profile's apps
   when switching to it. The duplicate button next to + and − clones a profile.
 - **Each profile's own open apps** (**Settings › General › Profiles**), like desktops on
   Linux: an app belongs to the profile that was active when it opened, and switching hides
   the other profiles' apps. Bringing an app forward moves it to the profile you're in, or
-  with **Open a new app instance**, clicking it in the dock opens a new copy here instead. A
+  with **Open a new app instance**, each profile has its own copy: clicking an app that's
+  open in another profile opens a new one, browsers and Electron apps with a data folder of
+  their own per profile, and bringing another profile's app forward switches to it. A
   speaker on the profile button, in the switcher and in the menu shows which profile is
   playing sound.
 - **Folders:** drag one from Finder onto the dock, or right-click the dock and choose

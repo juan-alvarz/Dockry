@@ -174,9 +174,24 @@ private struct GeneralSettings: View {
                 Text("Fades a profile’s wallpaper in as you switch, so it shows at once. Off, the wallpaper changes when macOS gets to it, and Dockry doesn’t keep the pictures ready in memory.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Group {
+                    Picker("Animation", selection: $settings.wallpaperTransition) {
+                        ForEach(WallpaperTransition.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    LabeledContent("Duration") {
+                        HStack {
+                            Slider(value: $settings.wallpaperTransitionDuration, in: 0.1...1, step: 0.05)
+                            Text(String(format: "%.2g s", settings.wallpaperTransitionDuration))
+                                .monospacedDigit()
+                                .frame(width: 44, alignment: .trailing)
+                        }
+                    }
+                }
+                .disabled(!settings.fadesWallpapers)
                 Toggle("Open a new app instance", isOn: $settings.opensNewAppInstances)
                     .disabled(!settings.separatesProfileApps)
-                Text("When an app in the dock is open in another profile, clicking it opens a new copy of the app here instead of bringing that one over. Some apps allow only one copy, and bring the open one forward anyway.")
+                Text("Each profile gets its own copy of an app: clicking an app in the dock that’s open in another profile opens a new copy here, and apps never move between profiles. Bringing another profile’s app forward (⌘Tab, say) switches to that profile. Browsers and Electron apps keep each profile’s copy in its own data folder, so it starts fresh. A few apps, like Spotify, allow only one copy; theirs stays in its profile.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
