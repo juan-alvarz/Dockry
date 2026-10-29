@@ -179,6 +179,9 @@ private struct GeneralSettings: View {
                 Text("Like desktops on Linux: an app belongs to the profile that was active when it opened, and switching profiles hides the other profiles’ apps. Bringing an app forward moves it to the profile you’re in. Finder is in every profile. The profile switcher and menu show which profile is playing sound.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                LabeledContent("Fresh profile badge") {
+                    FreshBadgePicker()
+                }
                 Toggle("Show animation on switch profiles when wallpaper is present", isOn: $settings.fadesWallpapers)
                 Text("Fades a profile’s wallpaper in as you switch, so it shows at once. Off, the wallpaper changes when macOS gets to it, and Dockry doesn’t keep the pictures ready in memory.")
                     .font(.caption)
@@ -403,12 +406,41 @@ private struct NewProfileSheet: View {
     }
 }
 
-/// Marks profiles with fresh apps (Profile.freshApps).
+/// Marks profiles with fresh apps (Profile.freshApps): a symbol the user picks in
+/// Settings › General › Profiles, a white circle unless they do.
 struct FreshAppsBadge: View {
+    static let symbolKey = "freshAppsBadge"
+    static let defaultSymbol = "circle.fill"
+    static let choices = [
+        "circle.fill", "circle", "square.fill", "diamond.fill", "triangle.fill", "seal.fill",
+        "leaf.fill", "lock.fill", "shield.fill", "bolt.fill", "flame.fill", "moon.fill",
+    ]
+    static var symbol: String { UserDefaults.standard.string(forKey: symbolKey) ?? defaultSymbol }
+
+    @AppStorage(symbolKey) private var symbol = defaultSymbol
+
     var body: some View {
-        Image(systemName: "sparkles")
-            .foregroundStyle(.yellow)
+        Image(systemName: symbol)
+            .foregroundStyle(.primary)
             .help("Fresh apps: this profile runs its own copies of apps, with their own data")
+    }
+}
+
+private struct FreshBadgePicker: View {
+    @AppStorage(FreshAppsBadge.symbolKey) private var symbol = FreshAppsBadge.defaultSymbol
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(FreshAppsBadge.choices, id: \.self) { choice in
+                Button { symbol = choice } label: {
+                    Image(systemName: choice)
+                        .frame(width: 22, height: 20)
+                        .background(choice == symbol ? Color.accentColor.opacity(0.3) : .clear, in: RoundedRectangle(cornerRadius: 5))
+                }
+                .buttonStyle(.plain)
+                .help(choice)
+            }
+        }
     }
 }
 

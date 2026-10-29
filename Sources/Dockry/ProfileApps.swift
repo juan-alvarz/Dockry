@@ -102,7 +102,7 @@ final class ProfileApps: ObservableObject {
             .store(in: &subscriptions)
         apps(NSWorkspace.didActivateApplicationNotification)
             .sink { [weak self] app in
-                guard let self, Date().timeIntervalSince(switchedAt) > 1, let owner = owner(of: app) else { return }
+                guard let self, Date().timeIntervalSince(switchedAt) > 2, let owner = owner(of: app) else { return }
                 let active = store.active.name
                 if owner != active && (isFresh(owner) || isFresh(active)) {
                     switchToProfile?(owner)
@@ -225,14 +225,11 @@ final class ProfileApps: ObservableObject {
         let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && $0 != .current }
         guard isEnabled && mode == .apps else {
             // Fresh profiles' apps are hidden from the others' and theirs from them.
-            let apart = apps.filter { isFreshCopy($0) != isFresh(profile) }
+            let apart = apps.filter { owner(of: $0) != nil && isFreshCopy($0) != isFresh(profile) }
             for app in apps where !apart.contains(app) && hiddenByDockry.remove(app.processIdentifier) != nil {
                 app.unhide()
             }
-            for app in apart where !app.isHidden {
-                app.hide()
-                hiddenByDockry.insert(app.processIdentifier)
-            }
+            hide(apart, keeping: apps.filter { !apart.contains($0) })
             // The rest share windows, or park those of other profiles.
             if isEnabled {
                 let shared = apps.filter { !apart.contains($0) && owner(of: $0) != nil }
@@ -246,9 +243,35 @@ final class ProfileApps: ObservableObject {
         for app in apps where isShown(app) && hiddenByDockry.remove(app.processIdentifier) != nil {
             app.unhide()
         }
-        for app in apps where !isShown(app) && !app.isHidden {
-            app.hide()
-            hiddenByDockry.insert(app.processIdentifier)
+        hide(apps.filter { !isShown($0) }, keeping: apps.filter(isShown))
+    }
+
+    /// Hides apps so that none comes back: when the app in front hides, macOS brings the
+    /// next one forward, and if that's one being hidden (hiding takes a moment), coming
+    /// forward shows it again. So an app that stays comes forward first (one of `keeping`,
+    /// or Finder), and apps that didn't hide are hidden again.
+    private func hide(_ apps: [NSRunningApplication], keeping: [NSRunningApplication]) {
+        let apps = apps.filter { !$0.isHidden }
+        guard !apps.isEmpty else { return }
+        hiddenByDockry.formUnion(apps.map(\.processIdentifier))
+        let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first
+        let front = keeping.first { $0 != finder } ?? finder
+        Task { [weak self] in
+            if let front, let frontmost = NSWorkspace.shared.frontmostApplication, apps.contains(frontmost) {
+                front.activate()
+                var waited = 0
+                while NSWorkspace.shared.frontmostApplication != front && waited < 10 {
+                    try? await Task.sleep(for: .milliseconds(50))
+                    waited += 1
+                }
+            }
+            for _ in 0..<3 {
+                // Unless the user switched back meanwhile, which takes them off the list.
+                let left = apps.filter { !$0.isHidden && !$0.isTerminated && self?.hiddenByDockry.contains($0.processIdentifier) == true }
+                guard !left.isEmpty else { break }
+                left.forEach { $0.hide() }
+                try? await Task.sleep(for: .milliseconds(300))
+            }
         }
     }
 

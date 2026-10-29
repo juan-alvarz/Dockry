@@ -69,7 +69,8 @@ to show the widget with a track.
   with **Open a new app instance**, windows are per profile, like desktops on a Mac:
   clicking an app with windows in another profile opens a new window of it (⌘N), and
   switching shows only the profile's windows.
-- **Fresh profiles** (✦): when you create a profile, choose **Fresh apps** for one that
+- **Fresh profiles** (marked with a white circle, or a symbol you pick in **Settings ›
+  General › Profiles**): when you create a profile, choose **Fresh apps** for one that
   starts apps from scratch, like a new Mac. It runs its own copies of apps, and browsers and
   Electron apps (Zen, Chrome, Slack…) keep their own sign-ins, history and tabs. Its apps
   never show in other profiles, nor theirs in it. The choice can't be changed later.

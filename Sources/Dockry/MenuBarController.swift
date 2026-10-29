@@ -80,7 +80,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             item.state = profile.name == app.store.active.name ? .on : .off
             // Badges after the name: fresh apps, and playing sound.
             let badges = [
-                profile.freshApps ? ("sparkles", "Fresh apps") : nil,
+                profile.freshApps ? (FreshAppsBadge.symbol, "Fresh apps") : nil,
                 playing.contains(profile.name) ? ("speaker.wave.2.fill", "Playing sound") : nil,
             ].compactMap { $0 }
             if !badges.isEmpty {

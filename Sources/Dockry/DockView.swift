@@ -569,13 +569,11 @@ private struct ProfileButton: View {
             .contentShape(Rectangle())
             .overlay(alignment: .topLeading) {
                 if profile.freshApps {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 8 * metrics.unit, weight: .bold))
-                        .foregroundStyle(.yellow)
+                    FreshAppsBadge()
+                        .font(.system(size: 7 * metrics.unit, weight: .bold))
                         .padding(3 * metrics.unit)
                         .background(.regularMaterial, in: Circle())
                         .offset(x: -4 * metrics.unit, y: -4 * metrics.unit)
-                        .help("Fresh apps: this profile runs its own copies of apps, with their own data")
                 }
             }
             .overlay(alignment: .topTrailing) {

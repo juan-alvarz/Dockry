@@ -157,9 +157,8 @@ private struct ProfileTile: View {
                     .font(.system(size: 14, weight: .semibold))
                     .lineLimit(1)
                 if profile.freshApps {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.yellow)
+                    FreshAppsBadge()
+                        .font(.system(size: 9, weight: .semibold))
                 }
             }
             // A peek at the profile's apps makes it recognizable at a glance.
