@@ -38,5 +38,5 @@ security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$TMP/cert.pem
 
 security find-identity -v -p codesigning | grep "\"$NAME\"" || { echo "Certificate not usable; see above."; exit 1; }
 # Forget any grant tied to an old ad-hoc build so Dockry asks cleanly once.
-tccutil reset Accessibility io.github.juan-alvarz.Dockry >/dev/null 2>&1 || true
+tccutil reset Accessibility com.dockry.Dockry >/dev/null 2>&1 || true
 echo "Done: '$NAME' ready."
