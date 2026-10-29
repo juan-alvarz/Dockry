@@ -42,6 +42,12 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(opensNewAppInstances, forKey: Key.opensNewAppInstances) }
     }
 
+    /// Fade a profile's wallpaper in when switching to it (see Wallpapers); off, it changes
+    /// as soon as macOS shows it, and no pictures are decoded ahead of time.
+    @Published var fadesWallpapers: Bool {
+        didSet { defaults.set(fadesWallpapers, forKey: Key.fadesWallpapers) }
+    }
+
     /// Opens the profile switcher; none unless the user sets one.
     @Published var profileSwitcherShortcut: KeyShortcut? {
         didSet { defaults.set(profileSwitcherShortcut.flatMap { try? JSONEncoder().encode($0) }, forKey: Key.profileSwitcherShortcut) }
@@ -60,6 +66,7 @@ final class SettingsStore: ObservableObject {
         static let keepsWindowsClear = "keepsWindowsClear"
         static let separatesProfileApps = "separatesProfileApps"
         static let opensNewAppInstances = "opensNewAppInstances"
+        static let fadesWallpapers = "fadesWallpapers"
         static let profileSwitcherShortcut = "profileSwitcherShortcut"
         static let position = "position"
         static let iconSize = "iconSize"
@@ -87,6 +94,7 @@ final class SettingsStore: ObservableObject {
         keepsWindowsClear = defaults.object(forKey: Key.keepsWindowsClear) as? Bool ?? true
         separatesProfileApps = defaults.bool(forKey: Key.separatesProfileApps)
         opensNewAppInstances = defaults.bool(forKey: Key.opensNewAppInstances)
+        fadesWallpapers = defaults.object(forKey: Key.fadesWallpapers) as? Bool ?? true
         profileSwitcherShortcut = defaults.data(forKey: Key.profileSwitcherShortcut)
             .flatMap { try? JSONDecoder().decode(KeyShortcut.self, from: $0) }
         macDock = Self.readMacDock()

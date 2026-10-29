@@ -14,6 +14,11 @@ enum Wallpapers {
     private static var decoded: [String: CGImage] = [:]
     private static var fades: [NSWindow] = []
 
+    /// Off, nothing is decoded or animated, and the pictures already decoded are let go.
+    static var fadesIn = true {
+        didSet { if !fadesIn { decoded = [:] } }
+    }
+
     static func switched(from previous: Profile?, to profile: Profile) {
         guard profile.wallpaper != previous?.wallpaper || previous == nil else { return }
         if let wallpaper = profile.wallpaper {
@@ -30,13 +35,14 @@ enum Wallpapers {
 
     /// Decodes the pictures switching may show, off the main thread, so they fade in at once.
     static func prepare(_ profiles: [Profile]) {
+        guard fadesIn else { return }
         let own = (UserDefaults.standard.dictionary(forKey: savedKey) as? [String: String] ?? [:]).values
         let paths = Set(profiles.compactMap(\.wallpaper) + own).subtracting(decoded.keys)
         let size = NSScreen.screens.map { max($0.frame.width, $0.frame.height) * $0.backingScaleFactor }.max() ?? 3000
         for path in paths {
             Task.detached(priority: .utility) {
                 guard let image = decode(path, maxPixels: size) else { return }
-                await MainActor.run { decoded[path] = image }
+                await MainActor.run { if fadesIn { decoded[path] = image } }
             }
         }
     }
@@ -59,7 +65,7 @@ enum Wallpapers {
             guard let id = screen.displayID, let path = picture(String(id)),
                   URL(fileURLWithPath: path) != NSWorkspace.shared.desktopImageURL(for: screen)
             else { continue }
-            if fading {
+            if fading && fadesIn {
                 fade(in: path, on: screen)
             }
             let options = NSWorkspace.shared.desktopImageOptions(for: screen) ?? [:]

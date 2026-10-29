@@ -46,8 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.$library
             .map { $0.profiles.compactMap(\.wallpaper) }
             .removeDuplicates()
+            .combineLatest(settings.$fadesWallpapers)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self.map { Wallpapers.prepare($0.store.library.profiles) } }
+            .sink { [weak self] _, fades in
+                Wallpapers.fadesIn = fades
+                self.map { Wallpapers.prepare($0.store.library.profiles) }
+            }
             .store(in: &subscriptions)
 
         let switcher = ProfileSwitcherPanel(store: store, profileApps: profileApps) { [weak self] in self?.activateProfile(named: $0) }

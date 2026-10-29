@@ -59,7 +59,8 @@ to show the widget with a track.
 - **Profiles** such as *Work* and *Chill*. Each has its own pinned apps, widgets and desktop.
   Activating a profile swaps the dock's contents and jumps to its desktop. **Edit Profiles…**
   opens an editor for all of this, including the color of the profile's button in the dock,
-  a wallpaper per profile (profiles without one keep yours), and opening the profile's apps
+  a wallpaper per profile (profiles without one keep yours; it fades in as you switch,
+  unless you turn that off in **Settings › General › Profiles**), and opening the profile's apps
   when switching to it. The duplicate button next to + and − clones a profile.
 - **Each profile's own open apps** (**Settings › General › Profiles**), like desktops on
   Linux: an app belongs to the profile that was active when it opened, and switching hides
