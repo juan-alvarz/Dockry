@@ -170,10 +170,16 @@ struct DockView: View {
             ended: { dragEnded(element, distance: $0, profile: profile, elements: elements, lengths: lengths, metrics: metrics) })
         switch element.content {
         case .app(let entry):
-            let running = runningApps.app(withBundleID: entry.bundleID)
+            // The copy in this profile, when profiles have their own apps.
+            let instances = runningApps.apps(withBundleID: entry.bundleID)
+            let here = instances.first(where: profileApps.isShown)
+            let running = here ?? instances.first
             if let app = AppCatalog.app(bundleID: entry.bundleID, running: running) {
                 AppIconView(
                     entry: entry, app: app, runningApp: running, profileName: profile.name, store: store,
+                    opening: here == nil
+                        ? (settings.separatesProfileApps && settings.opensNewAppInstances && !instances.isEmpty ? .newInstance : .launch)
+                        : (instances.count > 1 ? .instance(here!) : .launch),
                     itemIndex: element.itemIndex, isHovered: drag == nil && pointer.hoveredItem == entry.bundleID,
                     minimizedCount: running.flatMap { appWindows.minimizedCounts[$0.processIdentifier] } ?? 0,
                     pointer: pointer)
@@ -333,11 +339,21 @@ struct DockMenu: View {
 }
 
 private struct AppIconView: View {
+    enum Opening {
+        /// Launches the app, or brings it forward and reopens a window, as the macOS Dock does.
+        case launch
+        /// Opens another copy of an app that's open in another profile.
+        case newInstance
+        /// Brings forward this copy, among several of the app.
+        case instance(NSRunningApplication)
+    }
+
     let entry: DockEntry
     let app: AppCatalog.App
     let runningApp: NSRunningApplication?
     let profileName: String
     let store: ProfileStore
+    let opening: Opening
     /// The profile item it comes from (for an app that isn't pinned, the open apps' place).
     let itemIndex: Int
     let isHovered: Bool
@@ -417,7 +433,17 @@ private struct AppIconView: View {
     /// Like the Dock: launches the app, or brings it forward and reopens a window. An app
     /// that isn't running yet bounces until it is.
     private func open() {
-        NSWorkspace.shared.openApplication(at: app.url, configuration: NSWorkspace.OpenConfiguration())
+        let configuration = NSWorkspace.OpenConfiguration()
+        switch opening {
+        case .launch:
+            NSWorkspace.shared.openApplication(at: app.url, configuration: configuration)
+        case .newInstance:
+            configuration.createsNewApplicationInstance = true
+            NSWorkspace.shared.openApplication(at: app.url, configuration: configuration)
+        case .instance(let instance):
+            // Opening by URL could bring forward another profile's copy.
+            instance.activate()
+        }
         guard metrics.animatesLaunch, !entry.isRunning, !isBouncing else { return }
         isBouncing = true
         Task {

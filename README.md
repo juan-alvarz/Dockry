@@ -63,7 +63,8 @@ to show the widget with a track.
   when switching to it. The duplicate button next to + and − clones a profile.
 - **Each profile's own open apps** (**Settings › General › Profiles**), like desktops on
   Linux: an app belongs to the profile that was active when it opened, and switching hides
-  the other profiles' apps. Bringing an app forward moves it to the profile you're in. A
+  the other profiles' apps. Bringing an app forward moves it to the profile you're in, or
+  with **Open a new app instance**, clicking it in the dock opens a new copy here instead. A
   speaker on the profile button, in the switcher and in the menu shows which profile is
   playing sound.
 - **Folders:** drag one from Finder onto the dock, or right-click the dock and choose

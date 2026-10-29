@@ -36,6 +36,12 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(separatesProfileApps, forKey: Key.separatesProfileApps) }
     }
 
+    /// With separate apps per profile, clicking an app in the dock that's open in another
+    /// profile opens a new copy here instead of moving that one over.
+    @Published var opensNewAppInstances: Bool {
+        didSet { defaults.set(opensNewAppInstances, forKey: Key.opensNewAppInstances) }
+    }
+
     /// Opens the profile switcher; none unless the user sets one.
     @Published var profileSwitcherShortcut: KeyShortcut? {
         didSet { defaults.set(profileSwitcherShortcut.flatMap { try? JSONEncoder().encode($0) }, forKey: Key.profileSwitcherShortcut) }
@@ -53,6 +59,7 @@ final class SettingsStore: ObservableObject {
         static let hidesSystemDock = "hideSystemDock"
         static let keepsWindowsClear = "keepsWindowsClear"
         static let separatesProfileApps = "separatesProfileApps"
+        static let opensNewAppInstances = "opensNewAppInstances"
         static let profileSwitcherShortcut = "profileSwitcherShortcut"
         static let position = "position"
         static let iconSize = "iconSize"
@@ -79,6 +86,7 @@ final class SettingsStore: ObservableObject {
         hidesSystemDock = defaults.bool(forKey: Key.hidesSystemDock)
         keepsWindowsClear = defaults.object(forKey: Key.keepsWindowsClear) as? Bool ?? true
         separatesProfileApps = defaults.bool(forKey: Key.separatesProfileApps)
+        opensNewAppInstances = defaults.bool(forKey: Key.opensNewAppInstances)
         profileSwitcherShortcut = defaults.data(forKey: Key.profileSwitcherShortcut)
             .flatMap { try? JSONDecoder().decode(KeyShortcut.self, from: $0) }
         macDock = Self.readMacDock()

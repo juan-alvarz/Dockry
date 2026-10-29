@@ -170,6 +170,11 @@ private struct GeneralSettings: View {
                 Text("Like desktops on Linux: an app belongs to the profile that was active when it opened, and switching profiles hides the other profiles’ apps. Bringing an app forward moves it to the profile you’re in. Finder is in every profile. The profile switcher and menu show which profile is playing sound.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Toggle("Open a new app instance", isOn: $settings.opensNewAppInstances)
+                    .disabled(!settings.separatesProfileApps)
+                Text("When an app in the dock is open in another profile, clicking it opens a new copy of the app here instead of bringing that one over. Some apps allow only one copy, and bring the open one forward anyway.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Windows") {
