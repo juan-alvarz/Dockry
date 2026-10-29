@@ -5,11 +5,22 @@ import DockryCore
 
 /// Gives each profile its own open apps, like the workspaces of Linux desktops: an app
 /// belongs to the profile that was active when it opened, and switching profiles hides the
-/// other profiles' apps and shows the new one's. Bringing an app forward while in another
-/// profile (from the dock, ⌘Tab, a link) moves it to that profile, or, while each profile
-/// opens its own copies of apps, switches to the app's profile. Finder is in every profile.
+/// other profiles' apps and shows the new one's. Finder is in every profile.
 @MainActor
 final class ProfileApps: ObservableObject {
+    enum Mode {
+        /// Each app is in one profile. Bringing one forward from another profile (the dock,
+        /// ⌘Tab, a link) moves it to the profile you're in.
+        case apps
+        /// Each window is in one profile (ProfileWindows), so an app can be in several.
+        /// Clicking an app in the dock opens a window of its own in the profile (⌘N), and
+        /// bringing forward an app whose windows are all elsewhere switches to their profile.
+        case windows
+        /// Each profile opens its own copy of an app (AppInstances), with its own data for
+        /// browsers. Bringing another profile's copy forward switches to that profile.
+        case copies
+    }
+
     /// The profile each open app belongs to, by process.
     @Published private(set) var owners: [pid_t: String] = [:]
     /// The open apps playing sound right now, while keeping apps apart.
@@ -21,6 +32,7 @@ final class ProfileApps: ObservableObject {
             if isEnabled {
                 show(store.active.name)
             } else {
+                windows.unparkAll()
                 // Nothing stays hidden once apps are shared again.
                 for app in NSWorkspace.shared.runningApplications where app.isHidden && owners[app.processIdentifier] != nil {
                     app.unhide()
@@ -30,13 +42,25 @@ final class ProfileApps: ObservableObject {
         }
     }
 
-    /// Profiles open their own copies of apps (AppInstances), so apps never move between
-    /// profiles; bringing another profile's app forward switches to that profile instead.
-    var opensNewInstances = false
+    var mode = Mode.apps {
+        didSet {
+            guard mode != oldValue else { return }
+            if oldValue == .windows {
+                windows.unparkAll()
+            }
+            show(store.active.name)
+        }
+    }
+    /// Bumped when windows change profile, for the dock to follow.
+    @Published private(set) var windowChanges = 0
     /// Switches to a profile, as the user would.
     var switchToProfile: ((String) -> Void)?
 
     private let store: ProfileStore
+    private let windows = ProfileWindows()
+    /// Apps that were just asked for a window of their own, which brings them forward
+    /// before the window exists.
+    private var openingWindow: [pid_t: Date] = [:]
     private var subscriptions: Set<AnyCancellable> = []
     /// Switching hides and shows apps, and macOS activates whichever comes forward; for a
     /// moment those activations aren't the user moving an app here.
@@ -69,21 +93,45 @@ final class ProfileApps: ObservableObject {
         apps(NSWorkspace.didTerminateApplicationNotification)
             .sink { [weak self] app in
                 self?.owners[app.processIdentifier] = nil
+                self?.windows.forget(app.processIdentifier)
                 self?.save()
             }
             .store(in: &subscriptions)
         apps(NSWorkspace.didActivateApplicationNotification)
             .sink { [weak self] app in
-                guard let self, isEnabled, Date().timeIntervalSince(switchedAt) > 1,
-                      let owner = owner(of: app), owner != store.active.name
-                else { return }
-                if opensNewInstances {
+                guard let self, isEnabled, Date().timeIntervalSince(switchedAt) > 1, let owner = owner(of: app) else { return }
+                let active = store.active.name
+                switch mode {
+                case .apps where owner != active:
+                    assign(app, to: active)
+                case .copies where owner != active:
                     switchToProfile?(owner)
-                } else {
-                    assign(app, to: store.active.name)
+                case .windows:
+                    if let asked = openingWindow[app.processIdentifier], Date().timeIntervalSince(asked) < 3 { return }
+                    let profiles = windows.profiles(of: app)
+                    if profiles.contains(active) {
+                        windows.park(app, except: active)
+                        windows.raise(app, in: active)
+                    } else if let other = profiles.sorted().first {
+                        switchToProfile?(other)
+                    }
+                default:
+                    break
                 }
             }
             .store(in: &subscriptions)
+        AppWindows.shared.windowCreated = { [weak self] window in
+            guard let self, isEnabled, mode == .windows else { return }
+            windows.adopt(window, into: store.active.name)
+            // An app that opened a window by itself (a link, say) shows the others' too.
+            var pid: pid_t = 0
+            AXUIElementGetPid(window, &pid)
+            if let app = NSRunningApplication(processIdentifier: pid) {
+                windows.park(app, except: store.active.name)
+            }
+            windowChanges += 1
+        }
+        ProfileWindows.rescueParkedWindows()
         // A renamed or removed profile's apps go to the active profile.
         store.$library
             .receive(on: RunLoop.main)
@@ -97,9 +145,42 @@ final class ProfileApps: ObservableObject {
             .store(in: &subscriptions)
     }
 
-    /// Whether the dock shows the app in the active profile.
+    /// Whether the dock shows the app in the active profile: with windows per profile, when
+    /// it has windows there (or, without any, when it opened there).
     func isShown(_ app: NSRunningApplication) -> Bool {
-        !isEnabled || owner(of: app) == nil || owner(of: app) == store.active.name
+        guard isEnabled, let owner = owner(of: app) else { return true }
+        if mode == .windows {
+            let profiles = windows.profiles(of: app)
+            if !profiles.isEmpty { return profiles.contains(store.active.name) }
+        }
+        return owner == store.active.name
+    }
+
+    /// Opens a window of the app's own in the active profile, as ⌘N would, with its windows
+    /// in other profiles parked first. An app without a New Window item has its windows
+    /// moved here instead.
+    func openWindow(_ app: NSRunningApplication) {
+        let active = store.active.name
+        openingWindow[app.processIdentifier] = Date()
+        if let item = AppWindows.newWindowItem(in: app) {
+            windows.park(app, except: active)
+            app.unhide()
+            app.activate()
+            // Once it's in front, so the window opens in front.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                AXUIElementPerformAction(item, kAXPressAction as CFString)
+            }
+        } else {
+            windows.move(app, to: active)
+            windowChanges += 1
+            app.unhide()
+            app.activate()
+        }
+    }
+
+    /// Puts parked windows back before Dockry quits.
+    func restoreWindows() {
+        windows.unparkAll()
     }
 
     /// The profile an app belongs to; nil for apps in every profile.
@@ -117,6 +198,11 @@ final class ProfileApps: ObservableObject {
         switchedAt = Date()
         guard isEnabled else { return }
         let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && $0 != .current }
+        if mode == .windows {
+            windows.show(profile, apps: apps, owner: owner(of:))
+            windowChanges += 1
+            return
+        }
         // Showing first, so macOS has the new profile's apps to bring forward as the others hide.
         for app in apps where owner(of: app) == profile && app.isHidden {
             app.unhide()

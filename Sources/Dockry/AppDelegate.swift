@@ -34,8 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.$separatesProfileApps
             .sink { profileApps.isEnabled = $0 }
             .store(in: &subscriptions)
-        settings.$opensNewAppInstances
-            .sink { profileApps.opensNewInstances = $0 }
+        settings.$opensNewAppInstances.combineLatest(settings.$separatesAppData)
+            .sink { windows, copies in profileApps.mode = !windows ? .apps : copies ? .copies : .windows }
             .store(in: &subscriptions)
         settings.$wallpaperTransition.sink { Wallpapers.transition = $0 }.store(in: &subscriptions)
         settings.$wallpaperTransitionDuration.sink { Wallpapers.duration = $0 }.store(in: &subscriptions)
@@ -92,14 +92,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Spotify's sign-in comes back as a dockry:// URL.
+    /// Spotify's sign-in comes back as a dockry:// URL, and dockry://profile/Work switches
+    /// to the Work profile (for Shortcuts and scripts).
     func application(_ application: NSApplication, open urls: [URL]) {
-        urls.forEach(SpotifyAccount.shared.handleCallback)
+        for url in urls {
+            if url.host == "profile", let name = url.pathComponents.dropFirst().first {
+                activateProfile(named: name)
+            } else {
+                SpotifyAccount.shared.handleCallback(url)
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        // Never leave the user without a Dock after Dockry quits.
+        // Never leave the user without a Dock, or windows parked off screen, after Dockry quits.
         SystemDock.restore()
+        profileApps.restoreWindows()
     }
 
     private func applySystemDockSetting(hides: Bool) {

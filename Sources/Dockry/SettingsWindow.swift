@@ -191,7 +191,12 @@ private struct GeneralSettings: View {
                 .disabled(!settings.fadesWallpapers)
                 Toggle("Open a new app instance", isOn: $settings.opensNewAppInstances)
                     .disabled(!settings.separatesProfileApps)
-                Text("Each profile gets its own copy of an app: clicking an app in the dock that’s open in another profile opens a new copy here, and apps never move between profiles. Bringing another profile’s app forward (⌘Tab, say) switches to that profile. Browsers and Electron apps keep each profile’s copy in its own data folder, so it starts fresh. A few apps, like Spotify, allow only one copy; theirs stays in its profile.")
+                Text("Like desktops on a Mac: clicking an app in the dock that has windows in another profile opens a new window of it here, as ⌘N does, and each window stays in its profile. Switching shows only the profile’s windows; the others wait just off screen. Bringing forward an app whose windows are all in another profile switches to that profile.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Toggle("Keep app data separate per profile", isOn: $settings.separatesAppData)
+                    .disabled(!settings.separatesProfileApps || !settings.opensNewAppInstances)
+                Text("Instead of a new window, each profile runs its own copy of the app. Browsers and Electron apps keep each profile’s copy in its own data folder, with its own tabs and sign-ins, starting fresh. A few apps, like Spotify, allow only one copy.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

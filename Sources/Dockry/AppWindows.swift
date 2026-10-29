@@ -21,6 +21,8 @@ final class AppWindows: ObservableObject {
     @Published private(set) var minimizedCounts: [pid_t: Int] = [:]
     /// Called when a window opens, moves or resizes.
     var windowChanged: ((AXUIElement) -> Void)?
+    /// Called when a window opens, before `windowChanged`.
+    var windowCreated: ((AXUIElement) -> Void)?
 
     private var observers: [pid_t: AXObserver] = [:]
     /// Apps that weren't ready to be watched yet, and how many more times to try.
@@ -153,6 +155,7 @@ final class AppWindows: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.updateMinimized(pid) }
         case kAXWindowCreatedNotification:
             updateMinimized(pid)
+            windowCreated?(window)
             windowChanged?(window)
         default:
             windowChanged?(window)
@@ -167,7 +170,66 @@ final class AppWindows: ObservableObject {
         }
     }
 
+    /// The app's "New Window" menu item: ⌘N alone, with "Window" in its title. Other apps
+    /// use ⌘N for things that aren't windows (Spotify's New Playlist, Notes' New Note).
+    static func newWindowItem(in app: NSRunningApplication) -> AXUIElement? {
+        let element = AXUIElementCreateApplication(app.processIdentifier)
+        guard let menuBar = attribute(kAXMenuBarAttribute, of: element) else { return nil }
+        let menus = attribute(kAXChildrenAttribute, of: menuBar as! AXUIElement) as? [AXUIElement] ?? []
+        for menu in menus {
+            let items = (attribute(kAXChildrenAttribute, of: menu) as? [AXUIElement])?
+                .flatMap { attribute(kAXChildrenAttribute, of: $0) as? [AXUIElement] ?? [] } ?? []
+            // Modifiers 0 means ⌘ alone.
+            if let item = items.first(where: {
+                (attribute(kAXMenuItemCmdCharAttribute, of: $0) as? String)?.uppercased() == "N"
+                    && attribute(kAXMenuItemCmdModifiersAttribute, of: $0) as? Int == 0
+                    && (attribute(kAXTitleAttribute, of: $0) as? String)?.localizedCaseInsensitiveContains("window") == true
+            }) {
+                return item
+            }
+        }
+        return nil
+    }
+
     // MARK: Accessibility
+
+    /// Accessibility puts the origin at the top left of the main screen, AppKit at the
+    /// bottom left; this is the height to flip by.
+    private static var mainScreenTop: CGFloat {
+        NSScreen.screens.first?.frame.maxY ?? 0
+    }
+
+    /// The window's frame in AppKit coordinates.
+    static func frame(of window: AXUIElement) -> CGRect? {
+        guard let positionValue = attribute(kAXPositionAttribute, of: window),
+              let sizeValue = attribute(kAXSizeAttribute, of: window),
+              CFGetTypeID(positionValue) == AXValueGetTypeID(), CFGetTypeID(sizeValue) == AXValueGetTypeID()
+        else { return nil }
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
+              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
+        else { return nil }
+        return CGRect(x: position.x, y: mainScreenTop - position.y - size.height, width: size.width, height: size.height)
+    }
+
+    /// Moves and resizes a window, in AppKit coordinates.
+    static func setFrame(_ frame: CGRect, of window: AXUIElement) {
+        var size = frame.size
+        guard let sizeValue = AXValueCreate(.cgSize, &size) else { return }
+        // Size, then position, then size again: an app may refuse a size that doesn't fit
+        // where the window is until it has moved.
+        AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
+        move(window, to: frame)
+        AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
+    }
+
+    /// Moves a window so its frame (of its current size) is `frame`'s, in AppKit coordinates.
+    static func move(_ window: AXUIElement, to frame: CGRect) {
+        var position = CGPoint(x: frame.minX, y: mainScreenTop - frame.maxY)
+        guard let positionValue = AXValueCreate(.cgPoint, &position) else { return }
+        AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue)
+    }
 
     static func windowElements(of pid: pid_t) -> [AXUIElement] {
         attribute(kAXWindowsAttribute, of: AXUIElementCreateApplication(pid)) as? [AXUIElement] ?? []

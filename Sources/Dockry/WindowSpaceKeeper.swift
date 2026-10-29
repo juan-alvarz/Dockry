@@ -70,7 +70,8 @@ final class WindowSpaceKeeper {
     }
 
     private func fit(_ window: AXUIElement) {
-        guard Self.isOrdinaryWindow(window), let frame = Self.frame(of: window),
+        guard Self.isOrdinaryWindow(window), let frame = AppWindows.frame(of: window),
+              !ProfileWindows.isParked(frame),
               let reservation = reservations.first(where: { $0.dock.intersects(frame) })
         else { return }
         let id = CFHash(window)
@@ -78,7 +79,7 @@ final class WindowSpaceKeeper {
         let fitted = WindowFit.frame(frame, avoiding: reservation.position, allowed: reservation.allowed).integral
         guard fitted != frame.integral else { return }
         recentlyAdjusted[id] = Date()
-        Self.setFrame(fitted, of: window)
+        AppWindows.setFrame(fitted, of: window)
     }
 
     // MARK: Accessibility
@@ -89,36 +90,5 @@ final class WindowSpaceKeeper {
         if AppWindows.attribute(kAXMinimizedAttribute, of: window) as? Bool == true { return false }
         if AppWindows.attribute("AXFullScreen", of: window) as? Bool == true { return false }
         return true
-    }
-
-    /// Accessibility puts the origin at the top left of the main screen, AppKit at the
-    /// bottom left; this is the height to flip by.
-    private static var mainScreenTop: CGFloat {
-        NSScreen.screens.first?.frame.maxY ?? 0
-    }
-
-    /// The window's frame in AppKit coordinates.
-    private static func frame(of window: AXUIElement) -> CGRect? {
-        guard let positionValue = AppWindows.attribute(kAXPositionAttribute, of: window),
-              let sizeValue = AppWindows.attribute(kAXSizeAttribute, of: window),
-              CFGetTypeID(positionValue) == AXValueGetTypeID(), CFGetTypeID(sizeValue) == AXValueGetTypeID()
-        else { return nil }
-        var position = CGPoint.zero
-        var size = CGSize.zero
-        guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
-              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
-        else { return nil }
-        return CGRect(x: position.x, y: mainScreenTop - position.y - size.height, width: size.width, height: size.height)
-    }
-
-    private static func setFrame(_ frame: CGRect, of window: AXUIElement) {
-        var position = CGPoint(x: frame.minX, y: mainScreenTop - frame.maxY)
-        var size = frame.size
-        guard let positionValue = AXValueCreate(.cgPoint, &position), let sizeValue = AXValueCreate(.cgSize, &size) else { return }
-        // Size, then position, then size again: an app may refuse a size that doesn't fit
-        // where the window is until it has moved.
-        AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
-        AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue)
-        AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
     }
 }

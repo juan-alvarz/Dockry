@@ -66,9 +66,11 @@ to show the widget with a track.
 - **Each profile's own open apps** (**Settings › General › Profiles**), like desktops on
   Linux: an app belongs to the profile that was active when it opened, and switching hides
   the other profiles' apps. Bringing an app forward moves it to the profile you're in, or
-  with **Open a new app instance**, each profile has its own copy: clicking an app that's
-  open in another profile opens a new one, browsers and Electron apps with a data folder of
-  their own per profile, and bringing another profile's app forward switches to it. A
+  with **Open a new app instance**, windows are per profile, like desktops on a Mac:
+  clicking an app with windows in another profile opens a new window of it (⌘N), and
+  switching shows only the profile's windows. **Keep app data separate per profile** runs a
+  separate copy per profile instead, browsers and Electron apps with their own data folder.
+  `open dockry://profile/Work` switches to Work from Shortcuts or a script. A
   speaker on the profile button, in the switcher and in the menu shows which profile is
   playing sound.
 - **Folders:** drag one from Finder onto the dock, or right-click the dock and choose
