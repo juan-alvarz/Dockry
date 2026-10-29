@@ -177,6 +177,9 @@ private struct GeneralSettings: View {
                         Spacer()
                         Button("Allow…") { windowSpace.requestAccess() }
                     }
+                    Text("If Dockry is already in the list and turned on, it’s from an older version: remove it with −, then turn on the new one.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
 
