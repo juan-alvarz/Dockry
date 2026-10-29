@@ -49,14 +49,83 @@ struct DockView: View {
         .animation(.easeInOut(duration: 0.25), value: pointer.isRevealed)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: Alignment(metrics.position.outerEdge))
         .coordinateSpace(name: Self.space)
+        // The whole window's coordinates are the dock's space, which the frames are in.
+        .onDrop(of: [.fileURL], delegate: FinderDrop(dock: self, metrics: metrics))
+    }
+
+    private var elements: [DockElement] {
+        DockLayout.elements(
+            items: store.active.items,
+            running: runningApps.apps.filter(profileApps.isShown).compactMap(RunningApps.dockID),
+            showsUnpinned: settings.showsUnpinnedApps,
+            isShown: { AppCatalog.app(bundleID: $0, running: runningApps.app(withBundleID: $0)) != nil })
+    }
+
+    /// Like the macOS Dock: a folder dropped from Finder goes in where it's dropped, and an
+    /// app is pinned there. Other files aren't taken.
+    private struct FinderDrop: DropDelegate {
+        let dock: DockView
+        let metrics: DockMetrics
+
+        func validateDrop(info: DropInfo) -> Bool {
+            dock.pointer.dockFrame.insetBy(dx: -20, dy: -20).contains(info.location)
+        }
+
+        func performDrop(info: DropInfo) -> Bool {
+            let isHorizontal = metrics.axis == .horizontal
+            let elements = dock.elements
+            let centers = elements.map { element -> Double in
+                guard let frame = dock.frame(of: element) else { return .infinity }
+                return Double(isHorizontal ? frame.midX : frame.midY)
+            }
+            let store = dock.store
+            let index = DockLayout.insertionIndex(
+                at: Double(isHorizontal ? info.location.x : info.location.y), centers: centers, elements: elements,
+                itemCount: store.active.items.count)
+            let providers = info.itemProviders(for: [.fileURL])
+            Task { @MainActor in
+                var items: [DockItem] = []
+                for provider in providers {
+                    if let url = await Self.url(from: provider), let item = Self.item(for: url) {
+                        items.append(item)
+                    }
+                }
+                store.updateActive { profile in
+                    for (offset, item) in items.enumerated() {
+                        profile.insert(item, at: index + offset)
+                    }
+                }
+            }
+            return !providers.isEmpty
+        }
+
+        private static func url(from provider: NSItemProvider) async -> URL? {
+            await withCheckedContinuation { continuation in
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in continuation.resume(returning: url) }
+            }
+        }
+
+        private static func item(for url: URL) -> DockItem? {
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
+            if url.pathExtension == "app", let bundleID = Bundle(url: url)?.bundleIdentifier {
+                return .app(bundleID)
+            }
+            return values?.isDirectory == true && values?.isPackage != true ? .folder(url.path) : nil
+        }
+    }
+
+    /// An element's frame in the dock's space, once it has been laid out.
+    private func frame(of element: DockElement) -> CGRect? {
+        switch element.content {
+        case .app, .folder: pointer.itemFrames[element.id]
+        case .widget: pointer.widgetFrames[element.id]
+        case .divider: pointer.separatorFrames[element.id]
+        }
     }
 
     private func row(_ metrics: DockMetrics, magnifies: Bool) -> some View {
         let profile = store.active
-        let elements = DockLayout.elements(
-            items: profile.items, running: runningApps.apps.filter(profileApps.isShown).compactMap(RunningApps.dockID),
-            showsUnpinned: settings.showsUnpinnedApps,
-            isShown: { AppCatalog.app(bundleID: $0, running: runningApps.app(withBundleID: $0)) != nil })
+        let elements = elements
         let lengths = elements.map { Double(length(of: $0, metrics)) }
         // While dragging, the others slide over to show where the dragged item will land.
         let from = drag.flatMap { drag in elements.firstIndex { $0.id == drag.id } }

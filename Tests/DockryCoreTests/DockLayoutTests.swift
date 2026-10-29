@@ -73,3 +73,17 @@ final class DockLayoutFolderTests: XCTestCase {
         XCTAssertEqual(elements.map(\.id), ["a", "folder:/f", "b"])
     }
 }
+
+final class DockLayoutDropTests: XCTestCase {
+    private let elements = DockLayout.elements(items: [.app("a"), .divider, .widget(.clock)], running: [])
+
+    func testDropGoesBeforeTheFirstElementPastIt() {
+        XCTAssertEqual(DockLayout.insertionIndex(at: 5, centers: [10, 30, 50], elements: elements, itemCount: 3), 0)
+        XCTAssertEqual(DockLayout.insertionIndex(at: 35, centers: [10, 30, 50], elements: elements, itemCount: 3), 2)
+    }
+
+    func testDropPastTheLastElementGoesAfterIt() {
+        XCTAssertEqual(DockLayout.insertionIndex(at: 99, centers: [10, 30, 50], elements: elements, itemCount: 3), 3)
+        XCTAssertEqual(DockLayout.insertionIndex(at: 0, centers: [], elements: [], itemCount: 2), 2)
+    }
+}
