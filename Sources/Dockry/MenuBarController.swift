@@ -27,6 +27,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     func popUpProfileMenu() {
         let menu = NSMenu()
         profileItems().forEach(menu.addItem)
+        let active = app.store.active.name
+        menu.addItem(.separator())
+        menu.addItem(ActionMenuItem("Edit “\(active)” Profile…") { SettingsWindow.show(profile: active) })
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 

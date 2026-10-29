@@ -27,6 +27,13 @@ enum SettingsWindow {
         showWindow()
     }
 
+    /// Opens Settings › Profiles on one profile.
+    static func show(profile: String) {
+        selection.tab = .profiles
+        selection.profile = profile
+        showWindow()
+    }
+
     /// Opens Settings › Widgets on one widget.
     static func show(widget: WidgetKind) {
         selection.tab = .widgets
@@ -56,6 +63,8 @@ final class SettingsSelection: ObservableObject {
     @Published var tab = SettingsTab.general
     /// The widget shown in Settings › Widgets.
     @Published var widget = WidgetCatalog.all[0].kind
+    /// A profile to show in Settings › Profiles, until it's shown.
+    @Published var profile: String?
 }
 
 private struct SettingsView: View {
@@ -68,7 +77,7 @@ private struct SettingsView: View {
             GeneralSettings(settings: settings)
                 .tabItem { Label("General", systemImage: "gearshape") }
                 .tag(SettingsTab.general)
-            ProfilesSettings(store: store)
+            ProfilesSettings(store: store, selection: selection)
                 .tabItem { Label("Profiles", systemImage: "square.stack") }
                 .tag(SettingsTab.profiles)
             WidgetsSettings(store: store, selection: selection)
@@ -255,6 +264,7 @@ private struct GeneralSettings: View {
 
 private struct ProfilesSettings: View {
     @ObservedObject var store: ProfileStore
+    let selection: SettingsSelection
     @State private var selectedName: String?
     @State private var isCreating = false
 
@@ -289,6 +299,10 @@ private struct ProfilesSettings: View {
             .padding(10)
         }
         .onAppear { selectedName = selectedName ?? store.active.name }
+        .onReceive(selection.$profile.compactMap { $0 }) { profile in
+            selectedName = profile
+            selection.profile = nil
+        }
     }
 
     private var profileList: some View {
