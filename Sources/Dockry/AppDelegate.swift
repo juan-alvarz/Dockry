@@ -43,6 +43,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let active { self?.activeProfileChanged(from: previous, to: active) }
             }
             .store(in: &subscriptions)
+        store.$library
+            .map { $0.profiles.compactMap(\.wallpaper) }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self.map { Wallpapers.prepare($0.store.library.profiles) } }
+            .store(in: &subscriptions)
 
         let switcher = ProfileSwitcherPanel(store: store, profileApps: profileApps) { [weak self] in self?.activateProfile(named: $0) }
         profileSwitcher = switcher
@@ -145,12 +151,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if switched {
             profileApps.show(active.name)
         }
-        // A desktop picture is per desktop: set it once the switch to the profile's has happened.
-        afterDesktopSwitch(switched && active.desktop != nil) {
-            Wallpapers.switched(from: previous, to: active)
-            if switched && active.opensAppsOnSwitch {
-                Self.openIfNotRunning(active.pinnedApps)
-            }
+        // At once, during the desktop switch: macOS shows one desktop picture on every desktop.
+        Wallpapers.switched(from: previous, to: active)
+        // Once on the profile's desktop, so their windows open there.
+        if switched && active.opensAppsOnSwitch {
+            afterDesktopSwitch(active.desktop != nil) { Self.openIfNotRunning(active.pinnedApps) }
         }
     }
 
