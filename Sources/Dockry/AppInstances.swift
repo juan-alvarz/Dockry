@@ -57,6 +57,17 @@ enum AppInstances {
         }
     }
 
+    /// Moves a fresh profile's app data to the Trash, so it can still be put back.
+    static func trashData(of profile: String) {
+        let folder = dataFolder(of: profile)
+        guard FileManager.default.fileExists(atPath: folder.path) else { return }
+        do {
+            try FileManager.default.trashItem(at: folder, resultingItemURL: nil)
+        } catch {
+            NSLog("Dockry: couldn't move \(profile)'s app data to the Trash: \(error)")
+        }
+    }
+
     private static func engine(of url: URL) -> Engine {
         let contents = url.appendingPathComponent("Contents")
         let files = FileManager.default

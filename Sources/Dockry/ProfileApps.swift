@@ -17,8 +17,8 @@ final class ProfileApps: ObservableObject {
         /// ⌘Tab, a link) moves it to the profile you're in.
         case apps
         /// Each window is in one profile (ProfileWindows): the one active when it opened.
-        /// Switching parks the other profiles' windows off screen; nothing is hidden. An app
-        /// is in the profiles it has windows in, and clicking it in the dock where it has
+        /// Switching parks the other profiles' windows off screen and hides apps with no
+        /// window in the profile. An app is in the profiles it has windows in, and clicking it in the dock where it has
         /// none opens a new window of it there (its New Window, ⌘N). Bringing forward an app
         /// whose windows are all in other profiles switches to theirs.
         case windows
@@ -46,7 +46,7 @@ final class ProfileApps: ObservableObject {
     var mode = Mode.apps {
         didSet {
             guard mode != oldValue else { return }
-            // Window mode hides nothing, and app mode parks nothing.
+            // Each mode starts over: window mode hides only apps with no window here, and app mode parks nothing.
             if mode == .windows {
                 unhideAll()
             } else {
@@ -172,6 +172,9 @@ final class ProfileApps: ObservableObject {
     func openWindow(_ app: NSRunningApplication) {
         let pid = app.processIdentifier
         openingWindow[pid] = Date()
+        if hiddenByDockry.remove(pid) != nil {
+            app.unhide()
+        }
         guard let item = AppWindows.newWindowItem(in: app) else {
             windows.move(pid, to: store.active.name)
             windowChanges += 1
@@ -226,17 +229,20 @@ final class ProfileApps: ObservableObject {
         guard isEnabled && mode == .apps else {
             // Fresh profiles' apps are hidden from the others' and theirs from them.
             let apart = apps.filter { owner(of: $0) != nil && isFreshCopy($0) != isFresh(profile) }
-            for app in apps where !apart.contains(app) && hiddenByDockry.remove(app.processIdentifier) != nil {
-                app.unhide()
-            }
-            hide(apart, keeping: apps.filter { !apart.contains($0) })
-            // The rest share windows, or park those of other profiles.
+            // The rest share windows, or park those of other profiles. Apps with no window
+            // here hide too, as Mission Control still shows parked windows.
+            var away = apart
             if isEnabled {
                 let shared = apps.filter { !apart.contains($0) && owner(of: $0) != nil }
                 windows.scan(shared) { [self] in owner(of: $0) }
                 windows.show(profile, apps: shared)
+                away += shared.filter { !isShown($0) }
                 windowChanges += 1
             }
+            for app in apps where !away.contains(app) && hiddenByDockry.remove(app.processIdentifier) != nil {
+                app.unhide()
+            }
+            hide(away, keeping: apps.filter { !away.contains($0) })
             return
         }
         // Showing first, so macOS has the new profile's apps to bring forward as the others hide.
