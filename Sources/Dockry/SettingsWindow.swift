@@ -367,10 +367,7 @@ private struct NewProfileSheet: View {
                 }
                 .tag(false)
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text("Fresh apps")
-                        FreshAppsBadge()
-                    }
+                    Text("Fresh apps")
                     Text("Starts apps from scratch, like on a new Mac. The profile runs its own copies of apps, and browsers and Electron apps (Zen, Chrome, Slack…) keep their own sign-ins, history and tabs, apart from your other profiles. Other apps still share their data. This can’t be changed later.")
                         .font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
