@@ -203,7 +203,7 @@ private struct GeneralSettings: View {
                 .disabled(!settings.fadesWallpapers)
                 Toggle("Open a new app instance", isOn: $settings.opensNewAppInstances)
                     .disabled(!settings.separatesProfileApps)
-                Text("Each window stays in the profile it opened in, like desktops on a Mac. Clicking an app in the dock that only has windows in other profiles opens a new window of it here (its New Window, ⌘N); apps without one bring their window over. Switching shows only the profile’s windows: the others wait just off screen, which Mission Control still shows. Bringing forward an app whose windows are all in another profile switches to that profile.")
+                Text("Each window stays in the profile it opened in, like desktops on a Mac. Clicking an app in the dock that only has windows in other profiles opens a new window of it here (its New Window, ⌘N); apps without one bring their window over. Switching shows only the profile’s windows: apps with none in it hide, and the others’ windows wait just off screen, which Mission Control still shows for apps with windows in both. Bringing forward an app whose windows are all in another profile switches to that profile.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -336,8 +336,7 @@ private struct ProfilesSettings: View {
                     }
                 Button {
                     if let selectedName {
-                        store.removeProfile(named: selectedName)
-                        self.selectedName = store.active.name
+                        remove(selectedName)
                     }
                 } label: { Image(systemName: "minus").frame(width: 24, height: 20) }
                     .help("Remove the selected profile")
@@ -358,6 +357,30 @@ private struct ProfilesSettings: View {
             .buttonStyle(.borderless)
             .padding(6)
         }
+    }
+
+    /// A fresh profile's app data goes too, unless the user keeps it.
+    private func remove(_ name: String) {
+        let fresh = store.library.profiles.first { $0.name == name }?.freshApps ?? false
+        var keepData = true
+        if fresh {
+            let alert = NSAlert()
+            alert.messageText = "Remove \u{201C}\(name)\u{201D}?"
+            alert.informativeText = "This will remove all the data associated, you want to proceed?"
+            alert.addButton(withTitle: "Remove")
+            alert.addButton(withTitle: "Cancel")
+            alert.showsSuppressionButton = true
+            alert.suppressionButton?.title = "I want to preserve the data"
+            alert.suppressionButton?.state = .off
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            keepData = alert.suppressionButton?.state == .on
+        }
+        store.removeProfile(named: name)
+        // Only once the profile is really gone.
+        if !keepData, !store.library.profiles.contains(where: { $0.name == name }) {
+            AppInstances.trashData(of: name)
+        }
+        selectedName = store.active.name
     }
 
     private func move(by offset: Int) {

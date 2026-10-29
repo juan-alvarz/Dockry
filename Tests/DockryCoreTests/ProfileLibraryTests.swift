@@ -76,13 +76,13 @@ final class ProfileLibraryTests: XCTestCase {
     }
 
     func testUnknownWidgetsInItemsAreDropped() throws {
-        let json = #"{ "name": "Work", "items": ["a", "widget:weather", "widget:date"] }"#
+        let json = #"{ "name": "Work", "items": ["a", "widget:stocks", "widget:date"] }"#
         let profile = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
         XCTAssertEqual(profile.items, [.app("a"), .runningApps, .widget(.date)])
     }
 
     func testDecodingAHandWrittenProfileFillsInDefaults() throws {
-        let json = #"{ "profiles": [{ "name": "Gaming", "widgets": ["clock", "weather"], "desktop": 3 }] }"#
+        let json = #"{ "profiles": [{ "name": "Gaming", "widgets": ["clock", "stocks"], "desktop": 3 }] }"#
         let library = try JSONDecoder().decode(ProfileLibrary.self, from: Data(json.utf8))
         XCTAssertEqual(
             library.active,

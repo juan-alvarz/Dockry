@@ -20,6 +20,7 @@ public struct WidgetInfo: Equatable {
         case media = "Media"
         case system = "System"
         case productivity = "Productivity"
+        case information = "Information"
     }
 
     public var kind: WidgetKind
@@ -100,11 +101,18 @@ extension WidgetKind {
                     WidgetInfo.Requirement("Claude Code, signed in with a Claude plan"),
                     WidgetInfo.Requirement("Permission to read Claude Code’s sign-in; macOS asks the first time"),
                 ])
+        case .weather:
+            WidgetInfo(
+                kind: self, name: "Weather",
+                summary: "The conditions and temperature where you are, with today’s high and low.",
+                details: "From Open-Meteo, refreshed every half hour, in the units of your Mac’s Temperature setting. Click it to open the Weather app. On a side dock it’s just the symbol and the temperature.",
+                symbol: "cloud.sun.fill", tint: "#32ADE6", appBundleID: "com.apple.weather", category: .information,
+                requirements: [WidgetInfo.Requirement("Location Services for Dockry, at the town level; macOS asks the first time")])
         }
     }
 }
 
 public enum WidgetCatalog {
     /// Every widget, in the order Settings lists them.
-    public static let all: [WidgetInfo] = [WidgetKind.clock, .date, .spotify, .claude, .users].map(\.info)
+    public static let all: [WidgetInfo] = [WidgetKind.clock, .date, .spotify, .claude, .weather, .users].map(\.info)
 }

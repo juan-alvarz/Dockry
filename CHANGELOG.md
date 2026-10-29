@@ -5,6 +5,16 @@ the app, and the Release workflow, started by hand, publishes that version as `D
 with its notes. Each version is released once: to release, add a new heading on top with what
 changed. A heading that isn't a version, like `## Unreleased`, is skipped.
 
+## 0.1.1
+
+- Weather widget: current conditions with today's high and low from Open-Meteo, for your town
+  from Location Services. Temperatures follow your Language & Region setting; click it for the
+  Weather app.
+- Removing a fresh profile asks first and moves its app data to the Trash, unless you check
+  "I want to preserve the data".
+- In window mode, switching profiles hides apps with no window in the profile, so Mission
+  Control doesn't show their parked windows.
+
 ## 0.1.0
 
 - The version Dockry shows in Settings now always matches the build: it comes from this
