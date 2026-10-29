@@ -130,8 +130,9 @@ final class DockController {
             keeper.reservations = []
             return
         }
-        // The dock itself and its gap from the screen edge; magnified icons may still go over windows.
-        let thickness = metrics.thickness + DockMetrics.margin
+        // The dock itself, its gap from the screen edge and as much again above it, so windows
+        // don't touch it; magnified icons may still go over windows.
+        let thickness = metrics.thickness + 2 * DockMetrics.margin
         keeper.reservations = screens.map { screen in
             let area = DockPanel.area(on: screen, coversSystemDock: coversSystemDock)
             let allowed = WindowFit.allowedArea(visible: screen.visibleFrame, dockArea: area, position: dock.position, thickness: thickness)

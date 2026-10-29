@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let store = ProfileStore()
     let settings = SettingsStore()
     private let runningApps = RunningApps()
+    private(set) lazy var profileApps = ProfileApps(store: store)
     private var docks: DockController?
     private var menuBar: MenuBarController?
     private var profileSwitcher: ProfileSwitcherPanel?
@@ -20,15 +21,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menuBar = MenuBarController(app: self)
         self.menuBar = menuBar
 
-        let (store, runningApps, settings) = (store, runningApps, settings)
+        let (store, runningApps, settings, profileApps) = (store, runningApps, settings, profileApps)
         let actions = DockActions(
             showProfileMenu: { menuBar.popUpProfileMenu() },
             openSettings: { SettingsWindow.show() })
         docks = DockController(settings: settings) { pointer in
-            DockView(store: store, runningApps: runningApps, settings: settings, pointer: pointer, actions: actions)
+            DockView(
+                store: store, runningApps: runningApps, profileApps: profileApps, settings: settings, pointer: pointer,
+                actions: actions)
         }
 
-        let switcher = ProfileSwitcherPanel(store: store) { [weak self] in self?.activateProfile(named: $0) }
+        settings.$separatesProfileApps
+            .sink { profileApps.isEnabled = $0 }
+            .store(in: &subscriptions)
+        // After the change is stored, and with the profile it changed from.
+        store.$library
+            .map(\.active)
+            .receive(on: RunLoop.main)
+            .scan((Profile?.none, Profile?.none)) { ($0.1, $1) }
+            .sink { [weak self] previous, active in
+                if let active { self?.activeProfileChanged(from: previous, to: active) }
+            }
+            .store(in: &subscriptions)
+
+        let switcher = ProfileSwitcherPanel(store: store, profileApps: profileApps) { [weak self] in self?.activateProfile(named: $0) }
         profileSwitcher = switcher
         // The shortcuts the user set: one for the switcher, and one per profile.
         store.$library.combineLatest(settings.$profileSwitcherShortcut)
@@ -115,6 +131,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.activate(named: name)
         if let desktop = store.active.desktop {
             DesktopSwitcher.switchTo(desktop: desktop)
+        }
+    }
+
+    /// What follows the active profile, however it was switched: its apps, its wallpaper,
+    /// and opening its pinned apps if it asks for that.
+    private func activeProfileChanged(from previous: Profile?, to active: Profile) {
+        // Not a rename: the profile it was is still there.
+        let switched = previous.map { previous in
+            previous.name != active.name && store.library.profiles.contains { $0.name == previous.name }
+        } ?? false
+        guard switched || previous?.wallpaper != active.wallpaper else { return }
+        if switched {
+            profileApps.show(active.name)
+        }
+        // A desktop picture is per desktop: set it once the switch to the profile's has happened.
+        afterDesktopSwitch(switched && active.desktop != nil) {
+            Wallpapers.switched(from: previous, to: active)
+            if switched && active.opensAppsOnSwitch {
+                Self.openIfNotRunning(active.pinnedApps)
+            }
+        }
+    }
+
+    private func afterDesktopSwitch(_ isSwitching: Bool, _ action: @escaping () -> Void) {
+        guard isSwitching else { return action() }
+        var observer: NSObjectProtocol?
+        var done = false
+        let finish = {
+            guard !done else { return }
+            done = true
+            observer.map(NSWorkspace.shared.notificationCenter.removeObserver)
+            action()
+        }
+        observer = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
+        ) { _ in MainActor.assumeIsolated { finish() } }
+        // Already on that desktop: nothing changes, so don't wait for long.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { finish() }
+    }
+
+    /// Opens the apps without bringing them forward, so the app you're in keeps the keyboard.
+    private static func openIfNotRunning(_ bundleIDs: [String]) {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        for bundleID in bundleIDs where NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty {
+            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+                NSLog("Dockry: can't open \(bundleID); it isn't installed")
+                continue
+            }
+            NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, error in
+                if let error { NSLog("Dockry: couldn't open \(bundleID): \(error)") }
+            }
         }
     }
 

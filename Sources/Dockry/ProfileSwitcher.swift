@@ -18,7 +18,7 @@ final class ProfileSwitcherPanel: NSPanel {
     /// The modifiers of the shortcut that opened it, which choose the profile when let go.
     private var holdModifiers: NSEvent.ModifierFlags = []
 
-    init(store: ProfileStore, onChoose: @escaping (String) -> Void) {
+    init(store: ProfileStore, profileApps: ProfileApps, onChoose: @escaping (String) -> Void) {
         self.store = store
         self.onChoose = onChoose
         // Non-activating: the panel takes the keyboard without pulling the user's app out of focus.
@@ -31,7 +31,7 @@ final class ProfileSwitcherPanel: NSPanel {
         backgroundColor = .clear
         hasShadow = true  // follows the rounded content, since the rest of the window is clear
         hidesOnDeactivate = false
-        contentView = NSHostingView(rootView: ProfileSwitcherView(store: store, selection: selection) { [weak self] in
+        contentView = NSHostingView(rootView: ProfileSwitcherView(store: store, profileApps: profileApps, selection: selection) { [weak self] in
             self?.choose(at: $0)
         })
     }
@@ -114,6 +114,7 @@ private final class SwitcherSelection: ObservableObject {
 
 private struct ProfileSwitcherView: View {
     @ObservedObject var store: ProfileStore
+    @ObservedObject var profileApps: ProfileApps
     @ObservedObject var selection: SwitcherSelection
     let choose: (Int) -> Void
 
@@ -126,7 +127,8 @@ private struct ProfileSwitcherView: View {
                     ProfileTile(
                         profile: profile,
                         isSelected: index == selection.index,
-                        isActive: profile.name == store.active.name)
+                        isActive: profile.name == store.active.name,
+                        isPlaying: profileApps.playingProfiles.contains(profile.name))
                 }
                 .buttonStyle(.plain)
             }
@@ -141,6 +143,7 @@ private struct ProfileTile: View {
     let profile: Profile
     let isSelected: Bool
     let isActive: Bool
+    let isPlaying: Bool
 
     private let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
 
@@ -166,6 +169,15 @@ private struct ProfileTile: View {
                 .foregroundStyle(.secondary)
         }
         .frame(width: 128, height: 144)
+        .overlay(alignment: .topTrailing) {
+            if isPlaying {
+                Image(systemName: "speaker.wave.2.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(10)
+                    .help("Playing sound")
+            }
+        }
         .background(isSelected ? AnyShapeStyle(Color.accentColor.opacity(0.3)) : AnyShapeStyle(.clear), in: shape)
         .overlay(shape.strokeBorder(Color.accentColor, lineWidth: isSelected ? 2 : 0))
         .contentShape(shape)

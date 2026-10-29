@@ -31,6 +31,11 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(keepsWindowsClear, forKey: Key.keepsWindowsClear) }
     }
 
+    /// Give each profile its own open apps, hiding the other profiles' (see ProfileApps).
+    @Published var separatesProfileApps: Bool {
+        didSet { defaults.set(separatesProfileApps, forKey: Key.separatesProfileApps) }
+    }
+
     /// Opens the profile switcher; none unless the user sets one.
     @Published var profileSwitcherShortcut: KeyShortcut? {
         didSet { defaults.set(profileSwitcherShortcut.flatMap { try? JSONEncoder().encode($0) }, forKey: Key.profileSwitcherShortcut) }
@@ -47,6 +52,7 @@ final class SettingsStore: ObservableObject {
         static let showsUnpinnedApps = "showsUnpinnedApps"
         static let hidesSystemDock = "hideSystemDock"
         static let keepsWindowsClear = "keepsWindowsClear"
+        static let separatesProfileApps = "separatesProfileApps"
         static let profileSwitcherShortcut = "profileSwitcherShortcut"
         static let position = "position"
         static let iconSize = "iconSize"
@@ -72,6 +78,7 @@ final class SettingsStore: ObservableObject {
         showsUnpinnedApps = defaults.object(forKey: Key.showsUnpinnedApps) as? Bool ?? true
         hidesSystemDock = defaults.bool(forKey: Key.hidesSystemDock)
         keepsWindowsClear = defaults.object(forKey: Key.keepsWindowsClear) as? Bool ?? true
+        separatesProfileApps = defaults.bool(forKey: Key.separatesProfileApps)
         profileSwitcherShortcut = defaults.data(forKey: Key.profileSwitcherShortcut)
             .flatMap { try? JSONDecoder().decode(KeyShortcut.self, from: $0) }
         macDock = Self.readMacDock()

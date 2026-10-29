@@ -108,6 +108,9 @@ final class DockPointer: ObservableObject {
     var separatorFrames: [String: CGRect] = [:]
     /// Widgets' frames, for the dock to know their lengths when one is dragged past them.
     var widgetFrames: [String: CGRect] = [:]
+    /// The hovered app's window list, which the pointer can move onto and click in; while
+    /// it's on it (or the gap to the icon), the hover stays put.
+    var calloutFrame: CGRect?
     /// False while the size follows the macOS Dock.
     var canResize = true
     /// While a separator is being dragged: where the drag started and the dock's size then.
@@ -174,6 +177,10 @@ final class DockPointer: ObservableObject {
         let frame = window.frame
         let point = CGPoint(x: screenPoint.x - frame.minX, y: frame.maxY - screenPoint.y)
 
+        if hoveredItem != nil, let calloutFrame, calloutFrame.insetBy(dx: -14, dy: -14).contains(point) {
+            updateCursor(resize: false)
+            return
+        }
         let isOverDock = isRevealed && activeZone.contains(point)
         let newLocation = isOverDock ? point : nil
         if (newLocation == nil) != (location == nil) {

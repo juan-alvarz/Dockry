@@ -84,7 +84,7 @@ private struct SettingsView: View {
 
 private struct GeneralSettings: View {
     @ObservedObject var settings: SettingsStore
-    @ObservedObject private var windowSpace = WindowSpaceKeeper.shared
+    @ObservedObject private var windowSpace = AppWindows.shared
     @State private var opensAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
 
@@ -161,6 +161,13 @@ private struct GeneralSettings: View {
                     ShortcutRecorder(shortcut: $settings.profileSwitcherShortcut)
                 }
                 Text("Opens the profile switcher. Hold the modifier keys and press the key again to move to the next profile; let go to switch. Each profile can also have its own shortcut, under Profiles.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Profiles") {
+                Toggle("Give each profile its own open apps", isOn: $settings.separatesProfileApps)
+                Text("Like desktops on Linux: an app belongs to the profile that was active when it opened, and switching profiles hides the other profiles’ apps. Bringing an app forward moves it to the profile you’re in. Finder is in every profile. The profile switcher and menu show which profile is playing sound.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -284,6 +291,13 @@ private struct ProfilesSettings: View {
                 } label: { Image(systemName: "minus").frame(width: 24, height: 20) }
                     .help("Remove the selected profile")
                     .disabled(store.library.profiles.count < 2 || selectedName == nil)
+                Button {
+                    if let selectedName, let copy = store.duplicateProfile(named: selectedName) {
+                        self.selectedName = copy
+                    }
+                } label: { Image(systemName: "plus.square.on.square").frame(width: 24, height: 20) }
+                    .help("Duplicate the selected profile")
+                    .disabled(selectedName == nil)
                 Spacer()
                 Button { move(by: -1) } label: { Image(systemName: "chevron.up").frame(width: 24, height: 20) }
                     .help("Move up")
@@ -323,11 +337,7 @@ private struct ProfileEditor: View {
                     ShortcutRecorder(shortcut: binding(\.shortcut))
                 }
                 LabeledContent("Symbol") {
-                    HStack {
-                        Image(systemName: profile.symbol).frame(width: 20)
-                        TextField("SF Symbol name", text: binding(\.symbol))
-                            .labelsHidden()
-                    }
+                    Image(systemName: profile.symbol).help(profile.symbol)
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 28), spacing: 4)], spacing: 4) {
                     ForEach(Self.suggestedSymbols, id: \.self) { symbol in
@@ -363,6 +373,25 @@ private struct ProfileEditor: View {
                     Text("Stay on the current desktop").tag(Int?.none)
                     ForEach(1...9, id: \.self) { Text("Desktop \($0)").tag(Int?.some($0)) }
                 }
+                LabeledContent("Wallpaper") {
+                    HStack {
+                        if let wallpaper = profile.wallpaper {
+                            Image(nsImage: NSImage(contentsOfFile: wallpaper) ?? NSWorkspace.shared.icon(forFile: wallpaper))
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 48, height: 30)
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                                .help(wallpaper)
+                        } else {
+                            Text("Your own").foregroundStyle(.secondary)
+                        }
+                        Button("Choose…", action: chooseWallpaper)
+                        Button("None") { change { $0.wallpaper = nil } }
+                            .disabled(profile.wallpaper == nil)
+                    }
+                    .controlSize(.small)
+                }
+                Toggle("Open its apps when switching to it", isOn: binding(\.opensAppsOnSwitch))
                 if profile.name != store.active.name {
                     Button("Make Active") { store.activate(named: profile.name) }
                 }
@@ -454,6 +483,15 @@ private struct ProfileEditor: View {
         if store.library.profiles.contains(where: { $0.name == trimmed }) {
             renamed(trimmed)
         }
+    }
+
+    private func chooseWallpaper() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.directoryURL = URL(fileURLWithPath: profile.wallpaper ?? "/System/Library/Desktop Pictures")
+        panel.prompt = "Choose"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        change { $0.wallpaper = url.path }
     }
 
     private func addApp() {

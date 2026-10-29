@@ -30,6 +30,10 @@ struct SpotifyPopover: View {
                 Divider()
                 search
             }
+            Button("Open Spotify") { player.openApp() }
+                .buttonStyle(.link)
+                .font(.caption)
+                .frame(maxWidth: .infinity)
         }
         .padding(16)
         .frame(width: 320)

@@ -44,6 +44,14 @@ final class ProfileStore: ObservableObject {
         return name
     }
 
+    /// Returns the copy's name.
+    @discardableResult
+    func duplicateProfile(named name: String) -> String? {
+        var copy: String?
+        update { copy = $0.duplicateProfile(named: name) }
+        return copy
+    }
+
     func removeProfile(named name: String) {
         update { $0.removeProfile(named: name) }
     }

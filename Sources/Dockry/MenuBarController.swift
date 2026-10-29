@@ -65,6 +65,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private func profileItems() -> [NSMenuItem] {
         let app = self.app
+        let playing = app.profileApps.playingProfiles
         return app.store.library.profiles.map { profile in
             // Shows the profile's global shortcut, if it has one with a plain key.
             let key = profile.shortcut?.key.flatMap { $0.count == 1 ? $0.lowercased() : nil } ?? ""
@@ -74,6 +75,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             item.keyEquivalentModifierMask = NSEvent.ModifierFlags(rawValue: UInt(profile.shortcut?.modifiers ?? 0))
             item.image = NSImage(systemSymbolName: profile.symbol, accessibilityDescription: nil)
             item.state = profile.name == app.store.active.name ? .on : .off
+            if playing.contains(profile.name) {
+                let title = NSMutableAttributedString(string: profile.name + "  ")
+                let speaker = NSTextAttachment()
+                speaker.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: "Playing sound")
+                title.append(NSAttributedString(attachment: speaker))
+                item.attributedTitle = title
+            }
             return item
         }
     }

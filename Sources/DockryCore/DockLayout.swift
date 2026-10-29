@@ -11,6 +11,7 @@ public struct DockElement: Equatable, Identifiable {
     public enum Content: Equatable {
         case app(DockEntry)
         case widget(WidgetKind)
+        case folder(String)
         case divider
     }
 
@@ -23,6 +24,7 @@ public struct DockElement: Equatable, Identifiable {
         switch content {
         case .app(let entry): entry.bundleID
         case .widget(let kind): "widget:\(kind.rawValue)"
+        case .folder(let path): "folder:\(path)"
         case .divider: "divider:\(itemIndex)"
         }
     }
@@ -53,6 +55,8 @@ public enum DockLayout {
                 break
             case .widget(let kind):
                 result.append(DockElement(content: .widget(kind), itemIndex: index))
+            case .folder(let path):
+                result.append(DockElement(content: .folder(path), itemIndex: index))
             case .runningApps where showsUnpinned:
                 var seen = pinned
                 for bundleID in running where seen.insert(bundleID).inserted && isShown(bundleID) {

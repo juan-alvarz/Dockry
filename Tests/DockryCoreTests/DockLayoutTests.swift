@@ -66,3 +66,10 @@ final class DockLayoutTests: XCTestCase {
         XCTAssertEqual(DockLayout.items(items, afterMoving: 2, to: 2, in: elements), items)
     }
 }
+
+final class DockLayoutFolderTests: XCTestCase {
+    func testFoldersShowInTheirPlace() {
+        let elements = DockLayout.elements(items: [.app("a"), .folder("/f"), .runningApps], running: ["b"])
+        XCTAssertEqual(elements.map(\.id), ["a", "folder:/f", "b"])
+    }
+}
