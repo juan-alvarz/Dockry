@@ -88,6 +88,15 @@ final class DockPointer: ObservableObject {
     @Published private(set) var lastLocation: CGPoint?
     @Published private(set) var hoveredItem: String?
     @Published private(set) var isRevealed = true
+    /// Where files dragged from Finder are over the dock, in the window's SwiftUI coordinates.
+    @Published private(set) var dropLocation: CGPoint?
+    /// The element the dock's drop gap is in front of (one past the last for the end), kept
+    /// while the pointer is in the gap so the gap doesn't run away from it. Set by DockView.
+    var dropGap: Int?
+    /// The gap's frame, while there is one.
+    var dropGapFrame: CGRect?
+    /// Adds dropped items at the gap; set by DockView.
+    var performDrop: (([DockItem]) -> Void)?
 
     weak var window: NSWindow?
     var metrics = DockMetrics(DockSettings()) {
@@ -157,6 +166,20 @@ final class DockPointer: ObservableObject {
         settings.own.iconSize = (resizeStart.size + Double(delta)).rounded().clamped(to: DockSettings.sizeRange)
     }
 
+    /// Follows a drag from Finder; returns whether it's over the dock, where it can be dropped.
+    @discardableResult
+    func dropMoved(to location: CGPoint?) -> Bool {
+        let over = location.flatMap { dockFrame.insetBy(dx: -24, dy: -24).contains($0) ? $0 : nil }
+        if over == nil {
+            dropGap = nil
+            dropGapFrame = nil
+        }
+        if over != dropLocation {
+            dropLocation = over
+        }
+        return over != nil
+    }
+
     func endResize() {
         guard resizeStart != nil else { return }
         resizeStart = nil
@@ -195,7 +218,7 @@ final class DockPointer: ObservableObject {
                 lastLocation = newLocation
             }
         }
-        let hovered = isOverDock ? itemFrames.first { $0.value.contains(point) }?.key : nil
+        let hovered = isOverDock && dropLocation == nil ? itemFrames.first { $0.value.contains(point) }?.key : nil
         if hovered != hoveredItem {
             hoveredItem = hovered
         }

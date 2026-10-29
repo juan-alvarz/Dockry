@@ -77,13 +77,16 @@ final class DockLayoutFolderTests: XCTestCase {
 final class DockLayoutDropTests: XCTestCase {
     private let elements = DockLayout.elements(items: [.app("a"), .divider, .widget(.clock)], running: [])
 
-    func testDropGoesBeforeTheFirstElementPastIt() {
-        XCTAssertEqual(DockLayout.insertionIndex(at: 5, centers: [10, 30, 50], elements: elements, itemCount: 3), 0)
-        XCTAssertEqual(DockLayout.insertionIndex(at: 35, centers: [10, 30, 50], elements: elements, itemCount: 3), 2)
+    func testDropGoesInFrontOfTheFirstElementPastIt() {
+        XCTAssertEqual(DockLayout.dropGap(at: 5, centers: [10, 30, 50]), 0)
+        XCTAssertEqual(DockLayout.dropGap(at: 35, centers: [10, 30, 50]), 2)
+        XCTAssertEqual(DockLayout.dropGap(at: 99, centers: [10, 30, 50]), 3)
     }
 
-    func testDropPastTheLastElementGoesAfterIt() {
-        XCTAssertEqual(DockLayout.insertionIndex(at: 99, centers: [10, 30, 50], elements: elements, itemCount: 3), 3)
-        XCTAssertEqual(DockLayout.insertionIndex(at: 0, centers: [], elements: [], itemCount: 2), 2)
+    func testGapBecomesAnItemIndex() {
+        XCTAssertEqual(DockLayout.itemIndex(insertingAt: 0, elements: elements, itemCount: 3), 0)
+        XCTAssertEqual(DockLayout.itemIndex(insertingAt: 2, elements: elements, itemCount: 3), 2)
+        XCTAssertEqual(DockLayout.itemIndex(insertingAt: 3, elements: elements, itemCount: 3), 3)
+        XCTAssertEqual(DockLayout.itemIndex(insertingAt: 0, elements: [], itemCount: 2), 2)
     }
 }

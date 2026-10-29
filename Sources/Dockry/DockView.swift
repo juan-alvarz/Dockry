@@ -49,8 +49,7 @@ struct DockView: View {
         .animation(.easeInOut(duration: 0.25), value: pointer.isRevealed)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: Alignment(metrics.position.outerEdge))
         .coordinateSpace(name: Self.space)
-        // The whole window's coordinates are the dock's space, which the frames are in.
-        .onDrop(of: [.fileURL], delegate: FinderDrop(dock: self, metrics: metrics))
+        .onAppear(perform: acceptDrops)
     }
 
     private var elements: [DockElement] {
@@ -61,57 +60,40 @@ struct DockView: View {
             isShown: { AppCatalog.app(bundleID: $0, running: runningApps.app(withBundleID: $0)) != nil })
     }
 
-    /// Like the macOS Dock: a folder dropped from Finder goes in where it's dropped, and an
-    /// app is pinned there. Other files aren't taken.
-    private struct FinderDrop: DropDelegate {
-        let dock: DockView
-        let metrics: DockMetrics
-
-        func validateDrop(info: DropInfo) -> Bool {
-            dock.pointer.dockFrame.insetBy(dx: -20, dy: -20).contains(info.location)
-        }
-
-        func performDrop(info: DropInfo) -> Bool {
-            let isHorizontal = metrics.axis == .horizontal
+    /// Like the macOS Dock: folders and apps dragged from Finder go in where the dock opened
+    /// a gap for them (see DockPanel's DockHostingView).
+    private func acceptDrops() {
+        let (store, pointer) = (store, pointer)
+        let dock = self
+        pointer.performDrop = { items in
             let elements = dock.elements
-            let centers = elements.map { element -> Double in
-                guard let frame = dock.frame(of: element) else { return .infinity }
-                return Double(isHorizontal ? frame.midX : frame.midY)
-            }
-            let store = dock.store
-            let index = DockLayout.insertionIndex(
-                at: Double(isHorizontal ? info.location.x : info.location.y), centers: centers, elements: elements,
-                itemCount: store.active.items.count)
-            let providers = info.itemProviders(for: [.fileURL])
-            Task { @MainActor in
-                var items: [DockItem] = []
-                for provider in providers {
-                    if let url = await Self.url(from: provider), let item = Self.item(for: url) {
-                        items.append(item)
-                    }
-                }
-                store.updateActive { profile in
-                    for (offset, item) in items.enumerated() {
-                        profile.insert(item, at: index + offset)
-                    }
+            let index = DockLayout.itemIndex(
+                insertingAt: pointer.dropGap ?? elements.count, elements: elements, itemCount: store.active.items.count)
+            store.updateActive { profile in
+                for (offset, item) in items.enumerated() {
+                    profile.insert(item, at: index + offset)
                 }
             }
-            return !providers.isEmpty
         }
+    }
 
-        private static func url(from provider: NSItemProvider) async -> URL? {
-            await withCheckedContinuation { continuation in
-                _ = provider.loadObject(ofClass: URL.self) { url, _ in continuation.resume(returning: url) }
-            }
+    /// Which element the drop gap goes in front of, while files are dragged over the dock.
+    /// While the pointer is in the gap it stays put; otherwise it's in front of the first
+    /// element past the pointer.
+    private func dropGap(_ elements: [DockElement], _ metrics: DockMetrics) -> Int? {
+        guard drag == nil, let location = pointer.dropLocation else { return nil }
+        let isHorizontal = metrics.axis == .horizontal
+        let along = isHorizontal ? location.x : location.y
+        if let current = pointer.dropGap, let frame = pointer.dropGapFrame,
+           (isHorizontal ? frame.minX...frame.maxX : frame.minY...frame.maxY).contains(along) {
+            return current
         }
-
-        private static func item(for url: URL) -> DockItem? {
-            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
-            if url.pathExtension == "app", let bundleID = Bundle(url: url)?.bundleIdentifier {
-                return .app(bundleID)
-            }
-            return values?.isDirectory == true && values?.isPackage != true ? .folder(url.path) : nil
+        let centers = elements.map { element in
+            frame(of: element).map { Double(isHorizontal ? $0.midX : $0.midY) } ?? .infinity
         }
+        let gap = DockLayout.dropGap(at: Double(along), centers: centers)
+        pointer.dropGap = gap
+        return gap
     }
 
     /// An element's frame in the dock's space, once it has been laid out.
@@ -138,10 +120,12 @@ struct DockView: View {
             drag!.distance - CGFloat(DockLayout.shift(from: from, to: to, lengths: lengths, spacing: Double(metrics.spacing)))
         } } ?? 0
 
+        let gap = dropGap(elements, metrics)
         // No magnification while dragging: the places an item moves between keep their size.
-        let isMagnifying = magnifies && drag == nil && pointer.location != nil
+        let isDragging = drag != nil || pointer.dropLocation != nil
+        let isMagnifying = magnifies && !isDragging && pointer.location != nil
         return DockRowLayout(
-            metrics: metrics, pointer: magnifies && drag == nil ? pointerAlongDock(metrics) : nil,
+            metrics: metrics, pointer: magnifies && !isDragging ? pointerAlongDock(metrics) : nil,
             amount: isMagnifying ? 1 : 0
         ) {
             DockBackground(settings: settings, store: store, openSettings: actions.openSettings)
@@ -150,17 +134,31 @@ struct DockView: View {
                 profile: profile, othersPlaying: profileApps.playingProfiles.subtracting([profile.name]).sorted(),
                 action: actions.showProfileMenu)
             DockSeparator(settings: settings, pointer: pointer, id: "profile", store: store, itemIndex: nil)
-            ForEach(order) { element in
+            ForEach(Array(order.enumerated()), id: \.element.id) { index, element in
+                if index == gap {
+                    dropGapView(metrics)
+                }
                 let isDragged = element.id == drag?.id
                 elementView(element, profile: profile, metrics: metrics, elements: elements, lengths: lengths)
                     .offset(isDragged ? metrics.position.along(dragOffset) : .zero)
                     .zIndex(isDragged ? 1 : 0)
             }
+            if gap == order.count {
+                dropGapView(metrics)
+            }
         }
         .animation(.spring(duration: 0.25), value: order.map(\.id))
+        .animation(.spring(duration: 0.25), value: gap)
         .background(FrameReader { pointer.dockFrame = $0 })
         // Only entering and leaving animate; while over the dock, icons follow the pointer.
         .animation(.easeOut(duration: isMagnifying ? 0.14 : 0.22), value: isMagnifying)
+    }
+
+    /// The room the dock makes for something dragged from Finder.
+    private func dropGapView(_ metrics: DockMetrics) -> some View {
+        Color.clear
+            .frame(width: metrics.iconSize, height: metrics.iconSize)
+            .background(FrameReader { [pointer] in pointer.dropGapFrame = $0 })
     }
 
     @ViewBuilder
@@ -500,7 +498,7 @@ private struct WindowList: View {
             }
             .padding(6)
             .frame(width: 240, alignment: .leading)
-            .background(Color(nsColor: .windowBackgroundColor).opacity(0.95), in: RoundedRectangle(cornerRadius: 10))
+            .background(VisualEffectBackground().clipShape(RoundedRectangle(cornerRadius: 10)))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.primary.opacity(0.12), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
             .background(FrameReader { [pointer] in pointer.calloutFrame = $0 })

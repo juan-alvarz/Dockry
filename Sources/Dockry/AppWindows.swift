@@ -49,12 +49,14 @@ final class AppWindows: ObservableObject {
     }
 
     /// The app's windows, in Accessibility's order (front to back), minimized ones included.
+    /// A minimized window doesn't report itself as a standard window, so it counts as one.
     func windows(of pid: pid_t) -> [Window] {
-        Self.windowElements(of: pid).filter(Self.isStandard).map { element in
-            Window(
-                element: element,
-                title: Self.attribute(kAXTitleAttribute, of: element) as? String ?? "",
-                isMinimized: Self.attribute(kAXMinimizedAttribute, of: element) as? Bool == true)
+        Self.windowElements(of: pid).compactMap { element in
+            let isMinimized = Self.attribute(kAXMinimizedAttribute, of: element) as? Bool == true
+            guard isMinimized || Self.isStandard(element) else { return nil }
+            return Window(
+                element: element, title: Self.attribute(kAXTitleAttribute, of: element) as? String ?? "",
+                isMinimized: isMinimized)
         }
     }
 
@@ -147,6 +149,8 @@ final class AppWindows: ObservableObject {
         switch notification {
         case kAXWindowMiniaturizedNotification, kAXWindowDeminiaturizedNotification:
             updateMinimized(pid)
+            // The notification can come before the window's state changes, while it animates.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.updateMinimized(pid) }
         case kAXWindowCreatedNotification:
             updateMinimized(pid)
             windowChanged?(window)

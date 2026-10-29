@@ -123,14 +123,19 @@ public enum DockLayout {
         return result
     }
 
-    /// Where something dropped at `position` along the dock goes in the profile's items:
-    /// before the first element whose center (`centers`, in the same coordinates) is past it,
-    /// or after the last element.
-    public static func insertionIndex(at position: Double, centers: [Double], elements: [DockElement], itemCount: Int) -> Int {
-        guard let next = zip(elements, centers).first(where: { $0.1 > position })?.0 else {
-            return elements.last.map { $0.itemIndex + 1 } ?? itemCount
+    /// Which element a drop at `position` along the dock goes in front of (`centers.count` for
+    /// after the last): the first whose center is past it.
+    public static func dropGap(at position: Double, centers: [Double]) -> Int {
+        centers.firstIndex { $0 > position } ?? centers.count
+    }
+
+    /// Where something put in front of element `gap` goes in the profile's items: before that
+    /// element's item, or after the last element's.
+    public static func itemIndex(insertingAt gap: Int, elements: [DockElement], itemCount: Int) -> Int {
+        if elements.indices.contains(gap) {
+            return elements[gap].itemIndex
         }
-        return next.itemIndex
+        return elements.last.map { $0.itemIndex + 1 } ?? itemCount
     }
 
     private static func centers(_ lengths: [Double], spacing: Double) -> [Double] {
