@@ -66,7 +66,8 @@ to show the widget with a track.
   the other profiles' apps. Bringing an app forward moves it to the profile you're in. A
   speaker on the profile button, in the switcher and in the menu shows which profile is
   playing sound.
-- **Folders:** right-click the dock and choose **Add Folder…**. Like the macOS Dock's stacks,
+- **Folders:** drag one from Finder onto the dock, or right-click the dock and choose
+  **Add Folder…**. Apps dragged from Finder are pinned where you drop them. Like the macOS Dock's stacks,
   clicking one shows what's inside, newest first; folders open in place.
 - **Minimized windows:** a yellow dot next to an app's dot means it has windows in the Dock.
   Hover over the app to list its windows and click one to bring it back. Needs Accessibility
