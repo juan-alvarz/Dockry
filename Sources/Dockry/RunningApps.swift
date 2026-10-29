@@ -33,6 +33,11 @@ final class RunningApps: ObservableObject {
         apps.first { Self.dockID(for: $0) == bundleID }
     }
 
+    /// Every running copy of the app; more than one when profiles open their own.
+    func apps(withBundleID bundleID: String) -> [NSRunningApplication] {
+        apps.filter { Self.dockID(for: $0) == bundleID }
+    }
+
     /// How the dock and profiles refer to an app: its bundle identifier, or for the few apps
     /// without one (some Java and command-line tools with windows), the path to the app.
     static func dockID(for app: NSRunningApplication) -> String? {

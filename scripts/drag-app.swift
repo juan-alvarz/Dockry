@@ -6,7 +6,7 @@ import AppKit
 let arguments = CommandLine.arguments
 let name = arguments[1]
 let distance = Double(arguments[2])!
-guard let dockry = NSRunningApplication.runningApplications(withBundleIdentifier: "io.github.juan-alvarz.Dockry").first
+guard let dockry = NSRunningApplication.runningApplications(withBundleIdentifier: "com.dockry.Dockry").first
 else { fatalError("Dockry isn't running") }
 
 func attribute<T>(_ element: AXUIElement, _ name: String, as _: T.Type) -> T? {

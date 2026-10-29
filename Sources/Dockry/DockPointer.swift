@@ -88,6 +88,15 @@ final class DockPointer: ObservableObject {
     @Published private(set) var lastLocation: CGPoint?
     @Published private(set) var hoveredItem: String?
     @Published private(set) var isRevealed = true
+    /// Where files dragged from Finder are over the dock, in the window's SwiftUI coordinates.
+    @Published private(set) var dropLocation: CGPoint?
+    /// The element the dock's drop gap is in front of (one past the last for the end), kept
+    /// while the pointer is in the gap so the gap doesn't run away from it. Set by DockView.
+    var dropGap: Int?
+    /// The gap's frame, while there is one.
+    var dropGapFrame: CGRect?
+    /// Adds dropped items at the gap; set by DockView.
+    var performDrop: (([DockItem]) -> Void)?
 
     weak var window: NSWindow?
     var metrics = DockMetrics(DockSettings()) {
@@ -108,6 +117,9 @@ final class DockPointer: ObservableObject {
     var separatorFrames: [String: CGRect] = [:]
     /// Widgets' frames, for the dock to know their lengths when one is dragged past them.
     var widgetFrames: [String: CGRect] = [:]
+    /// The hovered app's window list, which the pointer can move onto and click in; while
+    /// it's on it (or the gap to the icon), the hover stays put.
+    var calloutFrame: CGRect?
     /// False while the size follows the macOS Dock.
     var canResize = true
     /// While a separator is being dragged: where the drag started and the dock's size then.
@@ -154,6 +166,20 @@ final class DockPointer: ObservableObject {
         settings.own.iconSize = (resizeStart.size + Double(delta)).rounded().clamped(to: DockSettings.sizeRange)
     }
 
+    /// Follows a drag from Finder; returns whether it's over the dock, where it can be dropped.
+    @discardableResult
+    func dropMoved(to location: CGPoint?) -> Bool {
+        let over = location.flatMap { dockFrame.insetBy(dx: -24, dy: -24).contains($0) ? $0 : nil }
+        if over == nil {
+            dropGap = nil
+            dropGapFrame = nil
+        }
+        if over != dropLocation {
+            dropLocation = over
+        }
+        return over != nil
+    }
+
     func endResize() {
         guard resizeStart != nil else { return }
         resizeStart = nil
@@ -174,6 +200,10 @@ final class DockPointer: ObservableObject {
         let frame = window.frame
         let point = CGPoint(x: screenPoint.x - frame.minX, y: frame.maxY - screenPoint.y)
 
+        if hoveredItem != nil, let calloutFrame, calloutFrame.insetBy(dx: -14, dy: -14).contains(point) {
+            updateCursor(resize: false)
+            return
+        }
         let isOverDock = isRevealed && activeZone.contains(point)
         let newLocation = isOverDock ? point : nil
         if (newLocation == nil) != (location == nil) {
@@ -188,7 +218,7 @@ final class DockPointer: ObservableObject {
                 lastLocation = newLocation
             }
         }
-        let hovered = isOverDock ? itemFrames.first { $0.value.contains(point) }?.key : nil
+        let hovered = isOverDock && dropLocation == nil ? itemFrames.first { $0.value.contains(point) }?.key : nil
         if hovered != hoveredItem {
             hoveredItem = hovered
         }

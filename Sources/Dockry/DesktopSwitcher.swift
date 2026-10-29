@@ -32,10 +32,15 @@ enum DesktopSwitcher {
         }
     }
 
-    /// Shows the system prompt that takes the user to Privacy & Security › Accessibility.
+    /// Adds Dockry to Privacy & Security › Accessibility and opens that list.
     static func requestAccessibility() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
+        // macOS shows its prompt only while Dockry isn't in the list yet. An entry left by an
+        // older build (a new signature after an update) gets no prompt, so open the list itself.
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     static func openKeyboardShortcutsSettings() {

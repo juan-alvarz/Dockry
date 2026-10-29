@@ -140,3 +140,47 @@ final class ProfileLibraryEditingTests: XCTestCase {
         XCTAssertEqual(library.profiles.map(\.name), ["Work", "Chill"])
     }
 }
+
+final class ProfileCloneAndFieldsTests: XCTestCase {
+    func testDuplicateCopiesTheProfileRightAfterItWithoutItsShortcut() {
+        var work = Profile(name: "Work", pinnedApps: ["com.apple.Safari"], widgets: [.clock], desktop: 2)
+        work.shortcut = KeyShortcut(keyCode: 18, modifierFlags: 0x900)
+        work.wallpaper = "/tmp/work.jpg"
+        var library = ProfileLibrary(profiles: [work, Profile(name: "Chill")])
+        XCTAssertEqual(library.duplicateProfile(named: "Work"), "Work Copy")
+        XCTAssertEqual(library.duplicateProfile(named: "Work"), "Work Copy 2")
+        XCTAssertEqual(library.profiles.map(\.name), ["Work", "Work Copy 2", "Work Copy", "Chill"])
+        let copy = library.profiles[2]
+        XCTAssertEqual(copy.items, work.items)
+        XCTAssertEqual(copy.desktop, 2)
+        XCTAssertEqual(copy.wallpaper, "/tmp/work.jpg")
+        XCTAssertNil(copy.shortcut)
+        XCTAssertNil(library.duplicateProfile(named: "Nope"))
+    }
+
+    func testFoldersWallpaperAndOpeningAppsSurviveTheFile() throws {
+        var profile = Profile(name: "Work", items: [.app("com.apple.Safari"), .folder("/Users/me/Downloads"), .runningApps])
+        profile.wallpaper = "/Users/me/Pictures/work.heic"
+        profile.opensAppsOnSwitch = true
+        let decoded = try JSONDecoder().decode(Profile.self, from: JSONEncoder().encode(profile))
+        XCTAssertEqual(decoded, profile)
+        XCTAssertEqual(decoded.folders, ["/Users/me/Downloads"])
+    }
+
+    func testFreshAppsIsChosenWhenAddingAndKeptByCopiesAndTheFile() throws {
+        var library = ProfileLibrary(profiles: [Profile(name: "Work")])
+        let name = library.addProfile(named: "Private", freshApps: true)
+        let copy = library.duplicateProfile(named: name)!
+        XCTAssertEqual(library.profiles.map(\.freshApps), [false, true, true])
+        XCTAssertEqual(copy, "Private Copy")
+        let decoded = try JSONDecoder().decode(ProfileLibrary.self, from: JSONEncoder().encode(library))
+        XCTAssertEqual(decoded.profiles.map(\.freshApps), [false, true, true])
+    }
+
+    func testBadOpensAppsValueIsIgnored() throws {
+        let json = #"{"name": "Work", "opensAppsOnSwitch": "yes", "items": ["folder:/tmp"]}"#
+        let profile = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
+        XCTAssertFalse(profile.opensAppsOnSwitch)
+        XCTAssertEqual(profile.folders, ["/tmp"])
+    }
+}
