@@ -152,9 +152,16 @@ private struct ProfileTile: View {
             Image(systemName: profile.symbol)
                 .font(.system(size: 30, weight: .semibold))
                 .frame(height: 36)
-            Text(profile.name)
-                .font(.system(size: 14, weight: .semibold))
-                .lineLimit(1)
+            HStack(spacing: 4) {
+                Text(profile.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1)
+                if profile.freshApps {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.yellow)
+                }
+            }
             // A peek at the profile's apps makes it recognizable at a glance.
             HStack(spacing: -4) {
                 ForEach(profile.pinnedApps.prefix(5), id: \.self) { bundleID in

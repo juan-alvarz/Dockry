@@ -34,8 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.$separatesProfileApps
             .sink { profileApps.isEnabled = $0 }
             .store(in: &subscriptions)
-        settings.$opensNewAppInstances.combineLatest(settings.$separatesAppData)
-            .sink { windows, copies in profileApps.mode = !windows ? .apps : copies ? .copies : .windows }
+        settings.$opensNewAppInstances
+            .sink { profileApps.mode = $0 ? .windows : .apps }
             .store(in: &subscriptions)
         settings.$wallpaperTransition.sink { Wallpapers.transition = $0 }.store(in: &subscriptions)
         settings.$wallpaperTransitionDuration.sink { Wallpapers.duration = $0 }.store(in: &subscriptions)

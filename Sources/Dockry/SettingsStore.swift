@@ -42,11 +42,6 @@ final class SettingsStore: ObservableObject {
     @Published var opensNewAppInstances: Bool {
         didSet { defaults.set(opensNewAppInstances, forKey: Key.opensNewAppInstances) }
     }
-    /// With that, a separate copy of the app per profile instead, with its own data for
-    /// browsers and Electron apps.
-    @Published var separatesAppData: Bool {
-        didSet { defaults.set(separatesAppData, forKey: Key.separatesAppData) }
-    }
 
     /// Fade a profile's wallpaper in when switching to it (see Wallpapers); off, it changes
     /// as soon as macOS shows it, and no pictures are decoded ahead of time.
@@ -80,7 +75,6 @@ final class SettingsStore: ObservableObject {
         static let keepsWindowsClear = "keepsWindowsClear"
         static let separatesProfileApps = "separatesProfileApps"
         static let opensNewAppInstances = "opensNewAppInstances"
-        static let separatesAppData = "separatesAppData"
         static let fadesWallpapers = "fadesWallpapers"
         static let wallpaperTransition = "wallpaperTransition"
         static let wallpaperTransitionDuration = "wallpaperTransitionDuration"
@@ -111,7 +105,6 @@ final class SettingsStore: ObservableObject {
         keepsWindowsClear = defaults.object(forKey: Key.keepsWindowsClear) as? Bool ?? true
         separatesProfileApps = defaults.bool(forKey: Key.separatesProfileApps)
         opensNewAppInstances = defaults.bool(forKey: Key.opensNewAppInstances)
-        separatesAppData = defaults.bool(forKey: Key.separatesAppData)
         fadesWallpapers = defaults.object(forKey: Key.fadesWallpapers) as? Bool ?? true
         wallpaperTransition = defaults.string(forKey: Key.wallpaperTransition).flatMap(WallpaperTransition.init) ?? .fade
         wallpaperTransitionDuration = (defaults.object(forKey: Key.wallpaperTransitionDuration) as? Double ?? 0.3).clamped(to: 0.1...1)

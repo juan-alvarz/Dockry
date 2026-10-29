@@ -154,16 +154,22 @@ struct DockView: View {
         .animation(.easeOut(duration: isMagnifying ? 0.14 : 0.22), value: isMagnifying)
     }
 
-    /// What clicking an app does when profiles have their own apps and it's open elsewhere.
+    /// What clicking an app does when it's open in other profiles, or the profile has fresh apps.
     private func opening(here: NSRunningApplication?, instances: [NSRunningApplication]) -> AppIconView.Opening {
         if let here {
             return instances.count > 1 ? .instance(here) : .launch
         }
-        guard settings.separatesProfileApps, settings.opensNewAppInstances, let other = instances.first else { return .launch }
-        if settings.separatesAppData {
-            return .newInstance
+        // A fresh profile always opens its own copy, with its own data.
+        if store.active.freshApps {
+            return .newInstance(profile: store.active.name)
         }
         let profileApps = profileApps
+        let shared = instances.filter { !profileApps.isFreshCopy($0) }
+        guard let other = shared.first else {
+            // Only fresh profiles' copies are running: a copy with the usual data.
+            return instances.isEmpty ? .launch : .newInstance(profile: nil)
+        }
+        guard settings.separatesProfileApps, settings.opensNewAppInstances else { return .launch }
         return .newWindow { profileApps.openWindow(other) }
     }
 
@@ -353,8 +359,8 @@ private struct AppIconView: View {
     enum Opening {
         /// Launches the app, or brings it forward and reopens a window, as the macOS Dock does.
         case launch
-        /// Opens another copy of an app that's open in another profile.
-        case newInstance
+        /// Opens a copy of the app with a fresh profile's data, or with nil, the usual data.
+        case newInstance(profile: String?)
         /// Opens a window of its own here, of an app with windows in other profiles.
         case newWindow(() -> Void)
         /// Brings forward this copy, among several of the app.
@@ -450,8 +456,8 @@ private struct AppIconView: View {
         switch opening {
         case .launch:
             NSWorkspace.shared.openApplication(at: app.url, configuration: configuration)
-        case .newInstance:
-            AppInstances.open(app.url, bundleID: entry.bundleID, profile: profileName)
+        case .newInstance(let profile):
+            AppInstances.open(app.url, bundleID: entry.bundleID, profile: profile)
         case .newWindow(let open):
             open()
         case .instance(let instance):
@@ -599,6 +605,17 @@ private struct ProfileButton: View {
             .foregroundStyle(textStyle)
             .background(fillStyle, in: RoundedRectangle(cornerRadius: 12 * metrics.unit, style: .continuous))
             .contentShape(Rectangle())
+            .overlay(alignment: .topLeading) {
+                if profile.freshApps {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 8 * metrics.unit, weight: .bold))
+                        .foregroundStyle(.yellow)
+                        .padding(3 * metrics.unit)
+                        .background(.regularMaterial, in: Circle())
+                        .offset(x: -4 * metrics.unit, y: -4 * metrics.unit)
+                        .help("Fresh apps: this profile runs its own copies of apps, with their own data")
+                }
+            }
             .overlay(alignment: .topTrailing) {
                 if !othersPlaying.isEmpty {
                     Image(systemName: "speaker.wave.2.fill")

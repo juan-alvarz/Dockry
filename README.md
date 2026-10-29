@@ -68,8 +68,11 @@ to show the widget with a track.
   the other profiles' apps. Bringing an app forward moves it to the profile you're in, or
   with **Open a new app instance**, windows are per profile, like desktops on a Mac:
   clicking an app with windows in another profile opens a new window of it (⌘N), and
-  switching shows only the profile's windows. **Keep app data separate per profile** runs a
-  separate copy per profile instead, browsers and Electron apps with their own data folder.
+  switching shows only the profile's windows.
+- **Fresh profiles** (✦): when you create a profile, choose **Fresh apps** for one that
+  starts apps from scratch, like a new Mac. It runs its own copies of apps, and browsers and
+  Electron apps (Zen, Chrome, Slack…) keep their own sign-ins, history and tabs. Its apps
+  never show in other profiles, nor theirs in it. The choice can't be changed later.
   `open dockry://profile/Work` switches to Work from Shortcuts or a script. A
   speaker on the profile button, in the switcher and in the menu shows which profile is
   playing sound.
@@ -267,6 +270,7 @@ then **Reload from File**. Only `name` is required:
 - `color` is the profile button's color, like `"#3563E9"`. Leave it out for a plain button.
 - `wallpaper` is the path of a picture to show while the profile is active.
 - `opensAppsOnSwitch` is `true` to open the profile's pinned apps when switching to it.
+- `freshApps` is `true` for a profile whose apps start from scratch, with their own data.
 
 If the file can't be read, the menu says so and Dockry uses the default profiles without
 saving over your file. Fix it and choose **Reload Profiles**. If you edit it in TextEdit,

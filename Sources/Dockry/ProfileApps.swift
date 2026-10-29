@@ -6,6 +6,10 @@ import DockryCore
 /// Gives each profile its own open apps, like the workspaces of Linux desktops: an app
 /// belongs to the profile that was active when it opened, and switching profiles hides the
 /// other profiles' apps and shows the new one's. Finder is in every profile.
+///
+/// Profiles with fresh apps (Profile.freshApps) always keep theirs apart, even with the
+/// setting off: their own copies never show in another profile nor others' in them, and
+/// bringing one forward from elsewhere switches to its profile.
 @MainActor
 final class ProfileApps: ObservableObject {
     enum Mode {
@@ -16,9 +20,6 @@ final class ProfileApps: ObservableObject {
         /// Clicking an app in the dock opens a window of its own in the profile (⌘N), and
         /// bringing forward an app whose windows are all elsewhere switches to their profile.
         case windows
-        /// Each profile opens its own copy of an app (AppInstances), with its own data for
-        /// browsers. Bringing another profile's copy forward switches to that profile.
-        case copies
     }
 
     /// The profile each open app belongs to, by process.
@@ -58,6 +59,9 @@ final class ProfileApps: ObservableObject {
 
     private let store: ProfileStore
     private let windows = ProfileWindows()
+    /// Apps hidden because they're on the other side of a fresh profile, to show again
+    /// while keeping apps apart is off.
+    private var hiddenForFresh: Set<pid_t> = []
     /// Apps that were just asked for a window of their own, which brings them forward
     /// before the window exists.
     private var openingWindow: [pid_t: Date] = [:]
@@ -99,13 +103,16 @@ final class ProfileApps: ObservableObject {
             .store(in: &subscriptions)
         apps(NSWorkspace.didActivateApplicationNotification)
             .sink { [weak self] app in
-                guard let self, isEnabled, Date().timeIntervalSince(switchedAt) > 1, let owner = owner(of: app) else { return }
+                guard let self, Date().timeIntervalSince(switchedAt) > 1, let owner = owner(of: app) else { return }
                 let active = store.active.name
+                if owner != active && (isFresh(owner) || isFresh(active)) {
+                    switchToProfile?(owner)
+                    return
+                }
+                guard isEnabled else { return }
                 switch mode {
                 case .apps where owner != active:
                     assign(app, to: active)
-                case .copies where owner != active:
-                    switchToProfile?(owner)
                 case .windows:
                     if let asked = openingWindow[app.processIdentifier], Date().timeIntervalSince(asked) < 3 { return }
                     let profiles = windows.profiles(of: app)
@@ -122,12 +129,16 @@ final class ProfileApps: ObservableObject {
             .store(in: &subscriptions)
         AppWindows.shared.windowCreated = { [weak self] window in
             guard let self, isEnabled, mode == .windows else { return }
-            windows.adopt(window, into: store.active.name)
-            // An app that opened a window by itself (a link, say) shows the others' too.
             var pid: pid_t = 0
             AXUIElementGetPid(window, &pid)
-            if let app = NSRunningApplication(processIdentifier: pid) {
-                windows.park(app, except: store.active.name)
+            guard let app = NSRunningApplication(processIdentifier: pid), let owner = owner(of: app) else { return }
+            let active = store.active.name
+            // A fresh profile's copy never has windows elsewhere, nor another's in it.
+            let profile = isFresh(owner) || isFresh(active) ? owner : active
+            windows.adopt(window, into: profile)
+            // An app that opened a window by itself (a link, say) shows the others' too.
+            if profile == active {
+                windows.park(app, except: active)
             }
             windowChanges += 1
         }
@@ -148,12 +159,24 @@ final class ProfileApps: ObservableObject {
     /// Whether the dock shows the app in the active profile: with windows per profile, when
     /// it has windows there (or, without any, when it opened there).
     func isShown(_ app: NSRunningApplication) -> Bool {
-        guard isEnabled, let owner = owner(of: app) else { return true }
+        guard let owner = owner(of: app) else { return true }
+        let active = store.active.name
+        if isFresh(owner) || isFresh(active) { return owner == active }
+        guard isEnabled else { return true }
         if mode == .windows {
             let profiles = windows.profiles(of: app)
             if !profiles.isEmpty { return profiles.contains(store.active.name) }
         }
         return owner == store.active.name
+    }
+
+    /// Whether the app is a fresh profile's own copy.
+    func isFreshCopy(_ app: NSRunningApplication) -> Bool {
+        owner(of: app).map(isFresh) == true
+    }
+
+    private func isFresh(_ profile: String) -> Bool {
+        store.library.profiles.first { $0.name == profile }?.freshApps == true
     }
 
     /// Opens a window of the app's own in the active profile, as ⌘N would, with its windows
@@ -196,8 +219,19 @@ final class ProfileApps: ObservableObject {
     /// Shows the profile's apps and hides the others', after switching to it.
     func show(_ profile: String) {
         switchedAt = Date()
-        guard isEnabled else { return }
         let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && $0 != .current }
+        guard isEnabled else {
+            // Only fresh profiles' apps are kept apart.
+            for app in apps where isShown(app) && hiddenForFresh.remove(app.processIdentifier) != nil {
+                app.unhide()
+            }
+            for app in apps where !isShown(app) && !app.isHidden {
+                app.hide()
+                hiddenForFresh.insert(app.processIdentifier)
+            }
+            windowChanges += 1
+            return
+        }
         if mode == .windows {
             windows.show(profile, apps: apps, owner: owner(of:))
             windowChanges += 1

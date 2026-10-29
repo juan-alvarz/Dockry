@@ -38,9 +38,9 @@ final class ProfileStore: ObservableObject {
 
     /// Returns the new profile's name.
     @discardableResult
-    func addProfile() -> String {
+    func addProfile(freshApps: Bool = false) -> String {
         var name = ""
-        update { name = $0.addProfile(named: "New Profile") }
+        update { name = $0.addProfile(named: freshApps ? "Fresh Profile" : "New Profile", freshApps: freshApps) }
         return name
     }
 
@@ -57,7 +57,12 @@ final class ProfileStore: ObservableObject {
     }
 
     func updateProfile(named name: String, _ change: (inout Profile) -> Void) {
+        let index = library.profiles.firstIndex { $0.name == name }
         update { $0.updateProfile(named: name, change) }
+        // A fresh profile's app data goes with its new name.
+        if let index, library.profiles[index].freshApps, library.profiles[index].name != name {
+            AppInstances.moveData(from: name, to: library.profiles[index].name)
+        }
     }
 
     func moveProfile(named name: String, by offset: Int) {

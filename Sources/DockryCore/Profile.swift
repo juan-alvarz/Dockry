@@ -36,6 +36,10 @@ public struct Profile: Equatable {
     /// The desktop picture to show while the profile is active, as a file path; nil keeps
     /// the user's own.
     public var wallpaper: String?
+    /// A profile whose apps start from scratch, like on a new Mac: it runs its own copies of
+    /// apps, and browsers and Electron apps keep their data (sign-ins, history) apart from
+    /// the other profiles'. Chosen when the profile is created.
+    public var freshApps = false
 
     public init(
         name: String, symbol: String = Profile.defaultSymbol, items: [DockItem], desktop: Int? = nil,
@@ -138,7 +142,7 @@ public struct Profile: Equatable {
 // have `pinnedApps` and `widgets` instead.
 extension Profile: Codable {
     private enum CodingKeys: String, CodingKey {
-        case name, symbol, items, pinnedApps, widgets, desktop, color, shortcut, opensAppsOnSwitch, wallpaper
+        case name, symbol, items, pinnedApps, widgets, desktop, color, shortcut, opensAppsOnSwitch, wallpaper, freshApps
     }
 
     public init(from decoder: Decoder) throws {
@@ -162,6 +166,7 @@ extension Profile: Codable {
         shortcut = (try? container.decodeIfPresent(KeyShortcut.self, forKey: .shortcut)).flatMap { $0 }
         opensAppsOnSwitch = (try? container.decodeIfPresent(Bool.self, forKey: .opensAppsOnSwitch)).flatMap { $0 } ?? false
         wallpaper = (try? container.decodeIfPresent(String.self, forKey: .wallpaper)).flatMap { $0 }
+        freshApps = (try? container.decodeIfPresent(Bool.self, forKey: .freshApps)).flatMap { $0 } ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -176,6 +181,9 @@ extension Profile: Codable {
             try container.encode(opensAppsOnSwitch, forKey: .opensAppsOnSwitch)
         }
         try container.encodeIfPresent(wallpaper, forKey: .wallpaper)
+        if freshApps {
+            try container.encode(freshApps, forKey: .freshApps)
+        }
     }
 }
 

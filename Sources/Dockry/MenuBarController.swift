@@ -75,11 +75,19 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             item.keyEquivalentModifierMask = NSEvent.ModifierFlags(rawValue: UInt(profile.shortcut?.modifiers ?? 0))
             item.image = NSImage(systemSymbolName: profile.symbol, accessibilityDescription: nil)
             item.state = profile.name == app.store.active.name ? .on : .off
-            if playing.contains(profile.name) {
-                let title = NSMutableAttributedString(string: profile.name + "  ")
-                let speaker = NSTextAttachment()
-                speaker.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: "Playing sound")
-                title.append(NSAttributedString(attachment: speaker))
+            // Badges after the name: fresh apps, and playing sound.
+            let badges = [
+                profile.freshApps ? ("sparkles", "Fresh apps") : nil,
+                playing.contains(profile.name) ? ("speaker.wave.2.fill", "Playing sound") : nil,
+            ].compactMap { $0 }
+            if !badges.isEmpty {
+                let title = NSMutableAttributedString(string: profile.name)
+                for (symbol, description) in badges {
+                    let badge = NSTextAttachment()
+                    badge.image = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
+                    title.append(NSAttributedString(string: "  "))
+                    title.append(NSAttributedString(attachment: badge))
+                }
                 item.attributedTitle = title
             }
             return item

@@ -194,11 +194,6 @@ private struct GeneralSettings: View {
                 Text("Like desktops on a Mac: clicking an app in the dock that has windows in another profile opens a new window of it here, as ⌘N does, and each window stays in its profile. Switching shows only the profile’s windows; the others wait just off screen. Bringing forward an app whose windows are all in another profile switches to that profile.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Toggle("Keep app data separate per profile", isOn: $settings.separatesAppData)
-                    .disabled(!settings.separatesProfileApps || !settings.opensNewAppInstances)
-                Text("Instead of a new window, each profile runs its own copy of the app. Browsers and Electron apps keep each profile’s copy in its own data folder, with its own tabs and sign-ins, starting fresh. A few apps, like Spotify, allow only one copy.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             Section("Windows") {
@@ -261,6 +256,7 @@ private struct GeneralSettings: View {
 private struct ProfilesSettings: View {
     @ObservedObject var store: ProfileStore
     @State private var selectedName: String?
+    @State private var isCreating = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -301,6 +297,9 @@ private struct ProfilesSettings: View {
                 ForEach(store.library.profiles, id: \.name) { profile in
                     HStack {
                         Label(profile.name, systemImage: profile.symbol)
+                        if profile.freshApps {
+                            FreshAppsBadge()
+                        }
                         Spacer()
                         if profile.name == store.active.name {
                             Text("Active").font(.caption).foregroundStyle(.secondary)
@@ -310,8 +309,14 @@ private struct ProfilesSettings: View {
                 }
             }
             HStack(spacing: 0) {
-                Button { selectedName = store.addProfile() } label: { Image(systemName: "plus").frame(width: 24, height: 20) }
+                Button { isCreating = true } label: { Image(systemName: "plus").frame(width: 24, height: 20) }
                     .help("Add a profile")
+                    .sheet(isPresented: $isCreating) {
+                        NewProfileSheet { freshApps in
+                            isCreating = false
+                            if let freshApps { selectedName = store.addProfile(freshApps: freshApps) }
+                        }
+                    }
                 Button {
                     if let selectedName {
                         store.removeProfile(named: selectedName)
@@ -342,6 +347,57 @@ private struct ProfilesSettings: View {
         if let selectedName {
             store.moveProfile(named: selectedName, by: offset)
         }
+    }
+}
+
+/// Asks which kind of profile to create, since it can't change afterwards.
+private struct NewProfileSheet: View {
+    /// The kind chosen (fresh apps or not), or nil to cancel.
+    let done: (Bool?) -> Void
+    @State private var freshApps = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("New Profile").font(.headline)
+            Picker("", selection: $freshApps) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Shared apps")
+                    Text("Uses your apps as they are, with your sign-ins, history and tabs.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .tag(false)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text("Fresh apps")
+                        FreshAppsBadge()
+                    }
+                    Text("Starts apps from scratch, like on a new Mac. The profile runs its own copies of apps, and browsers and Electron apps (Zen, Chrome, Slack…) keep their own sign-ins, history and tabs, apart from your other profiles. Other apps still share their data. This can’t be changed later.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .tag(true)
+            }
+            .pickerStyle(.radioGroup)
+            .labelsHidden()
+            HStack {
+                Spacer()
+                Button("Cancel") { done(nil) }
+                    .keyboardShortcut(.cancelAction)
+                Button("Create") { done(freshApps) }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 420)
+    }
+}
+
+/// Marks profiles with fresh apps (Profile.freshApps).
+struct FreshAppsBadge: View {
+    var body: some View {
+        Image(systemName: "sparkles")
+            .foregroundStyle(.yellow)
+            .help("Fresh apps: this profile runs its own copies of apps, with their own data")
     }
 }
 
@@ -421,6 +477,19 @@ private struct ProfileEditor: View {
                     .controlSize(.small)
                 }
                 Toggle("Open its apps when switching to it", isOn: binding(\.opensAppsOnSwitch))
+                if profile.freshApps {
+                    LabeledContent("Apps") {
+                        HStack(spacing: 4) {
+                            FreshAppsBadge()
+                            Text("Fresh: its own copies, with their own data")
+                        }
+                    }
+                    Button("Show App Data in Finder") {
+                        let folder = AppInstances.dataFolder(of: profile.name)
+                        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                        NSWorkspace.shared.activateFileViewerSelecting([folder])
+                    }
+                }
                 if profile.name != store.active.name {
                     Button("Make Active") { store.activate(named: profile.name) }
                 }

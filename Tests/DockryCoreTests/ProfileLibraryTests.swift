@@ -167,6 +167,16 @@ final class ProfileCloneAndFieldsTests: XCTestCase {
         XCTAssertEqual(decoded.folders, ["/Users/me/Downloads"])
     }
 
+    func testFreshAppsIsChosenWhenAddingAndKeptByCopiesAndTheFile() throws {
+        var library = ProfileLibrary(profiles: [Profile(name: "Work")])
+        let name = library.addProfile(named: "Private", freshApps: true)
+        let copy = library.duplicateProfile(named: name)!
+        XCTAssertEqual(library.profiles.map(\.freshApps), [false, true, true])
+        XCTAssertEqual(copy, "Private Copy")
+        let decoded = try JSONDecoder().decode(ProfileLibrary.self, from: JSONEncoder().encode(library))
+        XCTAssertEqual(decoded.profiles.map(\.freshApps), [false, true, true])
+    }
+
     func testBadOpensAppsValueIsIgnored() throws {
         let json = #"{"name": "Work", "opensAppsOnSwitch": "yes", "items": ["folder:/tmp"]}"#
         let profile = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
