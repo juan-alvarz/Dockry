@@ -203,7 +203,7 @@ private struct GeneralSettings: View {
                 .disabled(!settings.fadesWallpapers)
                 Toggle("Open a new app instance", isOn: $settings.opensNewAppInstances)
                     .disabled(!settings.separatesProfileApps)
-                Text("Each window stays in the profile it opened in, like desktops on a Mac. Clicking an app in the dock that only has windows in other profiles opens a new window of it here (its New Window, ⌘N); apps without one bring their window over. Switching shows only the profile’s windows: the others wait just off screen, which Mission Control still shows. Bringing forward an app whose windows are all in another profile switches to that profile.")
+                Text("Each window stays in the profile it opened in, like desktops on a Mac. Clicking an app in the dock that only has windows in other profiles opens a new window of it here (its New Window, ⌘N); apps without one bring their window over. Switching shows only the profile’s windows: apps with none in it hide, and the others’ windows wait just off screen, which Mission Control still shows for apps with windows in both. Bringing forward an app whose windows are all in another profile switches to that profile.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
