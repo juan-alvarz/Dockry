@@ -1,20 +1,13 @@
 import Foundation
 
-/// Which unit the weather widget shows temperatures in.
+/// Which unit the weather widget shows temperatures in. Celsius unless the user picks
+/// Fahrenheit; a missing or unknown saved value (like an older "system") is Celsius.
 public enum TemperatureUnit: String, CaseIterable {
-    /// The Temperature setting in System Settings › General › Language & Region.
-    case system
     case celsius
     case fahrenheit
 
-    /// `systemSetting` is the Mac's `AppleTemperatureUnit` ("Celsius" or "Fahrenheit"), if
-    /// set; without it, the region decides.
-    public func usesFahrenheit(systemSetting: String?, regionUsesUS: Bool) -> Bool {
-        switch self {
-        case .celsius: false
-        case .fahrenheit: true
-        case .system: systemSetting.map { $0 == "Fahrenheit" } ?? regionUsesUS
-        }
+    public init(saved: String?) {
+        self = saved.flatMap(TemperatureUnit.init(rawValue:)) ?? .celsius
     }
 }
 

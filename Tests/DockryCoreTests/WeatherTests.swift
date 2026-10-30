@@ -31,11 +31,10 @@ final class WeatherTests: XCTestCase {
         XCTAssertTrue(items.contains(URLQueryItem(name: "latitude", value: "4.711")))
     }
 
-    func testTheTemperatureUnitChoice() {
-        XCTAssertTrue(TemperatureUnit.system.usesFahrenheit(systemSetting: "Fahrenheit", regionUsesUS: false))
-        XCTAssertFalse(TemperatureUnit.system.usesFahrenheit(systemSetting: "Celsius", regionUsesUS: true))
-        XCTAssertTrue(TemperatureUnit.system.usesFahrenheit(systemSetting: nil, regionUsesUS: true))
-        XCTAssertFalse(TemperatureUnit.celsius.usesFahrenheit(systemSetting: "Fahrenheit", regionUsesUS: true))
-        XCTAssertTrue(TemperatureUnit.fahrenheit.usesFahrenheit(systemSetting: "Celsius", regionUsesUS: false))
+    func testTheTemperatureUnitIsCelsiusUnlessFahrenheitIsSaved() {
+        XCTAssertEqual(TemperatureUnit(saved: "fahrenheit"), .fahrenheit)
+        XCTAssertEqual(TemperatureUnit(saved: "celsius"), .celsius)
+        XCTAssertEqual(TemperatureUnit(saved: nil), .celsius)
+        XCTAssertEqual(TemperatureUnit(saved: "system"), .celsius)  // saved by an older version
     }
 }

@@ -21,15 +21,19 @@ The widget SHALL fetch the current temperature, conditions and day/night, and to
 - **THEN** the widget shows a partly cloudy sun symbol, 18°, H21° L12°
 
 ### Requirement: Units
-Settings › Widgets › Weather SHALL offer Temperature: System, Celsius or Fahrenheit, remembered across launches. System (the default) SHALL follow the Temperature setting in System Settings › General › Language & Region, or the region's measurement system when it isn't set, and its label SHALL name the unit that gives, such as "System (°F)". Changing the choice SHALL refresh the widget at once.
+Settings › Widgets › Weather SHALL offer Temperature: Celsius or Fahrenheit, Celsius by default, remembered across launches. The widget SHALL use that choice only, whatever macOS's or the Weather app's settings are. Changing it SHALL refresh the widget at once.
 
 #### Scenario: Fahrenheit
-- **WHEN** the choice is System and the Mac's Temperature setting is Fahrenheit
-- **THEN** the widget asks for and shows Fahrenheit, and the option reads "System (°F)"
+- **WHEN** the user picks Fahrenheit
+- **THEN** the widget shows Fahrenheit right away and keeps doing so after Dockry restarts
 
 #### Scenario: Choose Celsius on a Fahrenheit Mac
-- **WHEN** the Mac's Temperature setting is Fahrenheit and the user picks Celsius in Settings › Widgets › Weather
-- **THEN** the widget shows Celsius right away and keeps doing so after Dockry restarts
+- **WHEN** macOS or the Weather app is set to Fahrenheit and Dockry's choice is Celsius
+- **THEN** the widget shows Celsius
+
+#### Scenario: Default
+- **WHEN** Dockry runs with no unit chosen, or with a choice saved by an older version
+- **THEN** the widget shows Celsius and Settings shows Celsius selected
 
 ### Requirement: Refresh
 While a widget is on screen, the weather SHALL refresh every 30 minutes, and 5 minutes after a failure. A failure SHALL keep the last reading on screen; with none yet it shows a plain cloud explaining it will try again.

@@ -89,19 +89,11 @@ final class WeatherMonitor: ObservableObject {
     }
 
     /// The Temperature setting in System Settings › General › Language & Region.
-    /// The unit chosen in Settings › Widgets › Weather; System follows the Temperature
-    /// setting in System Settings › General › Language & Region.
+    /// The unit chosen in Settings › Widgets › Weather.
     static let unitKey = "weatherTemperatureUnit"
 
     private static var usesFahrenheit: Bool {
-        usesFahrenheit(UserDefaults.standard.string(forKey: unitKey).flatMap(TemperatureUnit.init) ?? .system)
-    }
-
-    /// Whether `unit` means Fahrenheit on this Mac; for System, what macOS is set to.
-    static func usesFahrenheit(_ unit: TemperatureUnit) -> Bool {
-        unit.usesFahrenheit(
-            systemSetting: UserDefaults.standard.string(forKey: "AppleTemperatureUnit"),
-            regionUsesUS: Locale.current.measurementSystem == .us)
+        TemperatureUnit(saved: UserDefaults.standard.string(forKey: unitKey)) == .fahrenheit
     }
 
     /// Fetches again in the unit just chosen.

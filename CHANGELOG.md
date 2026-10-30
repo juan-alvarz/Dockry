@@ -8,7 +8,7 @@ changed. A heading that isn't a version, like `## Unreleased`, is skipped.
 ## Unreleased
 
 - Widgets grow with magnification, like app icons.
-- Choose Celsius or Fahrenheit for the weather widget in Settings › Widgets › Weather.
+- The weather widget shows Celsius, or Fahrenheit if you pick it in Settings › Widgets › Weather.
 - A new install starts with one profile, Default, with Finder, instead of Work and Chill,
   so Dockry doesn't ask for any permissions until you add something that needs them.
 - Renaming a profile keeps its open apps and windows, and happens once you're done typing

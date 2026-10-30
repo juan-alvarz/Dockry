@@ -105,7 +105,7 @@ extension WidgetKind {
             WidgetInfo(
                 kind: self, name: "Weather",
                 summary: "The conditions and temperature where you are, with today’s high and low.",
-                details: "From Open-Meteo, refreshed every half hour, in °C, °F or your Mac’s setting, chosen below. Click it to open the Weather app. On a side dock it’s just the symbol and the temperature.",
+                details: "From Open-Meteo, refreshed every half hour, in °C or °F, chosen below. Click it to open the Weather app. On a side dock it’s just the symbol and the temperature.",
                 symbol: "cloud.sun.fill", tint: "#32ADE6", appBundleID: "com.apple.weather", category: .information,
                 requirements: [WidgetInfo.Requirement("Location Services for Dockry, at the town level; macOS asks the first time")])
         }
