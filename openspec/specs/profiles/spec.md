@@ -66,11 +66,15 @@ The set of profiles SHALL always hold at least one profile with unique names, an
 - **THEN** only the first is kept
 
 ### Requirement: Default profiles
-Without saved profiles, Dockry SHALL start with two profiles: Work (briefcase symbol, blue `#3563E9`, desktop 1, Finder, Safari, Mail, Calendar, Notes and Terminal, with the clock, calendar, Claude usage, weather and users widgets) and Chill (cup symbol, orange `#F08A4B`, desktop 2, Finder, Music, Photos, Messages and TV, with the Spotify, clock and users widgets). Work is active.
+Without saved profiles, Dockry SHALL start with exactly one profile, named Default, with the house symbol (`house.fill`) and Finder pinned, followed by the place for open apps. It SHALL have no widgets, folders, desktop, color, shortcut or wallpaper, and both options off, so a first launch asks for no permissions. It is active.
 
 #### Scenario: First launch
 - **WHEN** Dockry starts and has no profiles file
-- **THEN** the Work and Chill profiles exist and Work is active
+- **THEN** the only profile is Default, it is active, and its dock shows the profile button, Finder and any open apps
+
+#### Scenario: No permission prompts on first launch
+- **WHEN** Dockry starts for the first time
+- **THEN** no widget asks for Keychain, Location or Automation access
 
 ### Requirement: Adding profiles
 Adding a profile SHALL give it the requested name, or that name followed by the first free number (" 2", " 3"…) if it's taken. A new profile is "New Profile", or "Fresh Profile" when it has fresh apps, and it is added at the end.

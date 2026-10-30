@@ -131,6 +131,9 @@ Dockry has no icon in the Dock; look for its icon in the menu bar. To quit it, c
 
 ## Using it
 
+Dockry starts with one profile, *Default*, with Finder in its dock. Add your own in
+**Edit Profiles…**.
+
 1. **Pick a profile** from the menu bar menu or the profile button at the left of the dock.
    To switch from the keyboard, set shortcuts in Settings (see below).
 2. **Hide the system Dock** with **Hide macOS Dock** in the menu bar menu, if you want only
@@ -291,7 +294,7 @@ then **Reload from File**. Only `name` is required:
 - `opensAppsOnSwitch` is `true` to open the profile's pinned apps when switching to it.
 - `freshApps` is `true` for a profile whose apps start from scratch, with their own data.
 
-If the file can't be read, the menu says so and Dockry uses the default profiles without
+If the file can't be read, the menu says so and Dockry uses the default profile without
 saving over your file. Fix it and choose **Reload from File** in Settings › Profiles. If you edit it in TextEdit,
 turn off Edit › Substitutions › Smart Quotes first: curly quotes aren't valid JSON.
 

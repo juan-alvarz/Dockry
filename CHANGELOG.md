@@ -7,6 +7,8 @@ changed. A heading that isn't a version, like `## Unreleased`, is skipped.
 
 ## Unreleased
 
+- A new install starts with one profile, Default, with Finder, instead of Work and Chill,
+  so Dockry doesn't ask for any permissions until you add something that needs them.
 - Renaming a profile keeps its open apps and windows, and happens once you're done typing
   the name instead of on every key.
 - Window managers like Rectangle can no longer move or resize the dock.

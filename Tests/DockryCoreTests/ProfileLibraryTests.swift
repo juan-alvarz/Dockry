@@ -17,6 +17,21 @@ final class ProfileLibraryTests: XCTestCase {
         XCTAssertEqual(ProfileLibrary(profiles: []).profiles, Profile.defaults)
     }
 
+    func testTheDefaultIsOneProfileWithFinder() {
+        let library = ProfileLibrary()
+        XCTAssertEqual(library.profiles.count, 1)
+        let profile = library.active
+        XCTAssertEqual(profile.name, "Default")
+        XCTAssertEqual(profile.symbol, "house.fill")
+        XCTAssertEqual(profile.items, [.app("com.apple.finder"), .divider, .runningApps])
+        XCTAssertNil(profile.desktop)
+        XCTAssertNil(profile.color)
+        XCTAssertNil(profile.shortcut)
+        XCTAssertNil(profile.wallpaper)
+        XCTAssertFalse(profile.opensAppsOnSwitch)
+        XCTAssertFalse(profile.freshApps)
+    }
+
     func testDuplicateNamesKeepTheFirstProfile() {
         let library = ProfileLibrary(profiles: [work, Profile(name: "Work"), chill])
         XCTAssertEqual(library.profiles, [work, chill])
