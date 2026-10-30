@@ -38,15 +38,19 @@ public struct DockElement: Equatable, Identifiable {
 public enum DockLayout {
     /// What the dock shows for `items`, in order. `running` is the open apps in launch order;
     /// those that aren't pinned go in the open apps' place, if `showsUnpinned`. Apps `isShown`
-    /// rejects (not installed) are left out, and so are dividers with nothing to divide: at
-    /// either end, or next to another divider.
+    /// rejects (not installed) are left out. Dividers show where they were put, even at an
+    /// end or next to another divider, except one that only hidden items cut off from an
+    /// end or another divider.
     public static func elements(
         items: [DockItem], running: [String], showsUnpinned: Bool = true, isShown: (String) -> Bool = { _ in true }
     ) -> [DockElement] {
         let runningSet = Set(running)
         let pinned = Set(items.compactMap { if case .app(let bundleID) = $0 { bundleID } else { nil } })
         var result: [DockElement] = []
+        // Whether items since the last shown element (or the start) showed nothing.
+        var hiddenSinceShown = false
         for (index, item) in items.enumerated() {
+            let shownBefore = result.count
             switch item {
             case .app(let bundleID) where isShown(bundleID):
                 let entry = DockEntry(bundleID: bundleID, isPinned: true, isRunning: runningSet.contains(bundleID))
@@ -66,29 +70,21 @@ public enum DockLayout {
             case .runningApps:
                 break
             case .divider:
-                if let last = result.last, last.content != .divider {
+                let cutsOff = result.isEmpty || result.last?.content == .divider
+                if !(cutsOff && hiddenSinceShown) {
                     result.append(DockElement(content: .divider, itemIndex: index))
                 }
             }
+            if result.count > shownBefore {
+                hiddenSinceShown = false
+            } else if item != .divider {
+                hiddenSinceShown = true
+            }
         }
-        if result.last?.content == .divider {
+        if hiddenSinceShown, result.last?.content == .divider {
             result.removeLast()
         }
         return result
-    }
-
-    /// Whether a divider put at `index` in `items` would show in the dock, rather than being
-    /// hidden at an end or next to another divider. Same inputs as `elements`.
-    public static func addsVisibleDivider(
-        items: [DockItem], at index: Int, running: [String], showsUnpinned: Bool = true, isShown: (String) -> Bool = { _ in true }
-    ) -> Bool {
-        var withDivider = items
-        withDivider.insert(.divider, at: min(max(index, 0), items.count))
-        func dividers(_ items: [DockItem]) -> Int {
-            elements(items: items, running: running, showsUnpinned: showsUnpinned, isShown: isShown)
-                .filter { $0.content == .divider }.count
-        }
-        return dividers(withDivider) > dividers(items)
     }
 
     /// Where an element being dragged along the dock would land: its center has moved

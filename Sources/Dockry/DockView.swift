@@ -43,11 +43,6 @@ struct DockView: View {
                     endPoint: metrics.axis == .horizontal ? .trailing : .bottom))
         }
         .environment(\.dockMetrics, metrics)
-        .environment(\.addsVisibleDivider) { index in
-            DockLayout.addsVisibleDivider(
-                items: store.active.items, at: index, running: runningBundleIDs,
-                showsUnpinned: settings.showsUnpinnedApps, isShown: isInstalled)
-        }
         .padding(axes == .horizontal ? .horizontal : .vertical, 8)
         .padding(Edge.Set(metrics.position.outerEdge), DockMetrics.margin)
         .offset(pointer.isRevealed ? .zero : hiddenOffset(metrics))
@@ -718,30 +713,15 @@ private struct DockSeparator: View {
     }
 }
 
-/// Whether a divider added at an index of the active profile's items would show.
-private struct AddsVisibleDividerKey: EnvironmentKey {
-    static let defaultValue: (Int) -> Bool = { _ in true }
-}
-
-extension EnvironmentValues {
-    var addsVisibleDivider: (Int) -> Bool {
-        get { self[AddsVisibleDividerKey.self] }
-        set { self[AddsVisibleDividerKey.self] = newValue }
-    }
-}
-
 /// Adding to the dock at `index` in the profile's items, in the right-click menus of its items.
 struct DockEditMenu: View {
     let store: ProfileStore
     let index: Int
-    @Environment(\.addsVisibleDivider) private var addsVisibleDivider
 
     var body: some View {
         let missing = DockWidget.all.filter { !store.active.widgets.contains($0.kind) }
         Divider()
-        // Greyed out where the dock would hide it: at an end or next to another divider.
         Button("Add Divider") { store.updateActive { $0.insert(.divider, at: index) } }
-            .disabled(!addsVisibleDivider(index))
         Button("Add Folder…") { addFolder() }
         if !missing.isEmpty {
             Menu("Add Widget") {
