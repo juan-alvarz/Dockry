@@ -1,0 +1,52 @@
+schema: spec-driven
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+context: |
+  Dockry is a macOS 14+ menu bar app (Swift package, no Xcode project, no third-party
+  dependencies) that runs a dock next to the system Dock. Architecture map and known
+  issues: openspec/notes/architecture.md and openspec/notes/findings.md.
+  Decisions and logic that can be pure go in DockryCore (Foundation only, builds on
+  Linux) with XCTest coverage; the Dockry target is AppKit/SwiftUI glue and has no tests.
+  Every change must keep `swift test` passing.
+  Dockry is never the active app and never takes keyboard focus from the user's app,
+  except while one of its popovers or its Settings window is open.
+  The dock must behave like the macOS Dock toward other apps: window managers and
+  window-snapping tools (Rectangle, Magnet, ⌘Tab, Mission Control) must never move,
+  resize, maximize or focus the dock, even while Dockry is the active app.
+  It must never leave the user worse off after quitting or crashing: the macOS Dock
+  restored, parked windows put back, hand-edited profiles.json never overwritten.
+  Optional permissions (Accessibility, Automation, Location, Keychain) may only unlock
+  features; everything else keeps working without them, and the UI says what is missing.
+  profiles.json stays hand-editable and backward compatible: lenient decoding, older
+  files keep loading.
+  Installing must keep working without admin rights: scripts/install.sh --profile-only
+  installs to ~/Applications for the current account only.
+  User-facing text follows the README's plain, short style. Never add AI attribution to
+  commits, PRs, code or docs.
+  Changes that add a user-visible behavior also update README.md and add a line to
+  CHANGELOG.md.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
