@@ -20,10 +20,20 @@ final class DockLayoutTests: XCTestCase {
         XCTAssertEqual(ids(DockLayout.elements(items: items, running: ["notes"], showsUnpinned: false)), ["safari", "divider:1", "widget:clock"])
     }
 
-    func testDividersWithNothingToDivideAreLeftOut() {
-        let items: [DockItem] = [.divider, .app("a"), .divider, .divider, .runningApps, .divider, .app("hidden"), .divider]
-        XCTAssertEqual(ids(DockLayout.elements(items: items, running: [], isShown: { $0 != "hidden" })), ["a"])
-        XCTAssertEqual(ids(DockLayout.elements(items: items + [.widget(.date)], running: [])), ["a", "divider:2", "hidden", "divider:7", "widget:date"])
+    func testDividersShowWhereTheyWerePut() {
+        // At the start, side by side, and at the end: all where the user put them.
+        let items: [DockItem] = [.divider, .app("a"), .divider, .divider, .app("b"), .divider]
+        XCTAssertEqual(ids(DockLayout.elements(items: items, running: [])), ["divider:0", "a", "divider:2", "divider:3", "b", "divider:5"])
+    }
+
+    func testDividersCutOffOnlyByHiddenItemsAreLeftOut() {
+        // An empty open-apps group between two dividers, a missing app before the first, and
+        // nothing shown after the last.
+        let items: [DockItem] = [.app("missing"), .divider, .app("a"), .divider, .runningApps, .divider, .app("b"), .divider, .runningApps]
+        let shown = DockLayout.elements(items: items, running: [], isShown: { $0 != "missing" })
+        XCTAssertEqual(ids(shown), ["a", "divider:3", "b"])
+        // The Default profile with no other apps open: no stray divider after Finder.
+        XCTAssertEqual(ids(DockLayout.elements(items: [.app("finder"), .divider, .runningApps], running: [])), ["finder"])
     }
 
     func testDropIndexGoesPastAnElementOnceTheCenterCrossesIt() {
@@ -55,7 +65,8 @@ final class DockLayoutTests: XCTestCase {
     func testMovingForwardLandsAfterTheElementItPassed() {
         let items: [DockItem] = [.divider, .app("a"), .app("b"), .runningApps, .widget(.clock)]
         let elements = DockLayout.elements(items: items, running: [])
-        XCTAssertEqual(DockLayout.items(items, afterMoving: 0, to: 2, in: elements), [.divider, .app("b"), .runningApps, .widget(.clock), .app("a")])
+        // The leading divider shows too, so "a" is element 1 and the clock element 3.
+        XCTAssertEqual(DockLayout.items(items, afterMoving: 1, to: 3, in: elements), [.divider, .app("b"), .runningApps, .widget(.clock), .app("a")])
     }
 
     func testDraggingAnOpenAppPinsIt() {

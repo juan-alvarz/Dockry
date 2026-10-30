@@ -4,12 +4,16 @@ public enum WidgetKind: String, Codable, CaseIterable {
     case clock
     case date
     case spotify
+    /// What's playing in the Music app.
+    case music
     /// The Mac's other user accounts, for Fast User Switching.
     case users
     /// How much of the Claude plan's usage limits are used.
     case claude
     /// Current conditions and today's high and low where the Mac is.
     case weather
+    /// The Trash, like the macOS Dock's.
+    case trash
 }
 
 /// A context like "Work" or "Chill": the apps pinned to the dock, the widgets shown next to
@@ -190,35 +194,8 @@ extension Profile: Codable {
 }
 
 extension Profile {
+    /// What Dockry starts with: one profile with Finder and nothing that asks for permissions.
     public static let defaults: [Profile] = [
-        Profile(
-            name: "Work",
-            symbol: "briefcase.fill",
-            pinnedApps: [
-                "com.apple.finder",
-                "com.apple.Safari",
-                "com.apple.mail",
-                "com.apple.iCal",
-                "com.apple.Notes",
-                "com.apple.Terminal",
-            ],
-            widgets: [.clock, .date, .claude, .weather, .users],
-            desktop: 1,
-            color: "#3563E9"
-        ),
-        Profile(
-            name: "Chill",
-            symbol: "cup.and.saucer.fill",
-            pinnedApps: [
-                "com.apple.finder",
-                "com.apple.Music",
-                "com.apple.Photos",
-                "com.apple.MobileSMS",
-                "com.apple.TV",
-            ],
-            widgets: [.spotify, .clock, .users],
-            desktop: 2,
-            color: "#F08A4B"
-        ),
+        Profile(name: "Default", symbol: "house.fill", items: [.app("com.apple.finder"), .divider, .runningApps]),
     ]
 }

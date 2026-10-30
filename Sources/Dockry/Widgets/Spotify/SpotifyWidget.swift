@@ -89,6 +89,8 @@ struct SpotifyWidget: View {
 struct SpotifyArtwork: View {
     let url: URL?
     let size: CGFloat
+    /// Behind the note while there's no art.
+    var placeholder = Color(red: 0.11, green: 0.73, blue: 0.33)  // Spotify green
     @State private var image: NSImage?
 
     var body: some View {
@@ -100,7 +102,7 @@ struct SpotifyArtwork: View {
                     .font(.system(size: size * 0.42, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(red: 0.11, green: 0.73, blue: 0.33))  // Spotify green
+                    .background(placeholder)
             }
         }
         .frame(width: size, height: size)

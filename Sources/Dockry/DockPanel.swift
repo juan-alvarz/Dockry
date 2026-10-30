@@ -8,6 +8,11 @@ import SwiftUI
 /// the app you're using. Spanning the whole edge lets SwiftUI size and center the dock
 /// itself; clicks on the strip's transparent parts go through to the windows below.
 final class DockPanel: NSPanel {
+    /// Where `place(on:…)` put the panel. Like the macOS Dock, it's part of the desktop, so
+    /// whatever moves it elsewhere (a window manager like Rectangle) is undone.
+    private var placedFrame: NSRect?
+    private var frameObservers: [NSObjectProtocol] = []
+
     init<Content: View>(content: Content, pointer: DockPointer) {
         super.init(
             contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
@@ -23,7 +28,38 @@ final class DockPanel: NSPanel {
         hostingView.registerForDraggedTypes([.fileURL])
         hostingView.sizingOptions = []  // the panel has a fixed size; see place(on:)
         contentView = hostingView
+        frameObservers = [NSWindow.didMoveNotification, NSWindow.didResizeNotification].map { name in
+            NotificationCenter.default.addObserver(forName: name, object: self, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.returnToPlace() }
+            }
+        }
     }
+
+    deinit {
+        frameObservers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    private func returnToPlace() {
+        guard let placedFrame, frame != placedFrame else { return }
+        setFrame(placedFrame, display: true)
+    }
+
+    // Window managers move and resize windows through Accessibility. The panel stays
+    // readable there (VoiceOver needs its buttons), but none of these can be set.
+    private static let lockedSetters = Set([
+        "setAccessibilityFrame:", "setAccessibilityPosition:", "setAccessibilitySize:",
+        "setAccessibilityMinimized:", "setAccessibilityFullScreen:", "setAccessibilityMain:",
+        "setAccessibilityFocused:",
+    ].map { Selector($0) })
+
+    override func isAccessibilitySelectorAllowed(_ selector: Selector) -> Bool {
+        Self.lockedSetters.contains(selector) ? false : super.isAccessibilitySelectorAllowed(selector)
+    }
+
+    override func setAccessibilityFrame(_ frame: NSRect) {}
+    override func setAccessibilityMinimized(_ minimized: Bool) {}
+    override func setAccessibilityMain(_ main: Bool) {}
+    override func setAccessibilityFocused(_ focused: Bool) {}
 
     /// The part of the screen docks go in: visibleFrame leaves out the menu bar and, while
     /// it's showing, the system Dock, so the two docks never overlap.
@@ -46,6 +82,7 @@ final class DockPanel: NSPanel {
         case .left: NSRect(x: area.minX, y: area.minY, width: thickness, height: area.height)
         case .right: NSRect(x: area.maxX - thickness, y: area.minY, width: thickness, height: area.height)
         }
+        placedFrame = frame
         if frame != self.frame {
             setFrame(frame, display: true)
         }
@@ -61,36 +98,66 @@ private final class DockHostingView<Content: View>: NSHostingView<Content> {
 
     // Folders and apps dragged from Finder, handled here rather than with SwiftUI's onDrop,
     // which never saw drags over this non-activating panel. DockPointer follows the drag so
-    // the dock opens a gap where the item will go, and DockView adds it there.
+    // the dock opens a gap where the item will go, and DockView adds it there. Any files
+    // dragged onto the Trash widget go to the Trash instead.
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         draggingUpdated(sender)
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard let pointer, !DockDrop.items(from: sender.draggingPasteboard).isEmpty else { return [] }
+        guard let pointer else { return [] }
         // The hosting view is flipped, like SwiftUI's coordinates.
-        return pointer.dropMoved(to: convert(sender.draggingLocation, from: nil)) ? .copy : []
+        let location = convert(sender.draggingLocation, from: nil)
+        let overTrash = pointer.isOverTrash(location) && !DockDrop.files(from: sender.draggingPasteboard).isEmpty
+        setDropOnTrash(overTrash)
+        if overTrash {
+            pointer.dropMoved(to: nil)
+            // Finder offers delete for drags to the Trash; move is what it does.
+            return sender.draggingSourceOperationMask.contains(.delete) ? .delete : .move
+        }
+        guard !DockDrop.items(from: sender.draggingPasteboard).isEmpty else { return [] }
+        return pointer.dropMoved(to: location) ? .copy : []
     }
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
         pointer?.dropMoved(to: nil)
+        setDropOnTrash(false)
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        defer { pointer?.dropMoved(to: nil) }
+        defer {
+            pointer?.dropMoved(to: nil)
+            setDropOnTrash(false)
+        }
+        if TrashMonitor.shared.isDropTarget {
+            let files = DockDrop.files(from: sender.draggingPasteboard)
+            TrashMonitor.shared.moveToTrash(files)
+            return !files.isEmpty
+        }
         let items = DockDrop.items(from: sender.draggingPasteboard)
         guard !items.isEmpty, let drop = pointer?.performDrop else { return false }
         drop(items)
         return true
+    }
+
+    private func setDropOnTrash(_ isOver: Bool) {
+        if TrashMonitor.shared.isDropTarget != isOver {
+            TrashMonitor.shared.isDropTarget = isOver
+        }
     }
 }
 
 /// What dropping files on the dock adds: folders, and apps, which get pinned. Other files
 /// aren't taken, as in the macOS Dock's app side.
 enum DockDrop {
+    /// Every file and folder being dragged, for the Trash.
+    static func files(from pasteboard: NSPasteboard) -> [URL] {
+        pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    }
+
     static func items(from pasteboard: NSPasteboard) -> [DockItem] {
-        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        let urls = files(from: pasteboard)
         return urls.compactMap { url in
             if url.pathExtension == "app" {
                 return Bundle(url: url)?.bundleIdentifier.map(DockItem.app)

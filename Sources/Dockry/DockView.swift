@@ -54,10 +54,17 @@ struct DockView: View {
 
     private var elements: [DockElement] {
         DockLayout.elements(
-            items: store.active.items,
-            running: runningApps.apps.filter(profileApps.isShown).compactMap(RunningApps.dockID),
-            showsUnpinned: settings.showsUnpinnedApps,
-            isShown: { AppCatalog.app(bundleID: $0, running: runningApps.app(withBundleID: $0)) != nil })
+            items: store.active.items, running: runningBundleIDs,
+            showsUnpinned: settings.showsUnpinnedApps, isShown: isInstalled)
+    }
+
+    /// The open apps the active profile shows, in launch order.
+    private var runningBundleIDs: [String] {
+        runningApps.apps.filter(profileApps.isShown).compactMap(RunningApps.dockID)
+    }
+
+    private func isInstalled(_ bundleID: String) -> Bool {
+        AppCatalog.app(bundleID: bundleID, running: runningApps.app(withBundleID: bundleID)) != nil
     }
 
     /// Like the macOS Dock: folders and apps dragged from Finder go in where the dock opened
@@ -190,16 +197,21 @@ struct DockView: View {
                     .layoutValue(key: MagnifiesKey.self, value: true)
             }
         case .widget(let kind):
-            WidgetView(kind: kind)
+            MagnifiedWidget { WidgetView(kind: kind) }
                 .background(FrameReader { [pointer] in pointer.widgetFrames[element.id] = $0 })
                 .onDisappear { [pointer] in pointer.widgetFrames[element.id] = nil }
                 .contextMenu {
+                    if let menu = DockWidget.widget(for: kind).makeMenu {
+                        menu()
+                        Divider()
+                    }
                     Button("Remove \(kind.info.name) from \(profile.name)") {
                         store.updateActive { $0.removeItem(at: element.itemIndex) }
                     }
                     DockEditMenu(store: store, index: element.itemIndex + 1)
                 }
                 .highPriorityGesture(dragGesture(move, metrics: metrics))
+                .layoutValue(key: MagnifiesKey.self, value: true)
         case .folder(let path):
             FolderIconView(
                 path: path, isHovered: drag == nil && pointer.hoveredItem == element.id, profileName: profile.name,
@@ -287,6 +299,30 @@ private struct FrameReader: View {
                 .onAppear { changed(frame) }
                 .onChange(of: frame) { _, frame in changed(frame) }
         }
+    }
+}
+
+/// A widget that grows with magnification, as app icons do. Widgets lay themselves out at a
+/// fixed size from the dock's metrics, so this measures that size, offers it to the dock's
+/// layout as its own, and draws the widget scaled to whatever size the layout gives it.
+private struct MagnifiedWidget<Content: View>: View {
+    @ViewBuilder let content: Content
+    @State private var natural: CGSize?
+
+    var body: some View {
+        GeometryReader { proxy in
+            let scale = natural.map { $0.width > 0 ? proxy.size.width / $0.width : 1 } ?? 1
+            content
+                .fixedSize()
+                .background(GeometryReader { inner in
+                    Color.clear
+                        .onAppear { natural = inner.size }
+                        .onChange(of: inner.size) { _, size in natural = size }
+                })
+                .scaleEffect(scale, anchor: .topLeading)
+        }
+        // Ideal, not fixed: the layout proposes the magnified size, as it does to icons.
+        .frame(idealWidth: natural?.width, idealHeight: natural?.height)
     }
 }
 

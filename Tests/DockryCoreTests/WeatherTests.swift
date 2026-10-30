@@ -30,4 +30,11 @@ final class WeatherTests: XCTestCase {
         XCTAssertTrue(items.contains(URLQueryItem(name: "temperature_unit", value: "fahrenheit")))
         XCTAssertTrue(items.contains(URLQueryItem(name: "latitude", value: "4.711")))
     }
+
+    func testTheTemperatureUnitIsCelsiusUnlessFahrenheitIsSaved() {
+        XCTAssertEqual(TemperatureUnit(saved: "fahrenheit"), .fahrenheit)
+        XCTAssertEqual(TemperatureUnit(saved: "celsius"), .celsius)
+        XCTAssertEqual(TemperatureUnit(saved: nil), .celsius)
+        XCTAssertEqual(TemperatureUnit(saved: "system"), .celsius)  // saved by an older version
+    }
 }

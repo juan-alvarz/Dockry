@@ -55,7 +55,8 @@ final class ProfileWindows {
             for element in AppWindows.shared.windows(of: app.processIdentifier).map(\.element) {
                 guard let number = Self.number(of: element) else { continue }
                 elements[number] = element
-                if records[number] == nil {
+                // A saved number now used by another process's window is a new window.
+                if records[number]?.pid != app.processIdentifier {
                     records[number] = Record(profile: newProfile, pid: app.processIdentifier)
                 }
             }
@@ -71,8 +72,15 @@ final class ProfileWindows {
     func adopt(_ window: AXUIElement, pid: pid_t, into profile: String) {
         guard let number = Self.number(of: window) else { return }
         elements[number] = window
-        if records[number] == nil {
+        if records[number]?.pid != pid {
             records[number] = Record(profile: profile, pid: pid)
+        }
+    }
+
+    /// A renamed profile's windows stay its own.
+    func rename(_ profile: String, to newName: String) {
+        for (number, record) in records where record.profile == profile {
+            records[number]?.profile = newName
         }
     }
 

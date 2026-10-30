@@ -1,5 +1,16 @@
 import Foundation
 
+/// Which unit the weather widget shows temperatures in. Celsius unless the user picks
+/// Fahrenheit; a missing or unknown saved value (like an older "system") is Celsius.
+public enum TemperatureUnit: String, CaseIterable {
+    case celsius
+    case fahrenheit
+
+    public init(saved: String?) {
+        self = saved.flatMap(TemperatureUnit.init(rawValue:)) ?? .celsius
+    }
+}
+
 /// Today's weather from Open-Meteo (open-meteo.com), which needs no API key.
 public struct Weather: Equatable {
     public let temperature: Double
