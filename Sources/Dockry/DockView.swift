@@ -103,21 +103,6 @@ struct DockView: View {
         return gap
     }
 
-    /// Where something added at `point` (the window's SwiftUI coordinates) goes in the profile's
-    /// items: in front of the first element past it along the dock, or after the last. The
-    /// end when there's no point.
-    private func insertionIndex(at point: CGPoint?, _ metrics: DockMetrics) -> Int {
-        let elements = elements
-        let itemCount = store.active.items.count
-        guard let point else { return itemCount }
-        let isHorizontal = metrics.axis == .horizontal
-        let centers = elements.map { element in
-            frame(of: element).map { Double(isHorizontal ? $0.midX : $0.midY) } ?? .infinity
-        }
-        let gap = DockLayout.dropGap(at: Double(isHorizontal ? point.x : point.y), centers: centers)
-        return DockLayout.itemIndex(insertingAt: gap, elements: elements, itemCount: itemCount)
-    }
-
     /// An element's frame in the dock's space, once it has been laid out.
     private func frame(of element: DockElement) -> CGRect? {
         switch element.content {
@@ -150,9 +135,7 @@ struct DockView: View {
             metrics: metrics, pointer: magnifies && !isDragging ? pointerAlongDock(metrics) : nil,
             amount: isMagnifying ? 1 : 0
         ) {
-            DockBackground(settings: settings, store: store, openSettings: actions.openSettings) { [dock = self] in
-                dock.insertionIndex(at: pointer.contextClick, metrics)
-            }
+            DockBackground(settings: settings, store: store, openSettings: actions.openSettings)
                 .layoutValue(key: DockBackgroundKey.self, value: true)
             ProfileButton(
                 profile: profile, othersPlaying: profileApps.playingProfiles.subtracting([profile.name]).sorted(),
@@ -348,8 +331,6 @@ private struct DockBackground: View {
     @ObservedObject var settings: SettingsStore
     let store: ProfileStore
     let openSettings: () -> Void
-    /// Where in the profile's items the spot last right-clicked is.
-    let clickedIndex: () -> Int
     @Environment(\.dockMetrics) private var metrics
 
     var body: some View {
@@ -363,7 +344,7 @@ private struct DockBackground: View {
         .shadow(color: .black.opacity(0.25), radius: 12, y: metrics.position == .bottom ? 4 : 0)
         .contextMenu {
             DockMenu(settings: settings, openSettings: openSettings)
-            DockEditMenu(store: store, index: clickedIndex)
+            DockEditMenu(store: store, index: store.active.items.count)
         }
     }
 }
@@ -735,27 +716,17 @@ private struct DockSeparator: View {
 /// Adding to the dock at `index` in the profile's items, in the right-click menus of its items.
 struct DockEditMenu: View {
     let store: ProfileStore
-    /// Read when an item is chosen: the background's depends on where it was right-clicked.
-    private let insertionIndex: () -> Int
-
-    init(store: ProfileStore, index: Int) {
-        self.init(store: store) { index }
-    }
-
-    init(store: ProfileStore, index: @escaping () -> Int) {
-        self.store = store
-        insertionIndex = index
-    }
+    let index: Int
 
     var body: some View {
         let missing = DockWidget.all.filter { !store.active.widgets.contains($0.kind) }
         Divider()
-        Button("Add Divider") { store.updateActive { $0.insert(.divider, at: insertionIndex()) } }
+        Button("Add Divider") { store.updateActive { $0.insert(.divider, at: index) } }
         Button("Add Folder…") { addFolder() }
         if !missing.isEmpty {
             Menu("Add Widget") {
                 ForEach(missing, id: \.kind) { widget in
-                    Button(widget.info.name) { store.updateActive { $0.insert(.widget(widget.kind), at: insertionIndex()) } }
+                    Button(widget.info.name) { store.updateActive { $0.insert(.widget(widget.kind), at: index) } }
                 }
             }
         }
@@ -768,7 +739,6 @@ struct DockEditMenu: View {
         panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
         panel.prompt = "Add to Dock"
         NSApp.activate(ignoringOtherApps: true)  // a panel from a background app opens behind
-        let index = insertionIndex()
         guard panel.runModal() == .OK, let url = panel.url else { return }
         store.updateActive { $0.insert(.folder(url.path), at: index) }
     }

@@ -86,15 +86,11 @@ With "Sync with Mac Dock settings" on, the dock SHALL use the macOS Dock's size,
 - **THEN** the dock uses the user's own hiding setting, not the one Dockry set to hide the Dock
 
 ### Requirement: Dock background menu
-Right-clicking the dock's background SHALL offer turning magnification on or off, turning hiding on or off, the position, and Dock Settings…, plus adding a divider, folder or widget at the spot that was clicked: in front of the first item past the click along the dock, or at the end past the last item. While syncing, it SHALL say it follows the macOS Dock's settings instead of offering those toggles.
+Right-clicking the dock's background SHALL offer turning magnification on or off, turning hiding on or off, the position, and Dock Settings…, plus adding a divider, folder or widget at the end. While syncing, it SHALL say it follows the macOS Dock's settings instead of offering those toggles.
 
 #### Scenario: Move the dock from its menu
 - **WHEN** the user right-clicks the background and chooses Position on Screen › Left
 - **THEN** the dock moves to the left edge
-
-#### Scenario: Add a divider between two apps
-- **WHEN** the user right-clicks the background in the gap between Zed (pinned) and the open apps after it and chooses Add Divider
-- **THEN** the divider appears in that gap
 
 ### Requirement: Other apps can't move the dock
 Window managers and other apps SHALL not be able to move, resize, zoom or minimize the dock, even while Dockry is the active app. If the dock is moved by any means, it SHALL return to its place at once. The dock SHALL stay readable by assistive apps.
