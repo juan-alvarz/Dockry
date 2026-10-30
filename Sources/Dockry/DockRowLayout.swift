@@ -43,7 +43,13 @@ struct DockRowLayout: Layout {
         let items = items(subviews)
         let sizes = items.map { $0.sizeThatFits(.unspecified) }
         let placement = DockMagnification.place(
-            zip(items, sizes).map { DockMagnification.Item(length: Double(mainLength($1)), magnifies: $0[MagnifiesKey.self]) },
+            zip(items, sizes).map { item, size in
+                // An item longer than an icon (a widget) grows fully anywhere along it.
+                let length = mainLength(size)
+                return DockMagnification.Item(
+                    length: Double(length), magnifies: item[MagnifiesKey.self],
+                    plateau: Double(max(length - metrics.iconSize, 0) / 2))
+            },
             spacing: metrics.spacing,
             pointer: pointer.map { Double($0 - metrics.sidePadding) },
             magnification: 1 + (metrics.magnification - 1) * amount,

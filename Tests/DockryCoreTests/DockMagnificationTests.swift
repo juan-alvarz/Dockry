@@ -30,6 +30,18 @@ final class DockMagnificationTests: XCTestCase {
         XCTAssertEqual(fourthStart + fraction * fourthLength, pointer, accuracy: 0.001)
     }
 
+    func testAWideItemGrowsFullyAnywhereAlongIt() {
+        let widget = DockMagnification.Item(length: 200, magnifies: true, plateau: 76)
+        let items = [widget] + icons
+        // Anywhere but its outer half-icon at each end is as close as an icon's center.
+        XCTAssertEqual(place(items, pointer: 170).scales[0], 2, accuracy: 0.001)
+        XCTAssertEqual(place(items, pointer: 100).scales[0], 2, accuracy: 0.001)
+        XCTAssertGreaterThan(place(items, pointer: 190).scales[0], 1.9)
+        // Without a plateau, the same spot near its end is far from its center.
+        let plain = [DockMagnification.Item(length: 200, magnifies: true)] + icons
+        XCTAssertLessThan(place(plain, pointer: 190).scales[0], 1.5)
+    }
+
     func testItemsThatDontMagnifyKeepTheirSize() {
         let items = [DockMagnification.Item(length: 200, magnifies: false)] + icons
         XCTAssertEqual(place(items, pointer: 100).scales[0], 1)

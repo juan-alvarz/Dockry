@@ -89,11 +89,20 @@ final class WeatherMonitor: ObservableObject {
     }
 
     /// The Temperature setting in System Settings › General › Language & Region.
+    /// The unit chosen in Settings › Widgets › Weather; System follows the Temperature
+    /// setting in System Settings › General › Language & Region.
+    static let unitKey = "weatherTemperatureUnit"
+
     private static var usesFahrenheit: Bool {
-        if let unit = UserDefaults.standard.string(forKey: "AppleTemperatureUnit") {
-            return unit == "Fahrenheit"
-        }
-        return Locale.current.measurementSystem == .us
+        let unit = UserDefaults.standard.string(forKey: unitKey).flatMap(TemperatureUnit.init) ?? .system
+        return unit.usesFahrenheit(
+            systemSetting: UserDefaults.standard.string(forKey: "AppleTemperatureUnit"),
+            regionUsesUS: Locale.current.measurementSystem == .us)
+    }
+
+    /// Fetches again in the unit just chosen.
+    func unitChanged() {
+        refreshNow()
     }
 
     private func currentCoordinate() async -> CLLocationCoordinate2D? {

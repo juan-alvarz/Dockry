@@ -39,11 +39,19 @@ Dragging any divider across the dock (toward or away from the middle of the scre
 - **THEN** the icon size grows by 20 points, within 16 to 128
 
 ### Requirement: Magnification
-With magnification on, app and folder icons near the pointer SHALL grow smoothly, the one under it to the magnified size, while the spot under the pointer stays put and the dock's own frame doesn't move. Magnification SHALL ease in and out, and SHALL pause while something is being dragged.
+With magnification on, app icons, folders and widgets near the pointer SHALL grow smoothly, the one under it by the magnified size's factor, while the spot under the pointer stays put and the dock's own frame doesn't move. An item longer than an icon SHALL grow fully wherever the pointer is along it. Magnification SHALL ease in and out, and SHALL pause while something is being dragged.
 
 #### Scenario: Pointer over an icon
 - **WHEN** magnification is on with 48-point icons and an 80-point magnified size
 - **THEN** the icon under the pointer is drawn at 80 points and its neighbors smaller
+
+#### Scenario: Pointer over a widget
+- **WHEN** magnification is on with 48-point icons and an 80-point magnified size, and the pointer is over the weather widget
+- **THEN** the widget is drawn 80/48 times its normal size and still opens the Weather app when clicked
+
+#### Scenario: Pointer near the end of a wide widget
+- **WHEN** the pointer is over the right end of the Spotify widget
+- **THEN** the Spotify widget is fully magnified
 
 ### Requirement: Automatic hiding
 With automatic hiding on, the dock SHALL slide off its edge and reappear when the pointer reaches that edge within the dock's span. It SHALL linger about 0.4 seconds after the pointer leaves, and SHALL stay shown while one of its popovers is open, an item is dragged or it's being resized.
