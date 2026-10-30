@@ -7,6 +7,7 @@ changed. A heading that isn't a version, like `## Unreleased`, is skipped.
 
 ## Unreleased
 
+- Add Divider is greyed out where the dock would hide the divider, instead of seeming to do nothing.
 - Trash widget: drop files on it to delete them, click to open the Trash, right-click to empty it.
 - Widgets grow with magnification, like app icons.
 - The weather widget shows Celsius, or Fahrenheit if you pick it in Settings › Widgets › Weather.

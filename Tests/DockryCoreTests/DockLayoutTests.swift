@@ -89,4 +89,18 @@ final class DockLayoutDropTests: XCTestCase {
         XCTAssertEqual(DockLayout.itemIndex(insertingAt: 3, elements: elements, itemCount: 3), 3)
         XCTAssertEqual(DockLayout.itemIndex(insertingAt: 0, elements: [], itemCount: 2), 2)
     }
+
+    func testADividerIsOnlyAddedWhereItShows() {
+        let defaultProfile: [DockItem] = [.app("com.apple.finder"), .divider, .runningApps]
+        let running = ["com.apple.finder", "com.apple.Safari"]
+        // After Finder: next to the divider already there.
+        XCTAssertFalse(DockLayout.addsVisibleDivider(items: defaultProfile, at: 1, running: running))
+        // After the open apps, or from the background: at the end.
+        XCTAssertFalse(DockLayout.addsVisibleDivider(items: defaultProfile, at: 3, running: running))
+        // Before the profile's first item: at the start.
+        XCTAssertFalse(DockLayout.addsVisibleDivider(items: defaultProfile, at: 0, running: running))
+        // Between the open apps and a widget.
+        let withWidget = defaultProfile + [.widget(.weather)]
+        XCTAssertTrue(DockLayout.addsVisibleDivider(items: withWidget, at: 3, running: running))
+    }
 }

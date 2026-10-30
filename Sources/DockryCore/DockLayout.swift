@@ -77,6 +77,20 @@ public enum DockLayout {
         return result
     }
 
+    /// Whether a divider put at `index` in `items` would show in the dock, rather than being
+    /// hidden at an end or next to another divider. Same inputs as `elements`.
+    public static func addsVisibleDivider(
+        items: [DockItem], at index: Int, running: [String], showsUnpinned: Bool = true, isShown: (String) -> Bool = { _ in true }
+    ) -> Bool {
+        var withDivider = items
+        withDivider.insert(.divider, at: min(max(index, 0), items.count))
+        func dividers(_ items: [DockItem]) -> Int {
+            elements(items: items, running: running, showsUnpinned: showsUnpinned, isShown: isShown)
+                .filter { $0.content == .divider }.count
+        }
+        return dividers(withDivider) > dividers(items)
+    }
+
     /// Where an element being dragged along the dock would land: its center has moved
     /// `distance` points from where it started, among elements `lengths` long with `spacing`
     /// between them.
