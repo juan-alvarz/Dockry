@@ -57,7 +57,11 @@ jobs:
           files=("build/$tag.dmg" "build/$tag.zip")
           notes="$(scripts/version.sh --notes)
 
-          Download **$tag.dmg** below, open it and drag Dockry to Applications. It runs on macOS 14 or later, on Apple silicon and Intel. ($tag.zip has the same app.)
+          ### Install
 
-          Dockry isn't notarized by Apple, so the first time macOS refuses to open it. See [Installing](https://github.com/$GITHUB_REPOSITORY#installing) for how to allow it and for the permissions it asks for."
+          1. Download **$tag.dmg** below, open it and drag Dockry into Applications. (**$tag.zip** has the same app.)
+          2. The first time you open it, macOS can't verify the developer. Go to System Settings → Privacy & Security, scroll down, and click **Open Anyway**.
+          3. Look for Dockry's icon in the menu bar. [Installing](https://github.com/$GITHUB_REPOSITORY#installing) explains the permissions it can ask for.
+
+          Requires macOS 14 or later, on Apple silicon or Intel."
           gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --title "Dockry $VERSION" --notes "$notes"

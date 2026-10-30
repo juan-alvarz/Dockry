@@ -5,21 +5,43 @@ the app, and the Release workflow, started by hand, publishes that version as `D
 with its notes. Each version is released once: to release, add a new heading on top with what
 changed. A heading that isn't a version, like `## Unreleased`, is skipped.
 
-## Unreleased
+A version's section is Markdown: `###` subsections (What's new, Fixes, Updating from …) and
+bullets that start with a **bold lead-in**. Wrap lines freely; the release notes join them
+back (`scripts/version.sh --notes`), so a new line only starts at a blank line, a bullet or
+a heading.
 
-- Apple Music widget: what's playing in Music with its controls, and a player that searches your library.
-- Dividers show where you add them, even at an end or next to another divider.
-- Trash widget: drop files on it to delete them, click to open the Trash, right-click to empty it.
-- Widgets grow with magnification, like app icons.
-- The weather widget shows Celsius, or Fahrenheit if you pick it in Settings › Widgets › Weather.
-- A new install starts with one profile, Default, with Finder, instead of Work and Chill,
-  so Dockry doesn't ask for any permissions until you add something that needs them.
-- Renaming a profile keeps its open apps and windows, and happens once you're done typing
-  the name instead of on every key.
-- Window managers like Rectangle can no longer move or resize the dock.
-- Settings won't give two of Dockry's actions the same shortcut, and says when two already
-  share one instead of blaming another app.
-- After the Mac restarts, apps no longer land in a profile that belonged to another app.
+## 0.2.0
+
+### What's new
+
+- **Apple Music widget.** What's playing in the Music app, with previous, play/pause and
+  next. Click the song for a player with progress, volume, shuffle, repeat and a search of
+  your library that plays songs without bringing Music to the front.
+- **Trash widget.** The Trash, like the macOS Dock's: drop files on it to move them to the
+  Trash, click it to open the Trash, right-click it to empty it (it asks first).
+- **Widgets grow with magnification**, like app icons, and a wide one grows fully wherever
+  the pointer is along it.
+- **Celsius or Fahrenheit** for the weather widget, in Settings › Widgets › Weather.
+  Celsius is the default.
+- **A quieter first launch.** A new install starts with one profile, Default, with Finder,
+  so Dockry asks for no permissions until you add something that needs them.
+- **Dividers stay where you add them**, even at an end of the dock or next to another
+  divider.
+
+### Fixes
+
+- **Renaming a profile** keeps its open apps and windows with it, and renames once you're
+  done typing instead of on every key.
+- **Window managers like Rectangle** can no longer move or resize the dock.
+- **Shortcuts:** Settings won't give two of Dockry's actions the same shortcut, and when two
+  already share one it says so instead of blaming another app.
+- **After the Mac restarts,** apps no longer end up in a profile that belonged to another app.
+
+### Updating from 0.1.1
+
+Quit Dockry from its menu bar item, drag the new Dockry into Applications and replace the
+old one. Your profiles and settings are kept. Apps that are already open join the active
+profile once, since Dockry now tells apps apart by when they launched.
 
 ## 0.1.1
 
