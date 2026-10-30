@@ -83,3 +83,25 @@ While profiles keep their own apps, a speaker SHALL mark, in the menu bar menu, 
 #### Scenario: Music in another profile
 - **WHEN** Work is active and Music in Chill is playing
 - **THEN** the profile button shows a speaker, with Chill named in its tooltip
+
+### Requirement: Renaming keeps a profile's apps and windows
+Renaming a profile SHALL keep every open app and every window that belonged to it under the new name, whether or not it is the active profile. Apps and windows of other profiles SHALL not change profile.
+
+#### Scenario: Rename a profile that isn't active
+- **WHEN** Work is active, Music belongs to Chill, and the user renames Chill to Home
+- **THEN** Music belongs to Home and still doesn't show in Work's dock
+
+#### Scenario: Rename in window mode
+- **WHEN** window mode is on, Zen has a window in Chill, and the user renames Chill to Home and switches to it
+- **THEN** Zen's window comes back on screen
+
+### Requirement: Saved ownership applies only to the same process
+When Dockry starts, an already running app SHALL get the profile saved for it only if it is the same process that was saved (same process id and launch time); any other app SHALL join the active profile. A saved window's profile SHALL apply only to a window of the process it was saved for.
+
+#### Scenario: Dockry restarts
+- **WHEN** Music belongs to Chill, Dockry quits and reopens while Music keeps running
+- **THEN** Music still belongs to Chill
+
+#### Scenario: Mac restarts
+- **WHEN** the Mac restarts and a different app gets the process id Music had
+- **THEN** that app belongs to the active profile, not to Chill

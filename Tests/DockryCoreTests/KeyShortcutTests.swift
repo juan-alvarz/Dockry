@@ -15,6 +15,21 @@ final class KeyShortcutTests: XCTestCase {
         XCTAssertFalse(KeyShortcut(keyCode: 0x12, modifierFlags: KeyShortcut.shift, key: "1").isUsableGlobally)
     }
 
+    func testSameKeysIgnoreTheLabelAndOtherFlags() {
+        let one = KeyShortcut(keyCode: 0x12, modifierFlags: KeyShortcut.control | KeyShortcut.option, key: "1")
+        XCTAssertTrue(one.sameKeys(as: KeyShortcut(keyCode: 0x12, modifierFlags: KeyShortcut.control | KeyShortcut.option | 0x100, key: "!")))
+        XCTAssertFalse(one.sameKeys(as: KeyShortcut(keyCode: 0x12, modifierFlags: KeyShortcut.control, key: "1")))
+        XCTAssertFalse(one.sameKeys(as: KeyShortcut(keyCode: 0x13, modifierFlags: KeyShortcut.control | KeyShortcut.option, key: "2")))
+    }
+
+    func testDuplicatesAreTheLaterOnesWithTheSameKeys() {
+        let a = KeyShortcut(keyCode: 0x12, modifierFlags: KeyShortcut.control, key: "1")
+        let b = KeyShortcut(keyCode: 0x13, modifierFlags: KeyShortcut.control, key: "2")
+        let aAgain = KeyShortcut(keyCode: 0x12, modifierFlags: KeyShortcut.control, key: "One")
+        XCTAssertEqual(KeyShortcut.duplicates(in: [a, b, aAgain, a]), [2, 3])
+        XCTAssertEqual(KeyShortcut.duplicates(in: [a, b]), [])
+    }
+
     func testReadsAnEnabledDesktopShortcut() {
         // Desktop 2 is symbolic hot key 119, ⌃2 by default.
         let shortcut = KeyShortcut.switchToDesktop(2, in: hotKeys(id: "119", enabled: true, parameters: [50, 19, control]))

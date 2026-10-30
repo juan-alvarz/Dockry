@@ -292,7 +292,7 @@ then **Reload from File**. Only `name` is required:
 - `freshApps` is `true` for a profile whose apps start from scratch, with their own data.
 
 If the file can't be read, the menu says so and Dockry uses the default profiles without
-saving over your file. Fix it and choose **Reload Profiles**. If you edit it in TextEdit,
+saving over your file. Fix it and choose **Reload from File** in Settings › Profiles. If you edit it in TextEdit,
 turn off Edit › Substitutions › Smart Quotes first: curly quotes aren't valid JSON.
 
 ## Project layout

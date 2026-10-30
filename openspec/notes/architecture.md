@@ -83,7 +83,7 @@ contracts live in `openspec/specs/`; this file is the map behind them.
 | `ProfileStore` | `~/Library/Application Support/Dockry/profiles.json` | The library. Every change saved at once. Not saved while the file failed to load (`loadError`). |
 | `SettingsStore` | `UserDefaults` (`com.dockry.Dockry`) | Dock look (`position`, `iconSize`, `magnifies`, `magnifiedSize`, `autohides`, `showsIndicators`, `animatesLaunch`), `syncsWithMacDock`, `showsUnpinnedApps`, `hideSystemDock`, `keepsWindowsClear`, `separatesProfileApps`, `opensNewAppInstances`, `fadesWallpapers`, `wallpaperTransition`, `wallpaperTransitionDuration`, `profileSwitcherShortcut`. |
 | `SystemDock` | `UserDefaults` | `systemDockHidden`, `systemDockOriginal.autohide`, `systemDockOriginal.autohide-delay`. |
-| `ProfileApps` | `UserDefaults` `appProfiles` | pid → owning profile name. |
+| `ProfileApps` | `UserDefaults` `appOwners` (JSON `AppOwnership`) | pid + launch time → owning profile name. Older `appProfiles` (pid only) is deleted at launch. |
 | `ProfileWindows` | `UserDefaults` `profileWindows` | window number → profile, pid, parked home frame. |
 | `Wallpapers` | `UserDefaults` `ownWallpapers` | display id → the user's own picture path. |
 | `FreshAppsBadge` | `UserDefaults` `freshAppsBadge` | SF Symbol for the fresh-profile badge. |

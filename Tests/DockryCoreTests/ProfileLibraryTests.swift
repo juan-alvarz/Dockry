@@ -133,6 +133,13 @@ final class ProfileLibraryEditingTests: XCTestCase {
         XCTAssertEqual(library.profiles[0].desktop, 3)
     }
 
+    func testUpdatingAProfileReturnsItsNameAfterwards() {
+        XCTAssertEqual(library.updateProfile(named: "Chill") { $0.name = " Home " }, "Home")
+        XCTAssertEqual(library.updateProfile(named: "Home") { $0.name = "Work" }, "Home")
+        XCTAssertEqual(library.updateProfile(named: "Work") { $0.desktop = 4 }, "Work")
+        XCTAssertNil(library.updateProfile(named: "Gone") { $0.desktop = 4 })
+    }
+
     func testMovingAProfileStaysInBounds() {
         library.moveProfile(named: "Work", by: 5)
         XCTAssertEqual(library.profiles.map(\.name), ["Chill", "Work"])

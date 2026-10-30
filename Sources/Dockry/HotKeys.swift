@@ -10,6 +10,8 @@ final class HotKeys: ObservableObject {
 
     /// Shortcuts another app already has, which Dockry couldn't take.
     @Published private(set) var taken: Set<KeyShortcut> = []
+    /// Shortcuts set for more than one of Dockry's own actions; only the first one works.
+    @Published private(set) var duplicated: [KeyShortcut] = []
     /// While a shortcut is being recorded, so pressing one Dockry already uses records it
     /// instead of running it.
     var isSuspended = false {
@@ -39,8 +41,14 @@ final class HotKeys: ObservableObject {
         refs = []
         actions = [:]
         guard !isSuspended else { return }
+        // Only the first of each combination registers; the others aren't another app's.
         var taken = Set<KeyShortcut>()
-        for (shortcut, action) in shortcuts where shortcut.isUsableGlobally {
+        let duplicates = KeyShortcut.duplicates(in: shortcuts.map(\.0))
+        let duplicated = duplicates.sorted().map { shortcuts[$0].0 }
+        if duplicated != self.duplicated {
+            self.duplicated = duplicated
+        }
+        for (index, (shortcut, action)) in shortcuts.enumerated() where shortcut.isUsableGlobally && !duplicates.contains(index) {
             nextID += 1
             let hotKeyID = EventHotKeyID(signature: OSType(0x444B_5259), id: nextID)  // 'DKRY'
             var ref: EventHotKeyRef?

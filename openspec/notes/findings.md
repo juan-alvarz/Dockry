@@ -10,6 +10,11 @@ Baseline at the time of writing: `swift test` runs 100 tests, all passing.
 
 ## Bugs
 
+**Fixed on `dev--open-spec`** (changes archived in `openspec/changes/archive/2026-10-29-*`):
+1–3 `fix-profile-rename`, 4 `fix-duplicate-shortcuts`, 5 `keep-app-profiles-across-restarts`,
+6 `fix-readme-reload-text` (the screenshot comes from the next CI run on `dev`),
+20 `dock-ignores-window-managers`. The descriptions below are kept as they were found.
+
 1. **Renaming a profile that isn't active moves its open apps to the active profile.**
    *Confirmed.* `ProfileApps` reacts to library changes by reassigning every app whose
    owner name no longer exists to `library.activeProfileName`, not to the new name

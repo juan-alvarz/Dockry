@@ -94,9 +94,11 @@ public struct ProfileLibrary: Codable, Equatable {
     }
 
     /// Changes a profile. A rename to an empty name or to another profile's name is ignored
-    /// (the other changes still apply), so names stay unique.
-    public mutating func updateProfile(named name: String, _ change: (inout Profile) -> Void) {
-        guard let index = profiles.firstIndex(where: { $0.name == name }) else { return }
+    /// (the other changes still apply), so names stay unique. Returns the profile's name
+    /// afterwards, or nil if there's no such profile.
+    @discardableResult
+    public mutating func updateProfile(named name: String, _ change: (inout Profile) -> Void) -> String? {
+        guard let index = profiles.firstIndex(where: { $0.name == name }) else { return nil }
         var updated = profiles[index]
         change(&updated)
         let newName = updated.name.trimmingCharacters(in: .whitespaces)
@@ -109,6 +111,7 @@ public struct ProfileLibrary: Codable, Equatable {
         if activeProfileName == name {
             activeProfileName = updated.name
         }
+        return updated.name
     }
 
     public mutating func moveProfile(named name: String, by offset: Int) {

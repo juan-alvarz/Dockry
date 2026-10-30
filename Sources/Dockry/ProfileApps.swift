@@ -69,15 +69,19 @@ final class ProfileApps: ObservableObject {
     /// moment those activations aren't the user moving an app here.
     private var switchedAt = Date.distantPast
     private var audioTimer: Timer?
-    private static let savedOwnersKey = "appProfiles"
+    private static let savedOwnersKey = "appOwners"
+    /// What older versions saved: by process id only, which can't tell a reused id apart.
+    private static let oldSavedOwnersKey = "appProfiles"
     private static let sharedApps: Set<String> = ["com.apple.finder"]
 
     init(store: ProfileStore) {
         self.store = store
         // Apps open before Dockry started go back where they were, by process.
-        let saved = UserDefaults.standard.dictionary(forKey: Self.savedOwnersKey) as? [String: String] ?? [:]
+        UserDefaults.standard.removeObject(forKey: Self.oldSavedOwnersKey)
+        let saved = UserDefaults.standard.data(forKey: Self.savedOwnersKey)
+            .flatMap { try? JSONDecoder().decode(AppOwnership.self, from: $0) } ?? AppOwnership()
         for app in NSWorkspace.shared.runningApplications {
-            assign(app, to: saved[String(app.processIdentifier)] ?? store.active.name)
+            assign(app, to: saved.profile(forPID: app.processIdentifier, launchedAt: app.launchDate) ?? store.active.name)
         }
 
         let center = NSWorkspace.shared.notificationCenter
@@ -121,7 +125,19 @@ final class ProfileApps: ObservableObject {
             windows.adopt(window, pid: pid, into: newWindowProfile(owner: owner))
             windowChanges += 1
         }
-        // A renamed or removed profile's apps go to the active profile.
+        // A renamed profile keeps its apps and windows, under the new name. This arrives
+        // before the sink below, which would otherwise take them for a removed profile's.
+        store.renamed
+            .sink { [weak self] from, to in
+                guard let self else { return }
+                for (pid, owner) in owners where owner == from {
+                    owners[pid] = to
+                }
+                save()
+                windows.rename(from, to: to)
+            }
+            .store(in: &subscriptions)
+        // A removed profile's apps go to the active profile.
         store.$library
             .receive(on: RunLoop.main)
             .sink { [weak self] library in
@@ -297,8 +313,10 @@ final class ProfileApps: ObservableObject {
 
     private func save() {
         // By process: with copies per profile, one app can be in several.
-        UserDefaults.standard.set(
-            Dictionary(uniqueKeysWithValues: owners.map { (String($0.key), $0.value) }), forKey: Self.savedOwnersKey)
+        let entries = owners.map { pid, profile in
+            AppOwnership.Entry(pid: pid, launchedAt: NSRunningApplication(processIdentifier: pid)?.launchDate, profile: profile)
+        }
+        UserDefaults.standard.set(try? JSONEncoder().encode(AppOwnership(entries: entries)), forKey: Self.savedOwnersKey)
     }
 
     // MARK: Sound
