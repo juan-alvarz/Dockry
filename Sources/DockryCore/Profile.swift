@@ -10,6 +10,8 @@ public enum WidgetKind: String, Codable, CaseIterable {
     case claude
     /// Current conditions and today's high and low where the Mac is.
     case weather
+    /// The Trash, like the macOS Dock's.
+    case trash
 }
 
 /// A context like "Work" or "Chill": the apps pinned to the dock, the widgets shown next to

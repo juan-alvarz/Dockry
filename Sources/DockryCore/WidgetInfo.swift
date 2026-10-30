@@ -108,11 +108,20 @@ extension WidgetKind {
                 details: "From Open-Meteo, refreshed every half hour, in °C or °F, chosen below. Click it to open the Weather app. On a side dock it’s just the symbol and the temperature.",
                 symbol: "cloud.sun.fill", tint: "#32ADE6", appBundleID: "com.apple.weather", category: .information,
                 requirements: [WidgetInfo.Requirement("Location Services for Dockry, at the town level; macOS asks the first time")])
+        case .trash:
+            WidgetInfo(
+                kind: self, name: "Trash",
+                summary: "The Trash, like the macOS Dock’s: drop files on it to delete them.",
+                details: "Click it to open the Trash in Finder. Right-click it to empty the Trash, which asks first. It shows whether there’s anything in the Trash.",
+                symbol: "trash.fill", tint: "#8E8E93", category: .system,
+                requirements: [
+                    WidgetInfo.Requirement("Permission to control Finder, to empty the Trash; macOS asks the first time", isOptional: true),
+                ])
         }
     }
 }
 
 public enum WidgetCatalog {
     /// Every widget, in the order Settings lists them.
-    public static let all: [WidgetInfo] = [WidgetKind.clock, .date, .spotify, .claude, .weather, .users].map(\.info)
+    public static let all: [WidgetInfo] = [WidgetKind.clock, .date, .spotify, .claude, .weather, .users, .trash].map(\.info)
 }

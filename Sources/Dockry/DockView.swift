@@ -194,6 +194,10 @@ struct DockView: View {
                 .background(FrameReader { [pointer] in pointer.widgetFrames[element.id] = $0 })
                 .onDisappear { [pointer] in pointer.widgetFrames[element.id] = nil }
                 .contextMenu {
+                    if let menu = DockWidget.widget(for: kind).makeMenu {
+                        menu()
+                        Divider()
+                    }
                     Button("Remove \(kind.info.name) from \(profile.name)") {
                         store.updateActive { $0.removeItem(at: element.itemIndex) }
                     }

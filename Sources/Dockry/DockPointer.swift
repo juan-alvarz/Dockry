@@ -166,6 +166,11 @@ final class DockPointer: ObservableObject {
         settings.own.iconSize = (resizeStart.size + Double(delta)).rounded().clamped(to: DockSettings.sizeRange)
     }
 
+    /// Whether a point (in the window's SwiftUI coordinates) is over a Trash widget.
+    func isOverTrash(_ point: CGPoint) -> Bool {
+        widgetFrames["widget:\(WidgetKind.trash.rawValue)"]?.contains(point) == true
+    }
+
     /// Follows a drag from Finder; returns whether it's over the dock, where it can be dropped.
     @discardableResult
     func dropMoved(to location: CGPoint?) -> Bool {

@@ -10,6 +10,8 @@ struct DockWidget {
     let makeView: @MainActor () -> AnyView
     /// Shown under the widget in Settings › Widgets.
     var makeSettings: (@MainActor () -> AnyView)?
+    /// Its own items, at the top of its right-click menu in the dock.
+    var makeMenu: (@MainActor () -> AnyView)?
 
     var kind: WidgetKind { info.kind }
 
@@ -24,6 +26,7 @@ struct DockWidget {
         case .users: UsersWidget.widget
         case .claude: ClaudeUsageWidget.widget
         case .weather: WeatherWidget.widget
+        case .trash: TrashWidget.widget
         }
     }
 }

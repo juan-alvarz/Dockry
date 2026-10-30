@@ -86,8 +86,9 @@ to show the widget with a track.
   the dock.
 - **Widgets:** clock (click for the Clock app), date (click for a month calendar), Spotify,
   users, Claude usage (how much of your plan's 5-hour and weekly limits you've used, as
-  `/usage` shows in Claude Code; click for each limit and when it resets), and weather
-  (current conditions with today's high and low; click for the Weather app). Clicking the
+  `/usage` shows in Claude Code; click for each limit and when it resets), weather
+  (current conditions with today's high and low; click for the Weather app), and the Trash
+  (drop files on it to delete them; click to open it, right-click to empty it). Clicking the
   Spotify song opens a player: progress you can drag, volume, shuffle and repeat, and search
   that plays songs without bringing Spotify to the front (**Open Spotify** at the bottom of
   the player does). Widgets scale with the dock, and on
@@ -282,7 +283,7 @@ then **Reload from File**. Only `name` is required:
 - `symbol` is an [SF Symbol](https://developer.apple.com/sf-symbols/) name.
 - `items` is the dock after the profile button, in order. An app is its bundle identifier;
   to find one, run `osascript -e 'id of app "Safari"'`. A widget is `widget:` and one of
-  `clock`, `date`, `spotify`, `users`, `claude` and `weather`. A folder is `folder:` and its path.
+  `clock`, `date`, `spotify`, `users`, `claude`, `weather` and `trash`. A folder is `folder:` and its path.
   `divider` is a divider line, and
   `running-apps` is where open apps that aren't in the profile go (added after the last app
   if you leave it out). Files from older versions, with `pinnedApps` and `widgets` instead,

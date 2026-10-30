@@ -98,36 +98,66 @@ private final class DockHostingView<Content: View>: NSHostingView<Content> {
 
     // Folders and apps dragged from Finder, handled here rather than with SwiftUI's onDrop,
     // which never saw drags over this non-activating panel. DockPointer follows the drag so
-    // the dock opens a gap where the item will go, and DockView adds it there.
+    // the dock opens a gap where the item will go, and DockView adds it there. Any files
+    // dragged onto the Trash widget go to the Trash instead.
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         draggingUpdated(sender)
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard let pointer, !DockDrop.items(from: sender.draggingPasteboard).isEmpty else { return [] }
+        guard let pointer else { return [] }
         // The hosting view is flipped, like SwiftUI's coordinates.
-        return pointer.dropMoved(to: convert(sender.draggingLocation, from: nil)) ? .copy : []
+        let location = convert(sender.draggingLocation, from: nil)
+        let overTrash = pointer.isOverTrash(location) && !DockDrop.files(from: sender.draggingPasteboard).isEmpty
+        setDropOnTrash(overTrash)
+        if overTrash {
+            pointer.dropMoved(to: nil)
+            // Finder offers delete for drags to the Trash; move is what it does.
+            return sender.draggingSourceOperationMask.contains(.delete) ? .delete : .move
+        }
+        guard !DockDrop.items(from: sender.draggingPasteboard).isEmpty else { return [] }
+        return pointer.dropMoved(to: location) ? .copy : []
     }
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
         pointer?.dropMoved(to: nil)
+        setDropOnTrash(false)
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        defer { pointer?.dropMoved(to: nil) }
+        defer {
+            pointer?.dropMoved(to: nil)
+            setDropOnTrash(false)
+        }
+        if TrashMonitor.shared.isDropTarget {
+            let files = DockDrop.files(from: sender.draggingPasteboard)
+            TrashMonitor.shared.moveToTrash(files)
+            return !files.isEmpty
+        }
         let items = DockDrop.items(from: sender.draggingPasteboard)
         guard !items.isEmpty, let drop = pointer?.performDrop else { return false }
         drop(items)
         return true
+    }
+
+    private func setDropOnTrash(_ isOver: Bool) {
+        if TrashMonitor.shared.isDropTarget != isOver {
+            TrashMonitor.shared.isDropTarget = isOver
+        }
     }
 }
 
 /// What dropping files on the dock adds: folders, and apps, which get pinned. Other files
 /// aren't taken, as in the macOS Dock's app side.
 enum DockDrop {
+    /// Every file and folder being dragged, for the Trash.
+    static func files(from pasteboard: NSPasteboard) -> [URL] {
+        pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    }
+
     static func items(from pasteboard: NSPasteboard) -> [DockItem] {
-        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        let urls = files(from: pasteboard)
         return urls.compactMap { url in
             if url.pathExtension == "app" {
                 return Bundle(url: url)?.bundleIdentifier.map(DockItem.app)

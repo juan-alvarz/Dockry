@@ -7,11 +7,11 @@ Widgets are small live tiles a profile can place in its dock, such as the clock 
 ## Requirements
 
 ### Requirement: Catalog
-Dockry SHALL have these widgets, listed in this order: Clock, Calendar, Spotify, Claude Usage, Weather and Switch User. Each SHALL be in a profile at most once.
+Dockry SHALL have these widgets, listed in this order: Clock, Calendar, Spotify, Claude Usage, Weather, Switch User and Trash. Each SHALL be in a profile at most once.
 
 #### Scenario: Widgets settings list
 - **WHEN** the user opens Settings › Widgets
-- **THEN** the six widgets are listed in that order
+- **THEN** the seven widgets are listed in that order
 
 ### Requirement: Self-description
 Every widget SHALL describe itself with a name, a one-line summary, details (what clicking does and how it looks on a side dock), an icon (its app's icon when that app is installed, otherwise a symbol on a tile of its color), a category, its author ("Built in" for Dockry's) and what it needs, each need marked required or optional.

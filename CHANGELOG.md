@@ -7,6 +7,7 @@ changed. A heading that isn't a version, like `## Unreleased`, is skipped.
 
 ## Unreleased
 
+- Trash widget: drop files on it to delete them, click to open the Trash, right-click to empty it.
 - Widgets grow with magnification, like app icons.
 - The weather widget shows Celsius, or Fahrenheit if you pick it in Settings › Widgets › Weather.
 - A new install starts with one profile, Default, with Finder, instead of Work and Chill,
