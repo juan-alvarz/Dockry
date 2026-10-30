@@ -8,6 +8,11 @@ import SwiftUI
 /// the app you're using. Spanning the whole edge lets SwiftUI size and center the dock
 /// itself; clicks on the strip's transparent parts go through to the windows below.
 final class DockPanel: NSPanel {
+    /// Where `place(on:…)` put the panel. Like the macOS Dock, it's part of the desktop, so
+    /// whatever moves it elsewhere (a window manager like Rectangle) is undone.
+    private var placedFrame: NSRect?
+    private var frameObservers: [NSObjectProtocol] = []
+
     init<Content: View>(content: Content, pointer: DockPointer) {
         super.init(
             contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
@@ -23,7 +28,38 @@ final class DockPanel: NSPanel {
         hostingView.registerForDraggedTypes([.fileURL])
         hostingView.sizingOptions = []  // the panel has a fixed size; see place(on:)
         contentView = hostingView
+        frameObservers = [NSWindow.didMoveNotification, NSWindow.didResizeNotification].map { name in
+            NotificationCenter.default.addObserver(forName: name, object: self, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.returnToPlace() }
+            }
+        }
     }
+
+    deinit {
+        frameObservers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    private func returnToPlace() {
+        guard let placedFrame, frame != placedFrame else { return }
+        setFrame(placedFrame, display: true)
+    }
+
+    // Window managers move and resize windows through Accessibility. The panel stays
+    // readable there (VoiceOver needs its buttons), but none of these can be set.
+    private static let lockedSetters = Set([
+        "setAccessibilityFrame:", "setAccessibilityPosition:", "setAccessibilitySize:",
+        "setAccessibilityMinimized:", "setAccessibilityFullScreen:", "setAccessibilityMain:",
+        "setAccessibilityFocused:",
+    ].map { Selector($0) })
+
+    override func isAccessibilitySelectorAllowed(_ selector: Selector) -> Bool {
+        Self.lockedSetters.contains(selector) ? false : super.isAccessibilitySelectorAllowed(selector)
+    }
+
+    override func setAccessibilityFrame(_ frame: NSRect) {}
+    override func setAccessibilityMinimized(_ minimized: Bool) {}
+    override func setAccessibilityMain(_ main: Bool) {}
+    override func setAccessibilityFocused(_ focused: Bool) {}
 
     /// The part of the screen docks go in: visibleFrame leaves out the menu bar and, while
     /// it's showing, the system Dock, so the two docks never overlap.
@@ -46,6 +82,7 @@ final class DockPanel: NSPanel {
         case .left: NSRect(x: area.minX, y: area.minY, width: thickness, height: area.height)
         case .right: NSRect(x: area.maxX - thickness, y: area.minY, width: thickness, height: area.height)
         }
+        placedFrame = frame
         if frame != self.frame {
             setFrame(frame, display: true)
         }

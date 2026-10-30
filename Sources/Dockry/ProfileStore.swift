@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import DockryCore
 
 /// The profile library as observable app state; every change is saved to disk.
@@ -8,6 +9,9 @@ final class ProfileStore: ObservableObject {
     /// Set when profiles.json couldn't be read and the defaults are in use instead. Changes
     /// aren't saved meanwhile, so the user's file isn't replaced while they fix it.
     @Published private(set) var loadError: Error?
+    /// A profile renamed through `updateProfile`, sent once the library has the new name,
+    /// so whatever goes by profile name can follow it.
+    let renamed = PassthroughSubject<(from: String, to: String), Never>()
 
     private let file = ProfileFile()
 
@@ -56,13 +60,18 @@ final class ProfileStore: ObservableObject {
         update { $0.removeProfile(named: name) }
     }
 
-    func updateProfile(named name: String, _ change: (inout Profile) -> Void) {
-        let index = library.profiles.firstIndex { $0.name == name }
-        update { $0.updateProfile(named: name, change) }
+    /// Returns the profile's name afterwards, or nil if there's no such profile.
+    @discardableResult
+    func updateProfile(named name: String, _ change: (inout Profile) -> Void) -> String? {
+        var newName: String?
+        update { newName = $0.updateProfile(named: name, change) }
+        guard let newName, newName != name else { return newName }
         // A fresh profile's app data goes with its new name.
-        if let index, library.profiles[index].freshApps, library.profiles[index].name != name {
-            AppInstances.moveData(from: name, to: library.profiles[index].name)
+        if library.profiles.first(where: { $0.name == newName })?.freshApps == true {
+            AppInstances.moveData(from: name, to: newName)
         }
+        renamed.send((name, newName))
+        return newName
     }
 
     func moveProfile(named name: String, by offset: Int) {

@@ -5,6 +5,17 @@ the app, and the Release workflow, started by hand, publishes that version as `D
 with its notes. Each version is released once: to release, add a new heading on top with what
 changed. A heading that isn't a version, like `## Unreleased`, is skipped.
 
+## Unreleased
+
+- A new install starts with one profile, Default, with Finder, instead of Work and Chill,
+  so Dockry doesn't ask for any permissions until you add something that needs them.
+- Renaming a profile keeps its open apps and windows, and happens once you're done typing
+  the name instead of on every key.
+- Window managers like Rectangle can no longer move or resize the dock.
+- Settings won't give two of Dockry's actions the same shortcut, and says when two already
+  share one instead of blaming another app.
+- After the Mac restarts, apps no longer land in a profile that belonged to another app.
+
 ## 0.1.1
 
 - Weather widget: current conditions with today's high and low from Open-Meteo, for your town

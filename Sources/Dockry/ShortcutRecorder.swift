@@ -7,6 +7,8 @@ import SwiftUI
 /// Delete while recording (or the clear button) removes the shortcut.
 struct ShortcutRecorder: View {
     @Binding var shortcut: KeyShortcut?
+    /// Which other of Dockry's shortcuts already has these keys, by name, if any.
+    var usedBy: (KeyShortcut) -> String? = { _ in nil }
     @ObservedObject private var hotKeys = HotKeys.shared
     @State private var monitor: Any?
     @State private var hint: String?
@@ -25,11 +27,18 @@ struct ShortcutRecorder: View {
                         .help("Remove shortcut")
                 }
             }
-            if let message = hint ?? shortcut.flatMap({ hotKeys.taken.contains($0) ? "Another app already uses this shortcut." : nil }) {
+            if let message = hint ?? shortcut.flatMap(problem) {
                 Text(message).font(.caption).foregroundStyle(.orange)
             }
         }
         .onDisappear(perform: stopRecording)
+    }
+
+    private func problem(_ shortcut: KeyShortcut) -> String? {
+        if hotKeys.duplicated.contains(where: { $0.sameKeys(as: shortcut) }) {
+            return "Also used by another Dockry shortcut; only one works."
+        }
+        return hotKeys.taken.contains(shortcut) ? "Another app already uses this shortcut." : nil
     }
 
     private func toggleRecording() {
@@ -57,6 +66,10 @@ struct ShortcutRecorder: View {
             let recorded = KeyShortcut(keyCode: event.keyCode, modifierFlags: flags, key: Self.keyName(event))
             guard recorded.isUsableGlobally else {
                 hint = "Use at least one of ⌃, ⌥ or ⌘."
+                return
+            }
+            if let owner = usedBy(recorded) {
+                hint = "Already used by \(owner)."
                 return
             }
             hint = nil

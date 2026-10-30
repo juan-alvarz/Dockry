@@ -74,10 +74,10 @@ private struct SettingsView: View {
 
     var body: some View {
         TabView(selection: $selection.tab) {
-            GeneralSettings(settings: settings)
+            GeneralSettings(settings: settings, store: store)
                 .tabItem { Label("General", systemImage: "gearshape") }
                 .tag(SettingsTab.general)
-            ProfilesSettings(store: store, selection: selection)
+            ProfilesSettings(store: store, settings: settings, selection: selection)
                 .tabItem { Label("Profiles", systemImage: "square.stack") }
                 .tag(SettingsTab.profiles)
             WidgetsSettings(store: store, selection: selection)
@@ -93,6 +93,7 @@ private struct SettingsView: View {
 
 private struct GeneralSettings: View {
     @ObservedObject var settings: SettingsStore
+    let store: ProfileStore
     @ObservedObject private var windowSpace = AppWindows.shared
     @State private var opensAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
@@ -167,7 +168,9 @@ private struct GeneralSettings: View {
 
             Section("Keyboard") {
                 LabeledContent("Profile switcher") {
-                    ShortcutRecorder(shortcut: $settings.profileSwitcherShortcut)
+                    ShortcutRecorder(shortcut: $settings.profileSwitcherShortcut) {
+                        shortcutOwner(of: $0, store: store, settings: settings, except: nil)
+                    }
                 }
                 Text("Opens the profile switcher. Hold the modifier keys and press the key again to move to the next profile; let go to switch. Each profile can also have its own shortcut, under Profiles.")
                     .font(.caption)
@@ -263,10 +266,24 @@ private struct GeneralSettings: View {
     }
 }
 
+/// Which other of Dockry's shortcuts has the same keys: a profile, by name, or the profile
+/// switcher. `profile` is the one being set, nil for the switcher's own.
+@MainActor
+private func shortcutOwner(of shortcut: KeyShortcut, store: ProfileStore, settings: SettingsStore, except profile: String?) -> String? {
+    if let other = store.library.profiles.first(where: { $0.name != profile && $0.shortcut?.sameKeys(as: shortcut) == true }) {
+        return other.name
+    }
+    if profile != nil, settings.profileSwitcherShortcut?.sameKeys(as: shortcut) == true {
+        return "the profile switcher"
+    }
+    return nil
+}
+
 // MARK: - Profiles
 
 private struct ProfilesSettings: View {
     @ObservedObject var store: ProfileStore
+    let settings: SettingsStore
     let selection: SettingsSelection
     @State private var selectedName: String?
     @State private var isCreating = false
@@ -284,7 +301,9 @@ private struct ProfilesSettings: View {
                     .frame(width: 180)
                 Divider()
                 if let profile = store.library.profiles.first(where: { $0.name == selectedName }) {
-                    ProfileEditor(store: store, profile: profile) { selectedName = $0 }
+                    ProfileEditor(store: store, settings: settings, profile: profile) { selectedName = $0 }
+                        // A fresh editor per profile, so a name being typed ends with it.
+                        .id(profile.name)
                         .frame(maxWidth: .infinity)
                 } else {
                     Text("Select a profile")
@@ -469,8 +488,12 @@ private struct FreshBadgePicker: View {
 
 private struct ProfileEditor: View {
     @ObservedObject var store: ProfileStore
+    let settings: SettingsStore
     let profile: Profile
     let renamed: (String) -> Void
+    /// The name being typed; the profile is renamed once editing ends.
+    @State private var draftName: String?
+    @FocusState private var isEditingName: Bool
 
     private static let suggestedColors = ["#3563E9", "#7C3AED", "#E2457A", "#F08A4B", "#F5B83D", "#22A06B", "#0EA5A4"]
 
@@ -483,9 +506,17 @@ private struct ProfileEditor: View {
     var body: some View {
         Form {
             Section {
-                TextField("Name", text: Binding(get: { profile.name }, set: rename))
+                TextField("Name", text: Binding(get: { draftName ?? profile.name }, set: { draftName = $0 }))
+                    .focused($isEditingName)
+                    .onSubmit(commitName)
+                    .onChange(of: isEditingName) { _, isEditing in
+                        if !isEditing { commitName() }
+                    }
+                    .onDisappear(perform: commitName)
                 LabeledContent("Shortcut") {
-                    ShortcutRecorder(shortcut: binding(\.shortcut))
+                    ShortcutRecorder(shortcut: binding(\.shortcut)) {
+                        shortcutOwner(of: $0, store: store, settings: settings, except: profile.name)
+                    }
                 }
                 LabeledContent("Symbol") {
                     Image(systemName: profile.symbol).help(profile.symbol)
@@ -640,13 +671,16 @@ private struct ProfileEditor: View {
         Binding(get: { profile[keyPath: keyPath] }, set: { value in change { $0[keyPath: keyPath] = value } })
     }
 
-    private func rename(_ newName: String) {
-        change { $0.name = newName }
-        // The store ignores taken and empty names; follow the profile under whichever name it has now.
-        let trimmed = newName.trimmingCharacters(in: .whitespaces)
-        if store.library.profiles.contains(where: { $0.name == trimmed }) {
-            renamed(trimmed)
-        }
+    /// Renames the profile to the name typed, once. The store ignores taken and empty names,
+    /// and the field then shows the name the profile still has.
+    private func commitName() {
+        guard let draftName else { return }
+        self.draftName = nil
+        guard draftName != profile.name,
+              let name = store.updateProfile(named: profile.name, { $0.name = draftName }),
+              name != profile.name
+        else { return }
+        renamed(name)
     }
 
     private func chooseWallpaper() {

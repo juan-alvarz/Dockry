@@ -17,6 +17,21 @@ final class ProfileLibraryTests: XCTestCase {
         XCTAssertEqual(ProfileLibrary(profiles: []).profiles, Profile.defaults)
     }
 
+    func testTheDefaultIsOneProfileWithFinder() {
+        let library = ProfileLibrary()
+        XCTAssertEqual(library.profiles.count, 1)
+        let profile = library.active
+        XCTAssertEqual(profile.name, "Default")
+        XCTAssertEqual(profile.symbol, "house.fill")
+        XCTAssertEqual(profile.items, [.app("com.apple.finder"), .divider, .runningApps])
+        XCTAssertNil(profile.desktop)
+        XCTAssertNil(profile.color)
+        XCTAssertNil(profile.shortcut)
+        XCTAssertNil(profile.wallpaper)
+        XCTAssertFalse(profile.opensAppsOnSwitch)
+        XCTAssertFalse(profile.freshApps)
+    }
+
     func testDuplicateNamesKeepTheFirstProfile() {
         let library = ProfileLibrary(profiles: [work, Profile(name: "Work"), chill])
         XCTAssertEqual(library.profiles, [work, chill])
@@ -131,6 +146,13 @@ final class ProfileLibraryEditingTests: XCTestCase {
         library.updateProfile(named: "Chill") { $0.name = "  " }
         XCTAssertEqual(library.profiles.map(\.name), ["Work", "Chill"])
         XCTAssertEqual(library.profiles[0].desktop, 3)
+    }
+
+    func testUpdatingAProfileReturnsItsNameAfterwards() {
+        XCTAssertEqual(library.updateProfile(named: "Chill") { $0.name = " Home " }, "Home")
+        XCTAssertEqual(library.updateProfile(named: "Home") { $0.name = "Work" }, "Home")
+        XCTAssertEqual(library.updateProfile(named: "Work") { $0.desktop = 4 }, "Work")
+        XCTAssertNil(library.updateProfile(named: "Gone") { $0.desktop = 4 })
     }
 
     func testMovingAProfileStaysInBounds() {

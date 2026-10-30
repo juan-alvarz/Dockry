@@ -20,6 +20,20 @@ public struct KeyShortcut: Hashable, Codable {
     /// Only ⌃⌥⇧⌘ count, as in a global shortcut.
     public var modifiers: UInt64 { modifierFlags & (Self.control | Self.option | Self.shift | Self.command) }
 
+    /// Whether pressing one is pressing the other: the same key and ⌃⌥⇧⌘, whatever the key
+    /// was labeled when each was recorded.
+    public func sameKeys(as other: KeyShortcut) -> Bool {
+        keyCode == other.keyCode && modifiers == other.modifiers
+    }
+
+    /// The indexes of the shortcuts whose keys an earlier one in the list already has; only
+    /// the first of each can be registered.
+    public static func duplicates(in shortcuts: [KeyShortcut]) -> Set<Int> {
+        Set(shortcuts.indices.filter { index in
+            shortcuts[..<index].contains { $0.sameKeys(as: shortcuts[index]) }
+        })
+    }
+
     /// A global shortcut needs ⌃, ⌥ or ⌘; with only ⇧ (or nothing) it would take over typing.
     public var isUsableGlobally: Bool { modifiers & (Self.control | Self.option | Self.command) != 0 }
 
