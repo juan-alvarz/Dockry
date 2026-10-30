@@ -4,6 +4,8 @@ public enum WidgetKind: String, Codable, CaseIterable {
     case clock
     case date
     case spotify
+    /// What's playing in the Music app.
+    case music
     /// The Mac's other user accounts, for Fast User Switching.
     case users
     /// How much of the Claude plan's usage limits are used.

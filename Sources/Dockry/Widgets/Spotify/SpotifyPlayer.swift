@@ -138,30 +138,41 @@ final class SpotifyPlayer: ObservableObject {
         }
     }
 
-    /// Spotify plays from the background: AppleScript would open a stopped Spotify in front,
-    /// so it's started hidden first, and if it still comes forward (playing a song can do
-    /// that), it's hidden again. "Open Spotify" in the player is how to see it.
+    /// Spotify plays from the background; "Open Spotify" in the player is how to see it.
     private func send(_ command: String) {
+        AppleScript.tell(Self.bundleID, command)
+    }
+}
+
+/// Runs AppleScript in an `osascript` process, so a slow or hung app can't freeze the dock
+/// the way NSAppleScript on the main thread would.
+enum AppleScript {
+    /// Sends `command` to the app, keeping it in the background: AppleScript would open a
+    /// stopped app in front, so it's started hidden first, and if it still comes forward
+    /// (playing a song can do that), it's hidden again, unless the user was in it already.
+    @MainActor
+    static func tell(_ bundleID: String, _ command: String) {
         Task {
-            let wasRunning = isSpotifyRunning
-            // Unless the user is in Spotify already.
-            let wasInFront = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Self.bundleID
+            let isRunning = { !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty }
+            let wasRunning = isRunning()
+            let wasInFront = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleID
             if !wasRunning {
-                await launchHidden()
+                await launchHidden(bundleID)
             }
-            _ = await AppleScript.run("tell application id \"\(Self.bundleID)\" to \(command)")
+            _ = await run("tell application id \"\(bundleID)\" to \(command)")
             for _ in 0..<(wasInFront ? 0 : wasRunning ? 2 : 10) {
                 try? await Task.sleep(for: .milliseconds(300))
-                if let spotify = NSWorkspace.shared.frontmostApplication, spotify.bundleIdentifier == Self.bundleID {
-                    spotify.hide()
+                if let app = NSWorkspace.shared.frontmostApplication, app.bundleIdentifier == bundleID {
+                    app.hide()
                     break
                 }
             }
         }
     }
 
-    private func launchHidden() async {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleID) else { return }
+    @MainActor
+    private static func launchHidden(_ bundleID: String) async {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
         configuration.hides = true
@@ -169,11 +180,7 @@ final class SpotifyPlayer: ObservableObject {
         // Its AppleScript isn't ready the moment it launches.
         try? await Task.sleep(for: .seconds(2))
     }
-}
 
-/// Runs AppleScript in an `osascript` process, so a slow or hung app can't freeze the dock
-/// the way NSAppleScript on the main thread would.
-enum AppleScript {
     /// The script's output, or nil if it failed (e.g. the user didn't allow automation).
     static func run(_ source: String) async -> String? {
         await withCheckedContinuation { continuation in

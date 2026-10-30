@@ -84,6 +84,15 @@ extension WidgetKind {
                     WidgetInfo.Requirement("Permission to control Spotify; macOS asks the first time"),
                     WidgetInfo.Requirement("A Spotify account connected below, to search", isOptional: true),
                 ])
+        case .music:
+            WidgetInfo(
+                kind: self, name: "Apple Music",
+                summary: "What’s playing in the Music app, with play/pause, previous and next.",
+                details: "Click the song for the player: progress you can drag, volume, shuffle, repeat and a search of your library that plays songs without bringing Music to the front. On a side dock it’s the album art above the controls.",
+                symbol: "music.note", tint: "#FA2D48", appBundleID: MusicTrack.bundleID, category: .media,
+                requirements: [
+                    WidgetInfo.Requirement("Permission to control Music; macOS asks the first time"),
+                ])
         case .users:
             WidgetInfo(
                 kind: self, name: "Switch User",
@@ -123,5 +132,5 @@ extension WidgetKind {
 
 public enum WidgetCatalog {
     /// Every widget, in the order Settings lists them.
-    public static let all: [WidgetInfo] = [WidgetKind.clock, .date, .spotify, .claude, .weather, .users, .trash].map(\.info)
+    public static let all: [WidgetInfo] = [WidgetKind.clock, .date, .spotify, .music, .claude, .weather, .users, .trash].map(\.info)
 }
