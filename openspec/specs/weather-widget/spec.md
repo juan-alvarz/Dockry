@@ -21,11 +21,11 @@ The widget SHALL fetch the current temperature, conditions and day/night, and to
 - **THEN** the widget shows a partly cloudy sun symbol, 18°, H21° L12°
 
 ### Requirement: Units
-Settings › Widgets › Weather SHALL offer Temperature: System, Celsius or Fahrenheit, remembered across launches. System (the default) SHALL follow the Temperature setting in System Settings › General › Language & Region, or the region's measurement system when it isn't set. Changing the choice SHALL refresh the widget at once.
+Settings › Widgets › Weather SHALL offer Temperature: System, Celsius or Fahrenheit, remembered across launches. System (the default) SHALL follow the Temperature setting in System Settings › General › Language & Region, or the region's measurement system when it isn't set, and its label SHALL name the unit that gives, such as "System (°F)". Changing the choice SHALL refresh the widget at once.
 
 #### Scenario: Fahrenheit
 - **WHEN** the choice is System and the Mac's Temperature setting is Fahrenheit
-- **THEN** the widget asks for and shows Fahrenheit
+- **THEN** the widget asks for and shows Fahrenheit, and the option reads "System (°F)"
 
 #### Scenario: Choose Celsius on a Fahrenheit Mac
 - **WHEN** the Mac's Temperature setting is Fahrenheit and the user picks Celsius in Settings › Widgets › Weather

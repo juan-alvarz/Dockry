@@ -8,13 +8,14 @@ struct WeatherSettings: View {
     var body: some View {
         Section("Temperature") {
             Picker("Temperature", selection: $unit) {
-                Text("System").tag(TemperatureUnit.system)
+                // Which unit System is, as the Weather app shows it: macOS's, not Weather's own.
+                Text("System (\(WeatherMonitor.usesFahrenheit(.system) ? "°F" : "°C"))").tag(TemperatureUnit.system)
                 Text("Celsius (°C)").tag(TemperatureUnit.celsius)
                 Text("Fahrenheit (°F)").tag(TemperatureUnit.fahrenheit)
             }
             .pickerStyle(.segmented)
             .onChange(of: unit) { _, _ in WeatherMonitor.shared.unitChanged() }
-            Text("System follows the Temperature setting in System Settings › General › Language & Region.")
+            Text("System uses macOS’s Temperature setting in System Settings › General › Language & Region, which can differ from the Weather app’s own.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

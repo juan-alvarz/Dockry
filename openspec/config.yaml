@@ -31,6 +31,15 @@ context: |
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
+rules:
+  tasks:
+    - Every change that alters something on screen ends with a task to check it in the
+      installed build (scripts/install.sh), by screenshot (screencapture), opening Settings
+      with the launch arguments -showSettings <tab> or -showWidget <kind>. Passing unit tests
+      alone never marks such a change done.
+    - When a check can't be made here (no Accessibility access, pointer or keyboard input
+      needed), the task says so and what the user should look at; the change is reported as
+      unverified, not done.
 # Example:
 #   rules:
 #     proposal:
