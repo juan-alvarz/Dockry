@@ -8,7 +8,7 @@ changed. A heading that isn't a version, like `## Unreleased`, is skipped.
 ## Unreleased
 
 - Apple Music widget: what's playing in Music with its controls, and a player that searches your library.
-- Dividers show where you add them, even at an end or next to another divider.
+- Dividers show where you add them, even at an end or next to another divider, and the dock's background menu adds where you right-clicked instead of at the end.
 - Trash widget: drop files on it to delete them, click to open the Trash, right-click to empty it.
 - Widgets grow with magnification, like app icons.
 - The weather widget shows Celsius, or Fahrenheit if you pick it in Settings › Widgets › Weather.

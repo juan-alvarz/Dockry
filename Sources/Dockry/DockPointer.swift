@@ -95,6 +95,10 @@ final class DockPointer: ObservableObject {
     var dropGap: Int?
     /// The gap's frame, while there is one.
     var dropGapFrame: CGRect?
+    /// Where the dock was last right-clicked, in the window's SwiftUI coordinates, so its menu
+    /// can add things at that spot.
+    var contextClick: CGPoint?
+    private var rightClickMonitor: Any?
     /// Adds dropped items at the gap; set by DockView.
     var performDrop: (([DockItem]) -> Void)?
 
@@ -136,6 +140,17 @@ final class DockPointer: ObservableObject {
     private var hideTask: Task<Void, Never>?
 
     init() {
+        // SwiftUI's context menus don't say where the click was; note it before they open.
+        // A monitor sees the click whichever view inside the dock's window gets it.
+        rightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in
+            MainActor.assumeIsolated {
+                if let self, let window = self.window, event.window === window {
+                    // Flipped, like SwiftUI's coordinates.
+                    self.contextClick = CGPoint(x: event.locationInWindow.x, y: window.frame.height - event.locationInWindow.y)
+                }
+            }
+            return event
+        }
         PointerMonitor.shared.moves
             .sink { [weak self] _ in self?.update() }
             .store(in: &subscriptions)

@@ -40,7 +40,7 @@ A pinned app that isn't installed (and isn't running) SHALL be left out. Divider
 - **THEN** a divider appears right after that app
 
 #### Scenario: Divider at the end
-- **WHEN** the user chooses Add Divider on the dock's background
+- **WHEN** the user right-clicks the dock's background past its last item and chooses Add Divider
 - **THEN** a divider appears at the end of the dock
 
 ### Requirement: Running indicators
