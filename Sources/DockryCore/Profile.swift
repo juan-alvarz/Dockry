@@ -4,12 +4,16 @@ public enum WidgetKind: String, Codable, CaseIterable {
     case clock
     case date
     case spotify
+    /// What's playing in the Music app.
+    case music
     /// The Mac's other user accounts, for Fast User Switching.
     case users
     /// How much of the Claude plan's usage limits are used.
     case claude
     /// Current conditions and today's high and low where the Mac is.
     case weather
+    /// The Trash, like the macOS Dock's.
+    case trash
 }
 
 /// A context like "Work" or "Chill": the apps pinned to the dock, the widgets shown next to

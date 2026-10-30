@@ -7,10 +7,14 @@ public enum DockMagnification {
         /// Length along the dock at normal size.
         public var length: Double
         public var magnifies: Bool
+        /// Half the length around its center that counts as right under the pointer, so a
+        /// wide item (a widget) grows fully anywhere along it, not only at its center.
+        public var plateau: Double
 
-        public init(length: Double, magnifies: Bool) {
+        public init(length: Double, magnifies: Bool, plateau: Double = 0) {
             self.length = length
             self.magnifies = magnifies
+            self.plateau = plateau
         }
     }
 
@@ -41,7 +45,7 @@ public enum DockMagnification {
 
         let scales = zip(items, normalStarts).map { item, start -> Double in
             guard item.magnifies else { return 1 }
-            let distance = abs(pointer - (start + item.length / 2))
+            let distance = max(abs(pointer - (start + item.length / 2)) - item.plateau, 0)
             guard distance < reach else { return 1 }
             // A smooth bump: full size at the pointer, back to normal at `reach`.
             let closeness = (cos(.pi * distance / reach) + 1) / 2

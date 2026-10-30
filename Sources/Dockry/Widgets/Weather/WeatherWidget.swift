@@ -5,7 +5,10 @@ import SwiftUI
 /// Current conditions and temperature, with today's high and low. Clicking it opens the
 /// Weather app. In a dock on the side of the screen it's just the symbol and temperature.
 struct WeatherWidget: View {
-    static let widget = DockWidget(info: WidgetKind.weather.info) { AnyView(WeatherWidget()) }
+    static let widget = DockWidget(
+        info: WidgetKind.weather.info,
+        makeView: { AnyView(WeatherWidget()) },
+        makeSettings: { AnyView(WeatherSettings()) })
 
     @ObservedObject private var monitor = WeatherMonitor.shared
     @Environment(\.dockMetrics) private var metrics

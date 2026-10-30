@@ -7,6 +7,11 @@ changed. A heading that isn't a version, like `## Unreleased`, is skipped.
 
 ## Unreleased
 
+- Apple Music widget: what's playing in Music with its controls, and a player that searches your library.
+- Dividers show where you add them, even at an end or next to another divider.
+- Trash widget: drop files on it to delete them, click to open the Trash, right-click to empty it.
+- Widgets grow with magnification, like app icons.
+- The weather widget shows Celsius, or Fahrenheit if you pick it in Settings › Widgets › Weather.
 - A new install starts with one profile, Default, with Finder, instead of Work and Chill,
   so Dockry doesn't ask for any permissions until you add something that needs them.
 - Renaming a profile keeps its open apps and windows, and happens once you're done typing

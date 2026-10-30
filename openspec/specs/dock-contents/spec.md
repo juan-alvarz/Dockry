@@ -25,7 +25,7 @@ Open apps SHALL be the regular apps (those that would show in the macOS Dock), n
 - **THEN** it appears in the dock once it does
 
 ### Requirement: Missing apps and empty dividers
-A pinned app that isn't installed (and isn't running) SHALL be left out. Dividers SHALL not show at either end of the items or next to another shown divider.
+A pinned app that isn't installed (and isn't running) SHALL be left out. Dividers SHALL show where the user put them, including at either end or next to another divider. A divider SHALL be left out only when things that aren't shown (an empty group of open apps, a missing app) are all that separate it from an end or from another shown divider.
 
 #### Scenario: Uninstalled app
 - **WHEN** a profile pins an app that was deleted
@@ -34,6 +34,14 @@ A pinned app that isn't installed (and isn't running) SHALL be left out. Divider
 #### Scenario: Two dividers in a row
 - **WHEN** everything between two dividers is hidden
 - **THEN** only one divider shows
+
+#### Scenario: Divider added after an app
+- **WHEN** the user right-clicks a pinned app followed by open apps and chooses Add Divider
+- **THEN** a divider appears right after that app
+
+#### Scenario: Divider at the end
+- **WHEN** the user chooses Add Divider on the dock's background
+- **THEN** a divider appears at the end of the dock
 
 ### Requirement: Running indicators
 A running app SHALL show a dot on the screen-edge side when indicators are on. An app with minimized windows SHALL show a yellow dot next to it, when indicators are on and Accessibility access is granted.
