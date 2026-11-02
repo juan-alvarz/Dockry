@@ -31,10 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 actions: actions)
         }
 
-        // The mode first, so turning the feature on at launch doesn't hide apps in the other mode.
-        settings.$opensNewAppInstances
-            .sink { profileApps.mode = $0 ? .windows : .apps }
-            .store(in: &subscriptions)
+        Wallpapers.giveOwnPictureToProfilesWithout(store)
         settings.$separatesProfileApps
             .sink { profileApps.isEnabled = $0 }
             .store(in: &subscriptions)
@@ -59,6 +56,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 Wallpapers.fadesIn = fades
                 self.map { Wallpapers.prepare($0.store.library.profiles) }
             }
+            .store(in: &subscriptions)
+        // A screen plugged in shows whatever macOS gives it, not the active profile's picture.
+        NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
+            .debounce(for: .seconds(1), scheduler: RunLoop.main)
+            .sink { _ in Wallpapers.show(store.active, fading: false) }
             .store(in: &subscriptions)
 
         let switcher = ProfileSwitcherPanel(store: store, profileApps: profileApps) { [weak self] in self?.activateProfile(named: $0) }
@@ -105,7 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let (here, instances) = AppOpening.instances(of: bundleID, runningApps: runningApps, profileApps: profileApps)
                 AppOpening.choose(
                     url: app.url, bundleID: bundleID, here: here, instances: instances,
-                    profileApps: profileApps, settings: settings, profile: store.active
+                    profileApps: profileApps, profile: store.active
                 ).perform(profileApps)
             } else {
                 SpotifyAccount.shared.handleCallback(url)
@@ -174,12 +176,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let switched = previous.map { previous in
             previous.name != active.name && store.library.profiles.contains { $0.name == previous.name }
         } ?? false
-        guard switched || previous?.wallpaper != active.wallpaper else { return }
+        guard previous == nil || switched || previous?.wallpaper != active.wallpaper else { return }
         if switched {
             profileApps.show(active.name)
         }
         // At once, during the desktop switch: macOS shows one desktop picture on every desktop.
-        Wallpapers.switched(from: previous, to: active)
+        // At launch too, without the fade: the screens may show another profile's picture.
+        Wallpapers.show(active, fading: previous != nil)
         // Once on the profile's desktop, so their windows open there.
         if switched && active.opensAppsOnSwitch {
             afterDesktopSwitch(active.desktop != nil) { Self.openIfNotRunning(active.pinnedApps) }

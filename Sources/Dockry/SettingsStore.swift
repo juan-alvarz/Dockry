@@ -31,16 +31,9 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(keepsWindowsClear, forKey: Key.keepsWindowsClear) }
     }
 
-    /// Give each profile its own open apps, hiding the other profiles' (see ProfileApps).
+    /// Give each profile its own windows, parking the other profiles' (see ProfileApps).
     @Published var separatesProfileApps: Bool {
         didSet { defaults.set(separatesProfileApps, forKey: Key.separatesProfileApps) }
-    }
-
-    /// With separate apps per profile, clicking an app in the dock that's open in another
-    /// profile opens a window of its own here (⌘N) instead of moving the app over, and each
-    /// window stays in its profile.
-    @Published var opensNewAppInstances: Bool {
-        didSet { defaults.set(opensNewAppInstances, forKey: Key.opensNewAppInstances) }
     }
 
     /// Fade a profile's wallpaper in when switching to it (see Wallpapers); off, it changes
@@ -74,7 +67,6 @@ final class SettingsStore: ObservableObject {
         static let hidesSystemDock = "hideSystemDock"
         static let keepsWindowsClear = "keepsWindowsClear"
         static let separatesProfileApps = "separatesProfileApps"
-        static let opensNewAppInstances = "opensNewAppInstances"
         static let fadesWallpapers = "fadesWallpapers"
         static let wallpaperTransition = "wallpaperTransition"
         static let wallpaperTransitionDuration = "wallpaperTransitionDuration"
@@ -103,8 +95,11 @@ final class SettingsStore: ObservableObject {
         showsUnpinnedApps = defaults.object(forKey: Key.showsUnpinnedApps) as? Bool ?? true
         hidesSystemDock = defaults.bool(forKey: Key.hidesSystemDock)
         keepsWindowsClear = defaults.object(forKey: Key.keepsWindowsClear) as? Bool ?? true
-        separatesProfileApps = defaults.bool(forKey: Key.separatesProfileApps)
-        opensNewAppInstances = defaults.bool(forKey: Key.opensNewAppInstances)
+        separatesProfileApps = defaults.object(forKey: Key.separatesProfileApps) as? Bool ?? true
+        // Left by older versions: the second apps-per-profile mode, and pictures learned as the user's own.
+        for key in ["opensNewAppInstances", "ownWallpapers", "wallpapersSetByDockry", "appProfiles"] {
+            defaults.removeObject(forKey: key)
+        }
         fadesWallpapers = defaults.object(forKey: Key.fadesWallpapers) as? Bool ?? true
         wallpaperTransition = defaults.string(forKey: Key.wallpaperTransition).flatMap(WallpaperTransition.init) ?? .fade
         wallpaperTransitionDuration = (defaults.object(forKey: Key.wallpaperTransitionDuration) as? Double ?? 0.3).clamped(to: 0.1...1)

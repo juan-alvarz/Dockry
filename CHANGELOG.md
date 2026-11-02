@@ -10,6 +10,36 @@ bullets that start with a **bold lead-in**. Wrap lines freely; the release notes
 back (`scripts/version.sh --notes`), so a new line only starts at a blank line, a bullet or
 a heading.
 
+## 0.3.0
+
+### What's new
+
+- **Each profile keeps its own windows, with nothing to set up.** One setting, **Give each
+  profile its own windows**, on by default, replaces the two before it. Switching shows
+  only the profile's windows; the others wait just off screen. Apps are never hidden.
+- **An app comes to you.** When an app with windows only in other profiles comes forward,
+  from the dock, Raycast or ⌘Tab, it opens a new window in the profile you're in.
+
+### Fixes
+
+- **Wallpapers follow the profile on every screen.** A second screen could keep another
+  profile's picture. Now each switch sets the profile's picture on every screen, and a
+  profile without one shows the macOS default; profiles without one get the picture you had
+  when you update.
+- **The keyboard goes to a window you can see** after switching profiles.
+- **The speaker shows on the profile playing sound.** The dock's profile button no longer
+  shows one; the switcher and the menu mark the profile with the app's windows.
+
+### Updating from 0.2.0
+
+- **Give each profile its own windows** is on after updating, and **Open a new app
+  instance** is gone: windows are always kept per profile while the setting is on. Turn it
+  off in **Settings › General › Profiles** to share every window between profiles.
+- **Windows already open** start in the profile their app was opened in. To move one,
+  switch to the profile you want and open a new window of the app there.
+- **Profiles without a wallpaper** get the picture your screen showed when you updated, so
+  nothing changes on screen. **None** now means the macOS default picture.
+
 ## 0.2.0
 
 ### What's new

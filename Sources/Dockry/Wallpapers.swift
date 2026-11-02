@@ -19,15 +19,17 @@ enum WallpaperTransition: String, CaseIterable {
     }
 }
 
-/// Each profile's desktop picture. A profile without one shows the user's own, which is
-/// saved before the first profile's picture replaces it.
+/// Each profile's desktop picture, on every screen, set whenever the profile becomes active
+/// (and at launch, and when a screen is plugged in). A profile without one shows the macOS
+/// default picture: nothing is learned from the screens or restored, so no profile's picture
+/// can stay behind in another.
 ///
 /// macOS takes a moment to show a new desktop picture, so the new one fades in right away in
 /// a window just above the desktop (below its icons), from pictures decoded ahead of time,
 /// and goes once macOS has caught up.
 @MainActor
 enum Wallpapers {
-    private static let savedKey = "ownWallpapers"
+    static let macOSDefault = "/System/Library/CoreServices/DefaultDesktop.heic"
     private static var decoded: [String: CGImage] = [:]
     private static var fades: [NSWindow] = []
 
@@ -39,25 +41,30 @@ enum Wallpapers {
     /// Seconds, at most 1.
     static var duration = 0.3
 
-    static func switched(from previous: Profile?, to profile: Profile) {
-        guard profile.wallpaper != previous?.wallpaper || previous == nil else { return }
-        if let wallpaper = profile.wallpaper {
-            if previous?.wallpaper == nil {
-                saveOwn(replacing: previous != nil)
-                prepare([])
-            }
-            set(fading: previous != nil) { _ in wallpaper }
-        } else if previous != nil {
-            let saved = UserDefaults.standard.dictionary(forKey: savedKey) as? [String: String] ?? [:]
-            set(fading: true) { screen in saved[screen] }
+    static func show(_ profile: Profile, fading: Bool) {
+        let picture = profile.wallpaper ?? macOSDefault
+        set(fading: fading) { _ in picture }
+    }
+
+    /// Older versions showed "your own" picture in profiles without a wallpaper. Once, those
+    /// profiles get the picture showing now as their own wallpaper, unless it's another
+    /// profile's, so nothing changes on screen for them.
+    static func giveOwnPictureToProfilesWithout(_ store: ProfileStore) {
+        let key = "wallpapersGivenToProfiles"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        guard let screen = NSScreen.screens.first, let current = NSWorkspace.shared.desktopImageURL(for: screen)?.path,
+              !store.library.profiles.contains(where: { $0.wallpaper == current })
+        else { return }
+        for profile in store.library.profiles where profile.wallpaper == nil {
+            store.updateProfile(named: profile.name) { $0.wallpaper = current }
         }
     }
 
     /// Decodes the pictures switching may show, off the main thread, so they fade in at once.
     static func prepare(_ profiles: [Profile]) {
         guard fadesIn else { return }
-        let own = (UserDefaults.standard.dictionary(forKey: savedKey) as? [String: String] ?? [:]).values
-        let paths = Set(profiles.compactMap(\.wallpaper) + own).subtracting(decoded.keys)
+        let paths = Set(profiles.map { $0.wallpaper ?? macOSDefault }).subtracting(decoded.keys)
         let size = NSScreen.screens.map { max($0.frame.width, $0.frame.height) * $0.backingScaleFactor }.max() ?? 3000
         for path in paths {
             Task.detached(priority: .utility) {
@@ -65,19 +72,6 @@ enum Wallpapers {
                 await MainActor.run { if fadesIn { decoded[path] = image } }
             }
         }
-    }
-
-    /// Remembers the pictures showing now as the user's own. At launch, only if none are
-    /// saved yet: what's showing may be a profile's.
-    private static func saveOwn(replacing: Bool) {
-        if !replacing && UserDefaults.standard.dictionary(forKey: savedKey) != nil { return }
-        var saved: [String: String] = [:]
-        for screen in NSScreen.screens {
-            if let id = screen.displayID, let url = NSWorkspace.shared.desktopImageURL(for: screen) {
-                saved[String(id)] = url.path
-            }
-        }
-        UserDefaults.standard.set(saved, forKey: savedKey)
     }
 
     private static func set(fading: Bool, _ picture: (String) -> String?) {
