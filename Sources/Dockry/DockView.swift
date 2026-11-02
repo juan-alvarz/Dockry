@@ -138,8 +138,7 @@ struct DockView: View {
             DockBackground(settings: settings, store: store, openSettings: actions.openSettings)
                 .layoutValue(key: DockBackgroundKey.self, value: true)
             ProfileButton(
-                profile: profile, othersPlaying: profileApps.playingProfiles.subtracting([profile.name]).sorted(),
-                action: actions.showProfileMenu)
+                profile: profile, action: actions.showProfileMenu)
             DockSeparator(settings: settings, pointer: pointer, id: "profile", store: store, itemIndex: nil)
             ForEach(Array(order.enumerated()), id: \.element.id) { index, element in
                 if index == gap {
@@ -185,7 +184,7 @@ struct DockView: View {
                     entry: entry, app: app, runningApp: running, profileName: profile.name, store: store,
                     opening: AppOpening.choose(
                         url: app.url, bundleID: entry.bundleID, here: here, instances: instances,
-                        profileApps: profileApps, settings: settings, profile: profile),
+                        profileApps: profileApps, profile: profile),
                     profileApps: profileApps,
                     itemIndex: element.itemIndex, isHovered: drag == nil && pointer.hoveredItem == entry.bundleID,
                     minimizedCount: running.flatMap { appWindows.minimizedCounts[$0.processIdentifier] } ?? 0,
@@ -582,8 +581,6 @@ private struct WindowRow: View {
 
 private struct ProfileButton: View {
     let profile: Profile
-    /// Other profiles with an app playing sound, which a badge points out.
-    let othersPlaying: [String]
     let action: () -> Void
     @Environment(\.dockMetrics) private var metrics
 
@@ -612,18 +609,9 @@ private struct ProfileButton: View {
                         .offset(x: -4 * metrics.unit, y: -4 * metrics.unit)
                 }
             }
-            .overlay(alignment: .topTrailing) {
-                if !othersPlaying.isEmpty {
-                    Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: 8 * metrics.unit, weight: .bold))
-                        .padding(3 * metrics.unit)
-                        .background(.regularMaterial, in: Circle())
-                        .offset(x: 4 * metrics.unit, y: -4 * metrics.unit)
-                }
-            }
         }
         .buttonStyle(.plain)
-        .help(othersPlaying.isEmpty ? "Switch profile" : "Switch profile. Playing sound: \(othersPlaying.joined(separator: ", "))")
+        .help("Switch profile")
     }
 
     private var fillStyle: AnyShapeStyle {

@@ -43,6 +43,8 @@ contracts live in `openspec/specs/`; this file is the map behind them.
 | `SpotifyTrack.swift` | Track from Spotify's distributed notification or AppleScript. |
 | `SpotifyWebAPI.swift` | PKCE sign-in, token parse, search request/parse, `SpotifyPlayback` AppleScript. |
 | `Weather.swift` | Open-Meteo request/parse; WMO code → SF Symbol and summary. |
+| `ProfileWindowRecords.swift` | Window number → profile, pid, parked home; what a switch parks and brings back (`switchPlan`); saved as `profileWindows`, same format as older versions. |
+| `ProfileAppRules.swift` | Whether the dock shows an app, what an app coming forward does (one rule for the dock, Raycast, ⌘Tab: `Activation`), what a dock click does (`Opening`), sound profiles, a new window's profile. |
 
 ### Profile invariants worth knowing
 
@@ -83,9 +85,9 @@ contracts live in `openspec/specs/`; this file is the map behind them.
 | `ProfileStore` | `~/Library/Application Support/Dockry/profiles.json` | The library. Every change saved at once. Not saved while the file failed to load (`loadError`). |
 | `SettingsStore` | `UserDefaults` (`com.dockry.Dockry`) | Dock look (`position`, `iconSize`, `magnifies`, `magnifiedSize`, `autohides`, `showsIndicators`, `animatesLaunch`), `syncsWithMacDock`, `showsUnpinnedApps`, `hideSystemDock`, `keepsWindowsClear`, `separatesProfileApps`, `opensNewAppInstances`, `fadesWallpapers`, `wallpaperTransition`, `wallpaperTransitionDuration`, `profileSwitcherShortcut`. |
 | `SystemDock` | `UserDefaults` | `systemDockHidden`, `systemDockOriginal.autohide`, `systemDockOriginal.autohide-delay`. |
-| `ProfileApps` | `UserDefaults` `appOwners` (JSON `AppOwnership`) | pid + launch time → owning profile name. Older `appProfiles` (pid only) is deleted at launch. |
-| `ProfileWindows` | `UserDefaults` `profileWindows` | window number → profile, pid, parked home frame. |
-| `Wallpapers` | `UserDefaults` `ownWallpapers` | display id → the user's own picture path. |
+| `ProfileApps` | `UserDefaults` `appOwners` (JSON `AppOwnership`) | pid + launch time → profile the app opened in. |
+| `ProfileWindows` | `UserDefaults` `profileWindows` (JSON `ProfileWindowRecords`) | window number → profile, pid, parked home frame. |
+| `Wallpapers` | `UserDefaults` `wallpapersGivenToProfiles` | Set once the pictures showing at the update were given to profiles without one. |
 | `FreshAppsBadge` | `UserDefaults` `freshAppsBadge` | SF Symbol for the fresh-profile badge. |
 | `SpotifyAccount` | `UserDefaults` `spotifyClientID`, `spotifySignedIn`; file `spotify-refresh-token` (0600) | Spotify search sign-in. |
 | `AppInstances` | `~/Library/Application Support/Dockry/App Data/<profile>/<bundle id>/` | Fresh profiles' browser/Electron data. |
@@ -117,8 +119,8 @@ contracts live in `openspec/specs/`; this file is the map behind them.
 - `RunningApps`: regular-policy apps, refreshed on `runningApplications` KVO and on
   activations (late-regular Electron apps). Dock id = bundle id, else bundle/executable path.
 - `AppCatalog`: cached name/icon/url per bundle id; nil when not installed.
-- `AppOpening`: decides what a click does: `launch`, `newInstance` (fresh profile copy),
-  `newWindow` (⌘N in this profile), `instance` (activate this profile's copy).
+- `AppOpening`: maps `ProfileAppRules.opening` to `launch`, `newInstance` (fresh profile
+  copy), `newWindow` (⌘N in this profile), `instance` (activate this profile's copy).
 - `AppQuitter`: presses the app's own ⌘Q menu item via Accessibility; falls back to the
   quit Apple event with an Automation permission check and an explanatory alert.
 - `AppWindows` (shared): one `AXObserver` per regular app; minimized counts, window
@@ -126,12 +128,13 @@ contracts live in `openspec/specs/`; this file is the map behind them.
   Polls `AXIsProcessTrusted` every 2 s until granted.
 - `WindowSpaceKeeper`: on window change, fits windows out of the dock strip
   (`WindowFit`), waiting for mouse-up during drags, and not re-fighting a window within 1 s.
-- `ProfileApps`: the per-profile apps feature, modes `.apps` and `.windows`; fresh
-  profiles are always separated. Hides/unhides apps (only those it hid), tracks sound via
-  Core Audio process list (1.5 s poll) + private `responsibility_get_pid_responsible_for_pid`.
-- `ProfileWindows`: per-window profile records keyed by `CGWindowID` (private
-  `_AXUIElementGetWindow`); parks other profiles' windows at the bottom-right corner of the
-  union of screens, one point visible.
+- `ProfileApps`: applies `ProfileAppRules` (one setting; fresh profiles always separated):
+  on activation raises a window here or presses New Window; after a switch gives the
+  keyboard to the profile's front window. Hides nothing. Sound via Core Audio process list
+  (1.5 s poll) + private `responsibility_get_pid_responsible_for_pid`.
+- `ProfileWindows`: moves windows for `ProfileWindowRecords` (private
+  `_AXUIElementGetWindow` for window numbers); parks other profiles' windows at the
+  bottom-right corner of the union of screens, one point visible, as AeroSpace does.
 - `AppInstances`: `createsNewApplicationInstance` launches; Gecko gets
   `--no-remote --profile <dir>`, Chromium/Electron `--user-data-dir=<dir>`; detection by
   `Resources/omni.ja` or a `* Framework.framework` in `Contents/Frameworks`.
@@ -153,7 +156,7 @@ contracts live in `openspec/specs/`; this file is the map behind them.
 | Spotify search | Web API, PKCE | Spotify sign-in |
 | Claude usage | Keychain + `api.anthropic.com/api/oauth/usage` (undocumented) | Keychain prompt |
 | Weather | Core Location (3 km) + Open-Meteo | Location |
-| Wallpapers | `NSWorkspace.setDesktopImageURL` + fade window at desktop level + 1 | none |
+| Wallpapers | `NSWorkspace.setDesktopImageURL` on every screen (profile's or macOS default) + fade window at desktop level + 1 | none |
 | Open at login | `SMAppService.mainApp` | user approval |
 
 Private or undocumented APIs in use: `SACSwitchToUser`, `SACSwitchToLoginWindow`,

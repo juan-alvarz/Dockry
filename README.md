@@ -59,16 +59,17 @@ to show the widget with a track.
 - **Profiles** such as *Work* and *Chill*. Each has its own pinned apps, widgets and desktop.
   Activating a profile swaps the dock's contents and jumps to its desktop. **Edit Profiles…**
   opens an editor for all of this, including the color of the profile's button in the dock,
-  a wallpaper per profile (profiles without one keep yours; it fades in as you switch,
+  a wallpaper per profile (on every screen; profiles without one show the macOS default; it fades in as you switch,
   unless you turn that off in **Settings › General › Profiles**, where you can also pick
   Fade, Blur or Zoom and how long it takes), and opening the profile's apps
   when switching to it. The duplicate button next to + and − clones a profile.
-- **Each profile's own open apps** (**Settings › General › Profiles**), like desktops on
-  Linux: an app belongs to the profile that was active when it opened, and switching hides
-  the other profiles' apps. Bringing an app forward moves it to the profile you're in, or
-  with **Open a new app instance**, windows are per profile, like desktops on a Mac:
-  clicking an app with windows in another profile opens a new window of it (⌘N), and
-  switching shows only the profile's windows.
+- **Each profile's own windows** (**Settings › General › Profiles**, on by default), like
+  workspaces on Linux or AeroSpace: each window stays in the profile it opened in, and
+  switching shows only that profile's windows; the others wait just off screen, on the same
+  macOS desktop, so there's nothing to set up. The dock shows the apps with a window in the
+  profile. An app with windows only in other profiles gets a new window here (⌘N) when it
+  comes forward, from the dock, Raycast or ⌘Tab alike. Mission Control shows every
+  profile's windows together.
 - **Fresh profiles** (marked with a white circle, or a symbol you pick in **Settings ›
   General › Profiles**): when you create a profile, choose **Fresh apps** for one that
   starts apps from scratch, like a new Mac. It runs its own copies of apps, and browsers and

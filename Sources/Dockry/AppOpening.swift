@@ -10,7 +10,7 @@ enum AppOpening {
     case launch(URL)
     /// Opens a copy of the app with a fresh profile's data, or with nil, the usual data.
     case newInstance(URL, bundleID: String, profile: String?)
-    /// Opens a window of it on this desktop (ProfileApps.openWindow).
+    /// Opens a window of it in this profile (ProfileApps.openWindow).
     case newWindow(NSRunningApplication)
     /// Brings forward this copy, among several of the app.
     case instance(NSRunningApplication)
@@ -23,25 +23,17 @@ enum AppOpening {
         return (all.first(where: profileApps.isShown), all)
     }
 
+    /// Decided by ProfileAppRules.opening.
     static func choose(
         url: URL, bundleID: String, here: NSRunningApplication?, instances: [NSRunningApplication],
-        profileApps: ProfileApps, settings: SettingsStore, profile: Profile
+        profileApps: ProfileApps, profile: Profile
     ) -> AppOpening {
-        if let here {
-            // Opening by URL could bring forward another profile's copy.
-            return instances.count > 1 ? .instance(here) : .launch(url)
+        switch profileApps.rules.opening(here: here, instances: instances, isFreshCopy: profileApps.isFreshCopy, active: profile.name) {
+        case .launch: .launch(url)
+        case .newInstance(let profile): .newInstance(url, bundleID: bundleID, profile: profile)
+        case .newWindow(let app): .newWindow(app)
+        case .instance(let app): .instance(app)
         }
-        // A fresh profile always opens its own copy, with its own data.
-        if profile.freshApps {
-            return .newInstance(url, bundleID: bundleID, profile: profile.name)
-        }
-        let shared = instances.filter { !profileApps.isFreshCopy($0) }
-        guard let other = shared.first else {
-            // Only fresh profiles' copies are running: a copy with the usual data.
-            return instances.isEmpty ? .launch(url) : .newInstance(url, bundleID: bundleID, profile: nil)
-        }
-        guard settings.separatesProfileApps, settings.opensNewAppInstances else { return .launch(url) }
-        return .newWindow(other)
     }
 
     func perform(_ profileApps: ProfileApps) {

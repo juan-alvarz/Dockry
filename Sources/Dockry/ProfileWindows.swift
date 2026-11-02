@@ -1,36 +1,24 @@
 import AppKit
 import ApplicationServices
+import DockryCore
 
-/// Windows per profile, like the workspaces of Linux desktops: each window belongs to one
-/// profile, so one app (Zen, say) can have windows in several. macOS can't hide one window
-/// of an app, so, as workspace tools do, the other profiles' windows are parked just past
-/// the bottom right corner of all the screens together, and put back where they were when
-/// their profile is active again. (macOS desktops can't do this: Dockry can't create them,
-/// and with a desktop per screen, a profile would need one on each.)
-///
-/// Windows are known by the window server's number, which lasts as long as the window, so
-/// what's saved survives Dockry restarting. A window is forgotten only once the window
-/// server no longer has it.
+/// Moves windows for ProfileWindowRecords, which decides: each window is in one profile, so
+/// one app (Zen, say) can have windows in several. macOS can't hide one window of an app, so,
+/// as AeroSpace does, the other profiles' windows are parked just past the bottom right
+/// corner of all the screens together, and put back where they were when their profile is
+/// active again. Every window stays on the macOS desktop it's on.
 @MainActor
 final class ProfileWindows {
-    private struct Record: Codable {
-        var profile: String
-        var pid: pid_t
-        /// Where it was before it was parked; nil while it's on screen.
-        var home: CGRect?
-    }
-
-    private var records: [CGWindowID: Record] {
-        didSet { save() }
+    private var state: ProfileWindowRecords {
+        didSet { if state != oldValue { save() } }
     }
     /// Accessibility's handle for each window seen, to move it.
     private var elements: [CGWindowID: AXUIElement] = [:]
     private static let savedKey = "profileWindows"
 
     init() {
-        let data = UserDefaults.standard.data(forKey: Self.savedKey)
-        let saved = data.flatMap { try? JSONDecoder().decode([String: Record].self, from: $0) } ?? [:]
-        records = Dictionary(uniqueKeysWithValues: saved.compactMap { key, record in CGWindowID(key).map { ($0, record) } })
+        state = UserDefaults.standard.data(forKey: Self.savedKey)
+            .flatMap { try? JSONDecoder().decode(ProfileWindowRecords.self, from: $0) } ?? ProfileWindowRecords()
     }
 
     /// A window almost entirely off every screen.
@@ -44,7 +32,16 @@ final class ProfileWindows {
 
     /// The profiles the app has windows in.
     func profiles(of pid: pid_t) -> Set<String> {
-        Set(records.values.filter { $0.pid == pid }.map(\.profile))
+        state.profiles(ofPID: pid)
+    }
+
+    /// The profile of the app's window in front, if Dockry knows it.
+    func focusedProfile(of pid: pid_t) -> String? {
+        let app = AXUIElementCreateApplication(pid)
+        guard let focused = AppWindows.attribute(kAXFocusedWindowAttribute, of: app), CFGetTypeID(focused) == AXUIElementGetTypeID(),
+              let number = Self.number(of: focused as! AXUIElement)
+        else { return nil }
+        return state.profile(ofWindow: number)
     }
 
     /// Looks over the apps' windows: ones not seen before go to `profile(app)`, and ones the
@@ -55,75 +52,67 @@ final class ProfileWindows {
             for element in AppWindows.shared.windows(of: app.processIdentifier).map(\.element) {
                 guard let number = Self.number(of: element) else { continue }
                 elements[number] = element
-                // A saved number now used by another process's window is a new window.
-                if records[number]?.pid != app.processIdentifier {
-                    records[number] = Record(profile: newProfile, pid: app.processIdentifier)
-                }
+                state.see(number, pid: app.processIdentifier, newProfile: newProfile)
             }
         }
         let existing = Self.existingWindows()
-        let gone = records.keys.filter { !existing.contains($0) }
-        if !gone.isEmpty {
-            gone.forEach { records[$0] = nil; elements[$0] = nil }
-        }
+        state.keep(only: existing)
+        elements = elements.filter { existing.contains($0.key) }
     }
 
     /// A window that just opened goes to `profile`.
     func adopt(_ window: AXUIElement, pid: pid_t, into profile: String) {
         guard let number = Self.number(of: window) else { return }
         elements[number] = window
-        if records[number]?.pid != pid {
-            records[number] = Record(profile: profile, pid: pid)
-        }
+        state.see(number, pid: pid, newProfile: profile)
     }
 
-    /// A renamed profile's windows stay its own.
     func rename(_ profile: String, to newName: String) {
-        for (number, record) in records where record.profile == profile {
-            records[number]?.profile = newName
-        }
+        state.rename(profile, to: newName)
     }
 
-    /// Moves all the app's windows to `profile`, back on screen.
-    func move(_ pid: pid_t, to profile: String) {
-        for (number, record) in records where record.pid == pid {
-            unpark(number)
-            records[number]?.profile = profile
-        }
+    func moveWindows(notIn profiles: Set<String>, to profile: String) {
+        state.moveWindows(notIn: profiles, to: profile)
     }
 
-    /// Shows the profile's windows and parks the others'. Only windows of `apps`.
-    func show(_ profile: String, apps: [NSRunningApplication]) {
-        let pids = Set(apps.map(\.processIdentifier))
-        for (number, record) in records where pids.contains(record.pid) {
-            if record.profile == profile { unpark(number) } else { park(number) }
-        }
+    /// Shows the profile's windows and parks the others', among the windows of `apps`.
+    func show(_ profile: String, apps: [NSRunningApplication], separatesAll: Bool, freshProfiles: Set<String>) {
+        let plan = state.switchPlan(
+            to: profile, pids: Set(apps.map(\.processIdentifier)), separatesAll: separatesAll, freshProfiles: freshProfiles)
+        plan.unpark.forEach(unpark)
+        plan.park.forEach(park)
     }
 
-    /// Brings forward one of the app's windows in `profile`, unless one already is: macOS
-    /// brings forward the app's last window, which may be another profile's, parked.
+    /// The app of the front window in `profile`, for the keyboard to go to after a switch.
+    func frontApp(in profile: String) -> NSRunningApplication? {
+        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        for window in windows where window[kCGWindowLayer as String] as? Int == 0 {
+            guard let number = window[kCGWindowNumber as String] as? CGWindowID, state.profile(ofWindow: number) == profile,
+                  state.records[number]?.home == nil, let pid = window[kCGWindowOwnerPID as String] as? pid_t
+            else { continue }
+            return NSRunningApplication(processIdentifier: pid)
+        }
+        return nil
+    }
+
+    /// Brings forward one of the app's windows in `profile`: macOS brings forward the app's
+    /// last window, which may be another profile's, parked.
     func raise(_ pid: pid_t, in profile: String) {
-        let app = AXUIElementCreateApplication(pid)
-        if let focused = AppWindows.attribute(kAXFocusedWindowAttribute, of: app), CFGetTypeID(focused) == AXUIElementGetTypeID(),
-           let number = Self.number(of: focused as! AXUIElement), records[number]?.profile == profile {
-            return
-        }
-        guard let own = records.first(where: { $0.value.pid == pid && $0.value.profile == profile && $0.value.home == nil }),
+        guard let own = state.records.first(where: { $0.value.pid == pid && $0.value.profile == profile && $0.value.home == nil }),
               let element = elements[own.key]
         else { return }
         AXUIElementSetAttributeValue(element, kAXMainAttribute as CFString, kCFBooleanTrue)
         AXUIElementPerformAction(element, kAXRaiseAction as CFString)
     }
 
-    /// Puts every parked window back, for when Dockry quits or windows stop being per
-    /// profile. Which profile each is in is kept.
+    /// Puts every parked window back, for when Dockry quits or stops keeping windows apart.
+    /// Which profile each is in is kept.
     func unparkAll() {
-        records.keys.forEach(unpark)
+        state.parkedWindows.forEach(unpark)
     }
 
     private func park(_ number: CGWindowID) {
-        guard let record = records[number], record.home == nil, let element = elements[number],
-              let frame = AppWindows.frame(of: element), !Self.isParked(frame),
+        guard let element = elements[number], let frame = AppWindows.frame(of: element), !Self.isParked(frame),
               AppWindows.attribute(kAXMinimizedAttribute, of: element) as? Bool != true
         else { return }
         let screens = NSScreen.screens.reduce(CGRect.null) { $0.union($1.frame) }
@@ -132,23 +121,31 @@ final class ProfileWindows {
             x: screens.maxX - 1, y: screens.minY - frame.height + 1, width: frame.width, height: frame.height))
         // Only parked if it moved: some windows refuse.
         if let moved = AppWindows.frame(of: element), Self.isParked(moved) {
-            records[number]?.home = frame
+            state.parked(number, home: frame)
         } else {
-            NSLog("Dockry: window \(number) didn't move off screen")
+            NSLog("Dockry windows: window \(number) didn't move off screen")
         }
     }
 
     private func unpark(_ number: CGWindowID) {
-        guard let home = records[number]?.home else { return }
-        if let element = elements[number] {
+        guard let home = state.records[number]?.home else { return }
+        if let element = elements[number] ?? element(of: number) {
             AppWindows.move(element, to: home)
         }
-        records[number]?.home = nil
+        state.unparked(number)
+    }
+
+    /// A window not seen since Dockry started (parked before a restart), found among its
+    /// app's windows.
+    private func element(of number: CGWindowID) -> AXUIElement? {
+        guard let pid = state.records[number]?.pid else { return nil }
+        let element = AppWindows.windowElements(of: pid).first { Self.number(of: $0) == number }
+        elements[number] = element
+        return element
     }
 
     private func save() {
-        let saved = Dictionary(uniqueKeysWithValues: records.map { (String($0.key), $0.value) })
-        UserDefaults.standard.set(try? JSONEncoder().encode(saved), forKey: Self.savedKey)
+        UserDefaults.standard.set(try? JSONEncoder().encode(state), forKey: Self.savedKey)
     }
 
     /// Every window the window server has, on any desktop.

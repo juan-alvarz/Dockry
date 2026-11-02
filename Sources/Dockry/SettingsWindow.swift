@@ -178,8 +178,8 @@ private struct GeneralSettings: View {
             }
 
             Section("Profiles") {
-                Toggle("Give each profile its own open apps", isOn: $settings.separatesProfileApps)
-                Text("Like desktops on Linux: an app belongs to the profile that was active when it opened, and switching profiles hides the other profiles’ apps. Bringing an app forward moves it to the profile you’re in. Finder is in every profile. The profile switcher and menu show which profile is playing sound.")
+                Toggle("Give each profile its own windows", isOn: $settings.separatesProfileApps)
+                Text("Like workspaces on Linux: each window stays in the profile it opened in, and switching profiles shows only that profile’s windows (the others wait just off screen). The dock shows the apps with a window in the profile. An app with windows only in other profiles gets a new window here when it comes forward, from the dock, Raycast or ⌘Tab alike. Finder is in every profile. The profile switcher and menu show which profile is playing sound.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 LabeledContent("Fresh profile badge") {
@@ -204,11 +204,6 @@ private struct GeneralSettings: View {
                     }
                 }
                 .disabled(!settings.fadesWallpapers)
-                Toggle("Open a new app instance", isOn: $settings.opensNewAppInstances)
-                    .disabled(!settings.separatesProfileApps)
-                Text("Each window stays in the profile it opened in, like desktops on a Mac. Clicking an app in the dock that only has windows in other profiles opens a new window of it here (its New Window, ⌘N); apps without one bring their window over. Switching shows only the profile’s windows: apps with none in it hide, and the others’ windows wait just off screen, which Mission Control still shows for apps with windows in both. Bringing forward an app whose windows are all in another profile switches to that profile.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             Section("Windows") {
@@ -565,7 +560,7 @@ private struct ProfileEditor: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                                 .help(wallpaper)
                         } else {
-                            Text("Your own").foregroundStyle(.secondary)
+                            Text("macOS default").foregroundStyle(.secondary)
                         }
                         Button("Choose…", action: chooseWallpaper)
                         Button("None") { change { $0.wallpaper = nil } }

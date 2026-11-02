@@ -10,6 +10,11 @@ context: |
   issues: openspec/notes/architecture.md and openspec/notes/findings.md.
   Decisions and logic that can be pure go in DockryCore (Foundation only, builds on
   Linux) with XCTest coverage; the Dockry target is AppKit/SwiftUI glue and has no tests.
+  Profiles keep windows apart as workspaces of Dockry's own (parked off screen, AeroSpace
+  style), not macOS desktops: see openspec/changes/profile-workspaces and
+  openspec/notes/review-2026-11.md (every issue raised, why fixes broke other things, and
+  why the macOS-desktops attempt was dropped). The user tests on their Mac; write each
+  macOS fact a change relies on into its design, and their checks into its tasks.
   Every change must keep `swift test` passing.
   Dockry is never the active app and never takes keyboard focus from the user's app,
   except while one of its popovers or its Settings window is open.
