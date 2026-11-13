@@ -12,7 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var docks: DockController?
     private var menuBar: MenuBarController?
     private var profileSwitcher: ProfileSwitcherPanel?
-    private var terminationSignal: DispatchSourceSignal?
+    private var terminationSignals: [DispatchSourceSignal] = []
     private var subscriptions: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -34,6 +34,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Wallpapers.giveOwnPictureToProfilesWithout(store)
         settings.$separatesProfileApps
             .sink { profileApps.isEnabled = $0 }
+            .store(in: &subscriptions)
+        // With the setting off nothing was shown yet: windows left parked by a crash come back.
+        if !settings.separatesProfileApps {
+            profileApps.show(store.active.name, movingFocus: false)
+        }
+        // Accessibility lists only the windows of the desktop showing, and macOS moves
+        // windows when screens come and go: look again, once things have settled.
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
+            .merge(with: NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification))
+            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .sink { _ in profileApps.show(store.active.name, movingFocus: false) }
             .store(in: &subscriptions)
         settings.$wallpaperTransition.sink { Wallpapers.transition = $0 }.store(in: &subscriptions)
         settings.$wallpaperTransitionDuration.sink { Wallpapers.duration = $0 }.store(in: &subscriptions)
@@ -104,6 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 activateProfile(named: name)
             } else if url.host == "open", let bundleID = url.pathComponents.dropFirst().first,
                       let app = AppCatalog.app(bundleID: bundleID, running: runningApps.app(withBundleID: bundleID)) {
+                profileApps.forgetClosedWindows()
                 let (here, instances) = AppOpening.instances(of: bundleID, runningApps: runningApps, profileApps: profileApps)
                 AppOpening.choose(
                     url: app.url, bundleID: bundleID, here: here, instances: instances,
@@ -222,12 +234,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// `killall Dockry` and logout send SIGTERM, which would otherwise end the process
-    /// without `applicationWillTerminate`, leaving the system Dock hidden.
+    /// without `applicationWillTerminate`, leaving the system Dock hidden and windows parked.
+    /// The same for ⌃C and a closed terminal, when Dockry was started from one.
     private func quitGracefullyOnSIGTERM() {
-        signal(SIGTERM, SIG_IGN)
-        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-        source.setEventHandler { NSApp.terminate(nil) }
-        source.resume()
-        terminationSignal = source
+        terminationSignals = [SIGTERM, SIGINT, SIGHUP].map { number in
+            signal(number, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: number, queue: .main)
+            source.setEventHandler { NSApp.terminate(nil) }
+            source.resume()
+            return source
+        }
     }
 }

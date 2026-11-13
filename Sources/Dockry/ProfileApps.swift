@@ -16,6 +16,8 @@ final class ProfileApps: ObservableObject {
     @Published private(set) var playingPIDs: Set<pid_t> = []
     /// Bumped when windows change profile or open, for the dock to follow.
     @Published private(set) var windowChanges = 0
+    /// How many minimized windows each app has in the active profile, for the dock's dot.
+    @Published private(set) var minimizedCounts: [pid_t: Int] = [:]
 
     var isEnabled = false {
         didSet {
@@ -75,9 +77,23 @@ final class ProfileApps: ObservableObject {
             var pid: pid_t = 0
             AXUIElementGetPid(window, &pid)
             guard let app = NSRunningApplication(processIdentifier: pid), let owner = owner(of: app) else { return }
-            windows.adopt(window, pid: pid, into: rules.newWindowProfile(owner: owner, active: store.active.name))
+            windows.forgetClosed()
+            let asked = openingWindow[pid].map { Date().timeIntervalSince($0) < 3 } ?? false
+            let profile = rules.newWindowProfile(
+                owner: owner, active: store.active.name, asked: asked,
+                opensOffScreen: AppWindows.frame(of: window).map(ProfileWindows.isParked) ?? false,
+                windowProfiles: windows.profiles(of: pid), focusedProfile: windows.focusedProfile(of: pid))
+            windows.adopt(window, pid: pid, into: profile)
+            if asked {
+                windows.bringOnScreen(window)
+            }
             windowChanges += 1
         }
+        // Published values arrive before they're stored; count once they are.
+        AppWindows.shared.$minimizedCounts
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.updateMinimized() }
+            .store(in: &subscriptions)
         // A renamed profile keeps its apps and windows, under the new name. This arrives
         // before the sink below, which would otherwise take them for a removed profile's.
         store.renamed
@@ -144,48 +160,111 @@ final class ProfileApps: ObservableObject {
 
     /// Shows the profile's windows and parks the others', after switching to it, then gives
     /// the keyboard to the profile's front window (or Finder), so it doesn't stay with a
-    /// window that just went off screen.
-    func show(_ profile: String) {
+    /// window that just went off screen. Without `movingFocus` it only looks again, for
+    /// when the windows to look at changed (another macOS desktop, other screens).
+    func show(_ profile: String, movingFocus: Bool = true) {
         let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && $0 != .current }
         let shared = apps.filter { owner(of: $0) != nil }
         windows.scan(shared) { [self] in owner(of: $0) }
         windows.show(profile, apps: shared, separatesAll: isEnabled, freshProfiles: rules.freshProfiles)
         windowChanges += 1
-        let front = NSWorkspace.shared.frontmostApplication
-        if let front, front != .current, owner(of: front) != nil, !windows.profiles(of: front.processIdentifier).isEmpty,
-           !rules.isShown(owner: owner(of: front), windowProfiles: windows.profiles(of: front.processIdentifier), active: profile) {
-            (windows.frontApp(in: profile) ?? NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first)?
-                .activate()
+        updateMinimized()
+        guard movingFocus, let front = NSWorkspace.shared.frontmostApplication, front != .current else { return }
+        let pid = front.processIdentifier
+        let focus = rules.focusAfterSwitch(
+            owner: owner(of: front), windowProfiles: windows.profiles(of: pid), focusedProfile: windows.focusedProfile(of: pid),
+            active: profile)
+        switch focus {
+        case .keep: break
+        case .raiseHere: windows.raise(pid, in: profile)
+        case .handOff:
+            bringForward(windows.frontApp(in: profile) ?? NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first)
         }
     }
 
+    /// Forgets windows that closed since Dockry last looked, before deciding what opening
+    /// an app does: its last window in this profile may be gone.
+    func forgetClosedWindows() {
+        if windows.forgetClosed() {
+            windowChanges += 1
+        }
+    }
+
+    /// The app's windows in the active profile, for the dock's window list.
+    func windows(of app: NSRunningApplication) -> [AppWindows.Window] {
+        let all = AppWindows.shared.windows(of: app.processIdentifier)
+        guard isEnabled else { return all }
+        return all.filter { windows.isIn(store.active.name, $0.element) }
+    }
+
+    private func updateMinimized() {
+        var counts: [pid_t: Int] = [:]
+        // Only apps with a minimized window are asked for their windows.
+        for pid in AppWindows.shared.minimizedCounts.keys {
+            guard let app = NSRunningApplication(processIdentifier: pid) else { continue }
+            let count = windows(of: app).filter(\.isMinimized).count
+            if count > 0 {
+                counts[pid] = count
+            }
+        }
+        if counts != minimizedCounts {
+            minimizedCounts = counts
+        }
+    }
+
+    /// macOS may refuse to bring an app forward for an app that isn't the active one.
+    private func bringForward(_ app: NSRunningApplication?) {
+        guard let app, !app.activate() else { return }
+        NSLog("Dockry: macOS didn't bring \(app.localizedName ?? "an app") forward")
+    }
+
     /// Opens a new window of the app in the active profile, as its New Window (⌘N) would,
-    /// and brings it forward once the window is open. An app without a New Window item
-    /// only comes forward.
+    /// and brings it forward once the window is open. An app that can't open one (it has
+    /// no New Window item, or the item opened none) has its front window brought here
+    /// instead: it would come forward with every window off screen.
     func openWindow(_ app: NSRunningApplication) {
         let pid = app.processIdentifier
+        let active = store.active.name
+        let name = app.localizedName ?? "an app"
         guard let item = AppWindows.newWindowItem(in: app) else {
-            NSLog("Dockry windows: \(app.localizedName ?? "an app") has no New Window item")
-            app.activate()
+            NSLog("Dockry windows: \(name) has no New Window item; bringing its window to \(active)")
+            bringWindow(of: app, to: active)
             return
         }
         openingWindow[pid] = Date()
         AXUIElementPerformAction(item, kAXPressAction as CFString)
-        let active = store.active.name
         Task { [weak self] in
             for _ in 0..<20 where self?.windows.profiles(of: pid).contains(active) != true {
                 try? await Task.sleep(for: .milliseconds(100))
             }
-            app.activate()
-            self?.windows.raise(pid, in: active)
+            // Unless the user has switched meanwhile.
+            guard let self, store.active.name == active else { return }
+            if windows.profiles(of: pid).contains(active) {
+                bringForward(app)
+                windows.raise(pid, in: active)
+            } else {
+                NSLog("Dockry windows: \(name)'s New Window opened none in \(active); bringing its window there")
+                bringWindow(of: app, to: active)
+            }
         }
+    }
+
+    private func bringWindow(of app: NSRunningApplication, to profile: String) {
+        if windows.bringFrontWindow(of: app.processIdentifier, to: profile) {
+            windowChanges += 1
+        }
+        bringForward(app)
+        windows.raise(app.processIdentifier, in: profile)
     }
 
     /// An app came forward: Dockry's dock, ⌘Tab, Raycast, a link or a click. The same
     /// rule for every way in (ProfileAppRules.activated), so nothing is guessed from timing.
     private func activated(_ app: NSRunningApplication) {
         let pid = app.processIdentifier
-        guard app != .current else { return }
+        // Only apps: menu bar apps and macOS's own dialogs (a password prompt) come forward
+        // too, and belong to no profile.
+        guard app != .current, app.activationPolicy == .regular else { return }
+        forgetClosedWindows()
         // Its new window is on the way (openWindow); the app comes forward before it's there.
         if let asked = openingWindow[pid], Date().timeIntervalSince(asked) < 3 { return }
         let active = store.active.name

@@ -18,6 +18,11 @@ public struct ProfileFile {
         FileManager.default.fileExists(atPath: url.path)
     }
 
+    /// When the file last changed, to notice edits made by hand; nil without a file.
+    public var modificationDate: Date? {
+        (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
+    }
+
     /// A missing file gives the default profiles. An unreadable one also gives the defaults,
     /// plus the decoding error so it can be shown; the file itself is left alone.
     public func load() -> (library: ProfileLibrary, error: Error?) {

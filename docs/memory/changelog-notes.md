@@ -3,6 +3,11 @@
 Critical changes only: behavior users notice, saved data and settings formats, and
 architecture moves. Newest first. User-facing release notes are in CHANGELOG.md.
 
+- **2026-11-12** Profile windows after a code review: an app that can't open a window in
+  the profile has its front window brought there; parked windows are checked on every
+  switch and when the desktop or screens change; profiles.json edited by hand is read
+  before Dockry's next change instead of being saved over. New in DockryCore:
+  `WindowParking`, `ProfileAppRules.focusAfterSwitch`. Saved formats unchanged.
 - **2026-11-03** OpenSpec removed (`openspec/`, `.claude/commands/opsx`,
   `.claude/skills/openspec-*`); project memory lives in `docs/memory/`, rules in AGENTS.md.
 - **2026-11-02 (0.3.0)** One setting, "Give each profile its own windows", on by default;

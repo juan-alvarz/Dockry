@@ -70,8 +70,51 @@ final class ProfileAppRulesTests: XCTestCase {
         XCTAssertEqual(rules.opening(here: "zen", instances: ["zen"], isFreshCopy: { _ in false }, active: "Projects"), .launch)
     }
 
+    private func newWindow(
+        _ rules: ProfileAppRules, owner: String = "Chill", active: String = "Projects", asked: Bool = false, offScreen: Bool = false,
+        windows: Set<String> = ["Chill"], focused: String? = "Chill"
+    ) -> String {
+        rules.newWindowProfile(
+            owner: owner, active: active, asked: asked, opensOffScreen: offScreen, windowProfiles: windows, focusedProfile: focused)
+    }
+
     func testANewWindowGoesToTheActiveProfile() {
-        XCTAssertEqual(rules.newWindowProfile(owner: "Chill", active: "Projects"), "Projects")
+        XCTAssertEqual(newWindow(rules), "Projects")
+    }
+
+    func testAPopupOfAParkedWindowGoesWithThatWindow() {
+        XCTAssertEqual(newWindow(rules, offScreen: true), "Chill")
+        XCTAssertEqual(newWindow(rules, offScreen: true, focused: nil), "Chill")
+    }
+
+    func testTheWindowDockryAskedForIsHereEvenIfTheAppOpensItOffScreen() {
+        XCTAssertEqual(newWindow(rules, asked: true, offScreen: true), "Projects")
+    }
+
+    func testAWindowOpeningOffScreenFromAnAppWithAWindowHereStaysHere() {
+        XCTAssertEqual(newWindow(rules, offScreen: true, windows: ["Chill", "Projects"]), "Projects")
+        XCTAssertEqual(newWindow(off, offScreen: true), "Projects")
+    }
+
+    // MARK: The keyboard after switching
+
+    private func focus(_ rules: ProfileAppRules, owner: String? = "Chill", windows: Set<String>, focused: String?) -> ProfileAppRules.SwitchFocus {
+        rules.focusAfterSwitch(owner: owner, windowProfiles: windows, focusedProfile: focused, active: "Projects")
+    }
+
+    func testSwitchingAwayFromAnAppWithNoWindowHereGivesTheKeyboardToThisProfilesApp() {
+        XCTAssertEqual(focus(rules, windows: ["Chill"], focused: "Chill"), .handOff)
+    }
+
+    func testSwitchingWithZenInBothBringsForwardItsWindowHereNotTheOneJustParked() {
+        XCTAssertEqual(focus(rules, windows: ["Chill", "Projects"], focused: "Chill"), .raiseHere)
+    }
+
+    func testSwitchingLeavesTheKeyboardWhereItIsWhenThatWindowIsHere() {
+        XCTAssertEqual(focus(rules, windows: ["Chill", "Projects"], focused: "Projects"), .keep)
+        XCTAssertEqual(focus(rules, owner: nil, windows: ["Chill"], focused: "Chill"), .keep)
+        XCTAssertEqual(focus(rules, windows: [], focused: nil), .keep)
+        XCTAssertEqual(focus(off, windows: ["Chill", "Projects"], focused: "Chill"), .keep)
     }
 
     // MARK: Sound
@@ -110,7 +153,7 @@ final class ProfileAppRulesTests: XCTestCase {
     }
 
     func testAFreshProfilesWindowsStayItsOwn() {
-        XCTAssertEqual(fresh.newWindowProfile(owner: "Fresh", active: "Chill"), "Fresh")
+        XCTAssertEqual(newWindow(fresh, owner: "Fresh", active: "Chill", windows: ["Fresh"], focused: "Fresh"), "Fresh")
         XCTAssertEqual(fresh.profiles(owner: "Fresh", windowProfiles: ["Chill"]), ["Fresh"])
     }
 }

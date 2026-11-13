@@ -31,6 +31,14 @@ final class ProfileFileTests: XCTestCase {
         XCTAssertNil(result.error)
     }
 
+    func testTheFilesDateShowsWhenItWasEditedByHand() throws {
+        XCTAssertNil(file.modificationDate)
+        try file.save(ProfileLibrary())
+        let saved = try XCTUnwrap(file.modificationDate)
+        try FileManager.default.setAttributes([.modificationDate: saved.addingTimeInterval(5)], ofItemAtPath: file.url.path)
+        XCTAssertNotEqual(file.modificationDate, saved)
+    }
+
     func testUnreadableFileGivesDefaultsAndLeavesTheFileAlone() throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try Data("{ not json".utf8).write(to: file.url)

@@ -68,7 +68,8 @@ to show the widget with a track.
   switching shows only that profile's windows; the others wait just off screen, on the same
   macOS desktop, so there's nothing to set up. The dock shows the apps with a window in the
   profile. An app with windows only in other profiles gets a new window here (⌘N) when it
-  comes forward, from the dock, Raycast or ⌘Tab alike. Mission Control shows every
+  comes forward, from the dock, Raycast or ⌘Tab alike; an app that can't open one, like
+  Spotify or Notes, has its window brought here. Mission Control shows every
   profile's windows together.
 - **Fresh profiles** (marked with a white circle, or a symbol you pick in **Settings ›
   General › Profiles**): when you create a profile, choose **Fresh apps** for one that
@@ -253,7 +254,7 @@ you pick play in the Spotify app through AppleScript, which doesn't need Premium
 
 ### If the system Dock stays hidden
 
-Dockry restores the Dock when it quits normally or receives `SIGTERM`. If it crashes,
+Dockry restores the Dock when it quits normally or receives `SIGTERM`, `SIGINT` or `SIGHUP`. If it crashes,
 reopening Dockry and turning off **Hide macOS Dock** restores it. Or run:
 
 ```bash
@@ -264,7 +265,8 @@ defaults delete com.apple.dock autohide-delay; killall Dock
 
 Profiles live in `~/Library/Application Support/Dockry/profiles.json`. **Edit Profiles…**
 edits them; to edit the file by hand, use **Edit as JSON…** there (it opens in TextEdit),
-then **Reload from File**. Only `name` is required:
+then **Reload from File**. Dockry also reads your edits before its next change, so it never
+saves over them. Only `name` is required:
 
 ```json
 {
@@ -295,8 +297,8 @@ then **Reload from File**. Only `name` is required:
 - `opensAppsOnSwitch` is `true` to open the profile's pinned apps when switching to it.
 - `freshApps` is `true` for a profile whose apps start from scratch, with their own data.
 
-If the file can't be read, the menu says so and Dockry uses the default profile without
-saving over your file. Fix it and choose **Reload from File** in Settings › Profiles. If you edit it in TextEdit,
+If the file can't be read, the menu says so and Dockry uses the default profile (or, while
+it's running, the profiles it had) without saving over your file. Fix it and choose **Reload from File** in Settings › Profiles. If you edit it in TextEdit,
 turn off Edit › Substitutions › Smart Quotes first: curly quotes aren't valid JSON.
 
 ## Project layout
