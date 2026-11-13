@@ -18,7 +18,9 @@ a heading.
   profile its own windows**, on by default, replaces the two before it. Switching shows
   only the profile's windows; the others wait just off screen. Apps are never hidden.
 - **An app comes to you.** When an app with windows only in other profiles comes forward,
-  from the dock, Raycast or ⌘Tab, it opens a new window in the profile you're in.
+  from the dock, Raycast or ⌘Tab, it opens a new window in the profile you're in. New
+  Window is found on ⌘N and, in editors like VS Code and Zed, on ⇧⌘N. An app that can't
+  open one, like Spotify, Notes or Slack, has its window brought to you.
 
 ### Fixes
 
@@ -26,7 +28,19 @@ a heading.
   profile's picture. Now each switch sets the profile's picture on every screen, and a
   profile without one shows the macOS default; profiles without one get the picture you had
   when you update.
-- **The keyboard goes to a window you can see** after switching profiles.
+- **The keyboard goes to a window you can see** after switching profiles, also when the
+  app in front has windows in both.
+- **Clicking an app after closing its last window in the profile** opens a new one, instead
+  of doing nothing.
+- **Windows survive screens coming and going.** Unplugging a screen no longer shows other
+  profiles' windows, and a window whose screen is gone comes back on the main one. Windows
+  also park correctly with screens of different heights.
+- **A window that couldn't be put back is tried again** on the next switch, instead of
+  being left off screen.
+- **Fresh profiles don't switch away** when a password prompt or a menu bar app comes forward.
+- **Edits to profiles.json are never saved over.** Dockry reads the file again before its
+  next change; if it can't be read, your profiles stay as they are until it's fixed.
+- **The window list and the yellow dot** show only the windows of the profile you're in.
 - **The speaker shows on the profile playing sound.** The dock's profile button no longer
   shows one; the switcher and the menu mark the profile with the app's windows.
 

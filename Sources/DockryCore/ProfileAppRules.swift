@@ -40,8 +40,36 @@ public struct ProfileAppRules: Equatable, Sendable {
 
     /// The profile a window that just opened goes to: the active one, unless a fresh
     /// profile is involved, whose copies' windows are always its own.
-    public func newWindowProfile(owner: String, active: String) -> String {
-        isFresh(owner) || isFresh(active) ? owner : active
+    ///
+    /// One that opens off screen, from an app with no window here, wasn't opened by the user:
+    /// it's a parked window's own (a browser tab's popup, say) and goes with that window.
+    /// `asked` is Dockry having just pressed the app's New Window, which opens here wherever
+    /// the app puts it.
+    public func newWindowProfile(
+        owner: String, active: String, asked: Bool, opensOffScreen: Bool, windowProfiles: Set<String>, focusedProfile: String?
+    ) -> String {
+        if isFresh(owner) || isFresh(active) { return owner }
+        guard isEnabled, !asked, opensOffScreen, !windowProfiles.contains(active) else { return active }
+        return focusedProfile ?? (windowProfiles.count == 1 ? windowProfiles.first! : active)
+    }
+
+    public enum SwitchFocus: Equatable, Sendable {
+        case keep
+        /// The front app's window in the new profile comes forward, over its parked one.
+        case raiseHere
+        /// The keyboard goes to the new profile's front app.
+        case handOff
+    }
+
+    /// Where the keyboard goes after switching to `active`, from the app in front. Its
+    /// window in front may have just been parked, and the keyboard must not stay with it.
+    public func focusAfterSwitch(owner: String?, windowProfiles: Set<String>, focusedProfile: String?, active: String) -> SwitchFocus {
+        guard let owner, !windowProfiles.isEmpty else { return .keep }
+        if !isShown(owner: owner, windowProfiles: windowProfiles, active: active) { return .handOff }
+        guard windowProfiles.contains(active), let focusedProfile, focusedProfile != active,
+              isEnabled || isFresh(focusedProfile) || isFresh(active)
+        else { return .keep }
+        return .raiseHere
     }
 
     public enum Activation: Equatable, Sendable {
@@ -49,7 +77,8 @@ public struct ProfileAppRules: Equatable, Sendable {
         case switchTo(String)
         /// One of its windows in the active profile comes forward, over another profile's.
         case raiseHere
-        /// It gets a new window in the active profile (its New Window, ⌘N).
+        /// It gets a new window in the active profile (its New Window, ⌘N). An app that
+        /// can't open one has its front window brought here instead.
         case openWindowHere
     }
 

@@ -71,6 +71,12 @@ public struct ProfileWindowRecords: Codable, Equatable, Sendable {
         }
     }
 
+    /// A window brought to another profile, for an app that can't open one there. Where it
+    /// was before it was parked is kept, to put it back there.
+    public mutating func move(_ number: UInt32, to profile: String) {
+        records[number]?.profile = profile
+    }
+
     public mutating func parked(_ number: UInt32, home: CGRect) {
         records[number]?.home = home
     }
@@ -82,21 +88,25 @@ public struct ProfileWindowRecords: Codable, Equatable, Sendable {
     /// What switching to `profile` moves, among the windows of `pids`: the profile's parked
     /// windows come back, and the others' go away. With `separatesAll` off, only windows a
     /// fresh profile is involved in go away: they're always kept apart.
+    ///
+    /// The rest stay as they are, and are checked: `parked` ones may have been put back on
+    /// screen by macOS (a screen unplugged), `shown` ones may be off screen with no place
+    /// saved (opened there, or the place was lost).
     public func switchPlan(to profile: String, pids: Set<Int32>, separatesAll: Bool, freshProfiles: Set<String>)
-        -> (park: [UInt32], unpark: [UInt32])
+        -> (park: [UInt32], unpark: [UInt32], parked: [UInt32], shown: [UInt32])
     {
-        var park: [UInt32] = []
-        var unpark: [UInt32] = []
+        var plan: (park: [UInt32], unpark: [UInt32], parked: [UInt32], shown: [UInt32]) = ([], [], [], [])
         for (number, record) in records.sorted(by: { $0.key < $1.key }) where pids.contains(record.pid) {
             let away = record.profile != profile
                 && (separatesAll || freshProfiles.contains(record.profile) || freshProfiles.contains(profile))
-            if away && record.home == nil {
-                park.append(number)
-            } else if !away && record.home != nil {
-                unpark.append(number)
+            switch (away, record.home == nil) {
+            case (true, true): plan.park.append(number)
+            case (true, false): plan.parked.append(number)
+            case (false, false): plan.unpark.append(number)
+            case (false, true): plan.shown.append(number)
             }
         }
-        return (park, unpark)
+        return plan
     }
 
     /// Every parked window, for when Dockry quits or stops keeping windows apart.

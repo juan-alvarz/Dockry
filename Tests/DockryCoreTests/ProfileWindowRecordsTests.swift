@@ -43,6 +43,24 @@ final class ProfileWindowRecordsTests: XCTestCase {
         XCTAssertEqual(intoFresh.park, [1, 2, 3])
     }
 
+    func testWindowsThatStayAreListedToBeChecked() {
+        var records = twoProfiles()
+        records.parked(2, home: .zero)
+        let plan = records.switchPlan(to: "Projects", pids: [10, 20], separatesAll: true, freshProfiles: [])
+        XCTAssertEqual(plan.parked, [2])
+        XCTAssertEqual(plan.shown, [1])
+    }
+
+    func testAnAppThatCantOpenAWindowHereHasItsWindowBroughtHereAndBackWhereItWas() {
+        var records = twoProfiles()
+        let home = CGRect(x: 10, y: 10, width: 500, height: 400)
+        records.parked(3, home: home)
+        records.move(3, to: "Projects")
+        XCTAssertEqual(records.profiles(ofPID: 20), ["Projects"])
+        XCTAssertEqual(records.switchPlan(to: "Projects", pids: [20], separatesAll: true, freshProfiles: []).unpark, [3])
+        XCTAssertEqual(records.records[3]?.home, home)
+    }
+
     func testOnlyWindowsOfTheGivenAppsMove() {
         let plan = twoProfiles().switchPlan(to: "Projects", pids: [20], separatesAll: true, freshProfiles: [])
         XCTAssertEqual(plan.park, [3])

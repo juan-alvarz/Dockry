@@ -14,11 +14,14 @@ final class ProfileStore: ObservableObject {
     let renamed = PassthroughSubject<(from: String, to: String), Never>()
 
     private let file = ProfileFile()
+    /// The file's date when Dockry last read or wrote it; a later one is an edit by hand.
+    private var fileDate: Date?
 
     init() {
         let result = file.load()
         library = result.library
         loadError = result.error
+        fileDate = file.modificationDate
     }
 
     var active: Profile { library.active }
@@ -83,6 +86,7 @@ final class ProfileStore: ObservableObject {
         let result = file.load()
         library = result.library
         loadError = result.error
+        fileDate = file.modificationDate
     }
 
     /// Opens profiles.json in TextEdit. Not in the default app for JSON files: on a Mac with
@@ -105,7 +109,23 @@ final class ProfileStore: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([file.url])
     }
 
+    /// An edit made by hand since Dockry last read the file is taken in before the next
+    /// change, which would otherwise be saved over it. One that can't be read keeps the
+    /// profiles as they are, and nothing is saved until the file is fixed.
+    private func takeInHandEdits() {
+        guard let date = file.modificationDate, date != fileDate else { return }
+        fileDate = date
+        let result = file.load()
+        loadError = result.error
+        if let error = result.error {
+            NSLog("Dockry: profiles.json was edited and can't be read; not saving over it: \(error)")
+        } else {
+            library = result.library
+        }
+    }
+
     private func update(_ change: (inout ProfileLibrary) -> Void) {
+        takeInHandEdits()
         var updated = library
         change(&updated)
         guard updated != library else { return }
@@ -117,6 +137,7 @@ final class ProfileStore: ObservableObject {
         guard loadError == nil else { return }
         do {
             try file.save(library)
+            fileDate = file.modificationDate
         } catch {
             NSLog("Dockry: couldn't save profiles: \(error)")
         }

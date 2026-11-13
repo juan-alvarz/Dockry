@@ -18,7 +18,6 @@ struct DockView: View {
     @ObservedObject var settings: SettingsStore
     @ObservedObject var pointer: DockPointer
     let actions: DockActions
-    @ObservedObject private var appWindows = AppWindows.shared
 
     /// The panel's coordinate space, which DockPointer's locations are in.
     static let space = "dockPanel"
@@ -182,12 +181,17 @@ struct DockView: View {
             if let app = AppCatalog.app(bundleID: entry.bundleID, running: running) {
                 AppIconView(
                     entry: entry, app: app, runningApp: running, profileName: profile.name, store: store,
-                    opening: AppOpening.choose(
-                        url: app.url, bundleID: entry.bundleID, here: here, instances: instances,
-                        profileApps: profileApps, profile: profile),
+                    // Decided at the click: the app's last window here may have closed since.
+                    opening: { [runningApps, profileApps] in
+                        profileApps.forgetClosedWindows()
+                        let (here, instances) = AppOpening.instances(of: entry.bundleID, runningApps: runningApps, profileApps: profileApps)
+                        return AppOpening.choose(
+                            url: app.url, bundleID: entry.bundleID, here: here, instances: instances,
+                            profileApps: profileApps, profile: profile)
+                    },
                     profileApps: profileApps,
                     itemIndex: element.itemIndex, isHovered: drag == nil && pointer.hoveredItem == entry.bundleID,
-                    minimizedCount: running.flatMap { appWindows.minimizedCounts[$0.processIdentifier] } ?? 0,
+                    minimizedCount: running.flatMap { profileApps.minimizedCounts[$0.processIdentifier] } ?? 0,
                     pointer: pointer)
                     .background(FrameReader { [pointer] in pointer.itemFrames[entry.bundleID] = $0 })
                     .onDisappear { [pointer] in pointer.itemFrames[entry.bundleID] = nil }
@@ -379,7 +383,7 @@ private struct AppIconView: View {
     let runningApp: NSRunningApplication?
     let profileName: String
     let store: ProfileStore
-    let opening: AppOpening
+    let opening: () -> AppOpening
     let profileApps: ProfileApps
     /// The profile item it comes from (for an app that isn't pinned, the open apps' place).
     let itemIndex: Int
@@ -407,7 +411,7 @@ private struct AppIconView: View {
         .overlay {
             // With minimized windows, the name comes with the app's windows to bring back.
             if isHovered, minimizedCount > 0, let runningApp {
-                WindowList(app: runningApp, name: app.name, position: metrics.position, pointer: pointer)
+                WindowList(app: runningApp, name: app.name, position: metrics.position, pointer: pointer, profileApps: profileApps)
             } else if isHovered {
                 NameLabel(name: app.name, position: metrics.position)
             }
@@ -460,7 +464,7 @@ private struct AppIconView: View {
     /// Like the Dock: launches the app, or brings it forward and reopens a window. An app
     /// that isn't running yet bounces until it is.
     private func open() {
-        opening.perform(profileApps)
+        opening().perform(profileApps)
         guard metrics.animatesLaunch, !entry.isRunning, !isBouncing else { return }
         isBouncing = true
         Task {
@@ -526,6 +530,7 @@ private struct WindowList: View {
     let name: String
     let position: DockPosition
     let pointer: DockPointer
+    let profileApps: ProfileApps
     @State private var windows: [AppWindows.Window] = []
 
     var body: some View {
@@ -547,7 +552,7 @@ private struct WindowList: View {
             .background(FrameReader { [pointer] in pointer.calloutFrame = $0 })
             .onDisappear { [pointer] in pointer.calloutFrame = nil }
         }
-        .onAppear { windows = AppWindows.shared.windows(of: app.processIdentifier) }
+        .onAppear { windows = profileApps.windows(of: app) }
     }
 }
 

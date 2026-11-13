@@ -3,6 +3,29 @@
 One entry per decision, newest first: what was decided, why, and what was tried or
 considered and rejected. See AGENTS.md › Project memory for when to add one.
 
+## 2026-11-12 · An app that can't open a window here has its front window brought here
+**Decision:** when New Window isn't found, or pressing it opens no window in the profile
+within 2 s, the app's front window changes profile and comes on screen
+(`ProfileApps.bringWindow`). New Window is ⌘N with "Window" in the title, then ⇧⌘N (VS Code,
+Zed); ⌘N first, because ⇧⌘N is a private window in browsers.
+**Why:** Spotify, Slack, Notes, Mail and any app in another language came forward with
+every window off screen, and the keyboard went to a window nobody could see.
+**Rejected:** switching to the app's profile (already rejected on 2026-11-02 for apps that
+can open a window; kept the same here). Waiting a moment before bringing the window, in case
+the app is about to open a document: every single-window app would lag.
+**Not confirmed:** chosen during a code review, not by the user, and not checked on screen.
+
+## 2026-11-12 · Parked windows are checked, not trusted
+**Decision:** every look (`ProfileWindows.show`) checks what the records say. A window
+is unparked only once it's read back on screen, and keeps its saved place until then. A
+parked window found on screen is parked again. A window of the showing profile that's off
+screen with no place saved is brought to the main screen. Dockry looks again when the macOS
+desktop or the screens change, and forgets closed windows before each decision.
+**Why:** the records drifted from the Mac: a failed move, an unplugged screen, a window
+closed between two switches.
+**Also:** windows park under a bottom corner of one screen (`WindowParking.spot`), not of
+all the screens together, which can be on no screen.
+
 ## 2026-11-03 · Project memory instead of OpenSpec
 **Decision:** OpenSpec (specs, change folders, notes, `/opsx` commands) is gone; what was
 still worth keeping is in `docs/memory/`.
@@ -31,7 +54,7 @@ profile active when it opened (`ProfileWindowRecords`, keyed by window number + 
 - Its front window is here: nothing.
 - It has a window here behind another profile's: that window comes forward.
 - Its windows are all elsewhere: a new window here, through its New Window menu item
-  (⌘N whose title contains "Window").
+  (⌘N whose title contains "Window"), or its front window brought here (2026-11-12).
 - It has no windows: nothing.
 
 The dock, Raycast, ⌘Tab and links all get this answer.

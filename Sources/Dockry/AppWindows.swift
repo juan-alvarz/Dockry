@@ -170,22 +170,26 @@ final class AppWindows: ObservableObject {
         }
     }
 
-    /// The app's "New Window" menu item: ⌘N alone, with "Window" in its title. Other apps
-    /// use ⌘N for things that aren't windows (Spotify's New Playlist, Notes' New Note).
+    /// The app's "New Window" menu item: ⌘N with "Window" in its title. Other apps use ⌘N
+    /// for things that aren't windows (Spotify's New Playlist, Notes' New Note). Failing
+    /// that, ⇧⌘N, which is New Window in editors like VS Code and Zed; ⌘N goes first
+    /// because in browsers ⇧⌘N is a private window.
     static func newWindowItem(in app: NSRunningApplication) -> AXUIElement? {
         let element = AXUIElementCreateApplication(app.processIdentifier)
         guard let menuBar = attribute(kAXMenuBarAttribute, of: element) else { return nil }
         let menus = attribute(kAXChildrenAttribute, of: menuBar as! AXUIElement) as? [AXUIElement] ?? []
-        for menu in menus {
-            let items = (attribute(kAXChildrenAttribute, of: menu) as? [AXUIElement])?
-                .flatMap { attribute(kAXChildrenAttribute, of: $0) as? [AXUIElement] ?? [] } ?? []
-            // Modifiers 0 means ⌘ alone.
-            if let item = items.first(where: {
-                (attribute(kAXMenuItemCmdCharAttribute, of: $0) as? String)?.uppercased() == "N"
-                    && attribute(kAXMenuItemCmdModifiersAttribute, of: $0) as? Int == 0
-                    && (attribute(kAXTitleAttribute, of: $0) as? String)?.localizedCaseInsensitiveContains("window") == true
-            }) {
-                return item
+        // Modifiers 0 means ⌘ alone, 1 with ⇧.
+        for modifiers in [0, 1] {
+            for menu in menus {
+                let items = (attribute(kAXChildrenAttribute, of: menu) as? [AXUIElement])?
+                    .flatMap { attribute(kAXChildrenAttribute, of: $0) as? [AXUIElement] ?? [] } ?? []
+                if let item = items.first(where: {
+                    (attribute(kAXMenuItemCmdCharAttribute, of: $0) as? String)?.uppercased() == "N"
+                        && attribute(kAXMenuItemCmdModifiersAttribute, of: $0) as? Int == modifiers
+                        && (attribute(kAXTitleAttribute, of: $0) as? String)?.localizedCaseInsensitiveContains("window") == true
+                }) {
+                    return item
+                }
             }
         }
         return nil

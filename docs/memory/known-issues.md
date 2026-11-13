@@ -6,6 +6,31 @@ was checked in the running app.
 
 ## Open
 
+### 2026-11-12 · Code review fixes not checked on screen
+A review found the profile windows code wrong in ways the tests couldn't show; the fixes
+build and pass the tests, and none has been checked in the running app. To check:
+- ⌘Tab to Spotify (or any app without New Window) from another profile: its window comes here.
+- Close an app's last window in a profile, then click it in the dock: a new window opens.
+- Switch with Zen in front and a Zen window in both profiles: typing goes to the one showing.
+- Unplug or plug in a screen: the other profiles' windows stay away, and come back on switching.
+- Two screens of different heights: windows park (no `didn't move off screen` in the log).
+- A fresh profile: a password prompt or a menu bar app coming forward doesn't switch profile.
+- Edit profiles.json by hand, then switch profile without **Reload from File**: the edit is kept.
+- With a minimized window in another profile: no yellow dot and no row for it in this one.
+
+### 2026-11-12 · Still open after the review
+- **New Window is found by its English title.** In another language, or where the item is in
+  a submenu, the app's front window is brought here instead of a new one opening.
+- **Opening a document in an app whose windows are all elsewhere** (and that has no New
+  Window) also brings its front window here: the app comes forward before the document opens.
+- **A crash or `kill -9` leaves windows parked and the macOS Dock hidden** until Dockry is
+  opened again; SIGTERM, SIGINT and SIGHUP put them back. Nothing relaunches Dockry.
+- **An app that isn't answering holds a switch up for a second**: Accessibility is asked on
+  the main thread, with a 1 s timeout.
+- **A profile's `desktop` works against parking**: Accessibility lists only the desktop
+  showing. Dockry now looks again half a second after the desktop changes; until then the
+  other profiles' windows on that desktop show.
+
 ### 2026-11-03 · Claude's window shows in every profile
 **Symptom:** the Claude desktop app's window stays on screen after switching away from
 its profile; the dock correctly hides Claude's icon.
@@ -57,8 +82,10 @@ user. Widget magnification was never seen working (the pointer can't be moved fr
 ## Platform limits
 
 - **Accessibility lists only windows on desktops that are showing.** Windows on another
-  macOS desktop aren't seen, so they can't be recorded or parked until it shows.
-- **macOS won't move a window wholly off screen.** Parking leaves one point visible; some
+  macOS desktop aren't seen, so they can't be recorded or parked until it shows; Dockry
+  looks again when the desktop changes.
+- **macOS won't move a window wholly off screen.** Parking leaves one point visible, on a
+  screen, under one of its bottom corners; full-screen windows aren't parked; some
   windows refuse to move at all (logged `Dockry windows: window N didn't move off screen`).
 - **macOS can't hide a single window**: only whole apps, or moving windows.
 - **No public API for desktops (Spaces).** Desktop switching posts the user's own "Switch to
